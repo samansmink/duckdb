@@ -48,6 +48,7 @@ void BuiltinFunctions::AddFunction(TableFunction function) {
 
 void BuiltinFunctions::Initialize() {
 	RegisterSQLiteFunctions();
+	RegisterEncryptedTableFunctions();
 
 	RegisterAlgebraicAggregates();
 	RegisterDistributiveAggregates();

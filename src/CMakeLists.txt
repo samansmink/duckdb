@@ -37,7 +37,8 @@ else()
       pg_query
       hyperloglog
       re2
-      miniz)
+      miniz
+      OpenSSL::Crypto)
 
   add_library(duckdb SHARED ${ALL_OBJECT_FILES})
   target_link_libraries(duckdb ${DUCKDB_LINK_LIBS})
