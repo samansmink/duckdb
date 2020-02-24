@@ -5,6 +5,7 @@ add_library_unity(duckdb_func_string
                   length.cpp
                   like.cpp
                   regexp.cpp
+                  encryption.cpp
                   substring.cpp)
 set(ALL_OBJECT_FILES
     ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:duckdb_func_string>

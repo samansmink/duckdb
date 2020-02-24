@@ -3,21 +3,22 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/main/database.hpp"
-
 #include <algorithm>
-#include "openssl/evp.h"
-
 
 using namespace std;
 
 namespace duckdb {
+
+// Note this doesn't actually encrypt anything yet. It was simply
+// a try out to learn how the table producing functions work.
+// I might use it later to figure out how to use it for my experiments
 
 struct EncryptedTableData : public TableFunctionData {
     EncryptedTableData() {
 
         // fill values with bogus data
         for (int i  = 0; i < 100; i++) {
-            values.push_back(EVP_PK_DSA);
+            values.push_back(i);
         }
 
         offset = 0;
