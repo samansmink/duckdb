@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "duckdb/common/aes.hpp"
 #include "duckdb/common/bitset.hpp"
 #include "duckdb/common/common.hpp"
 #include "duckdb/common/types/value.hpp"
@@ -15,6 +16,12 @@
 #include "duckdb/common/types/vector_buffer.hpp"
 
 namespace duckdb {
+
+typedef struct {
+    aes_tag_t nullmask;
+    aes_tag_t data;
+} vector_aes_tags;
+
 //! Type used for nullmasks
 typedef bitset<STANDARD_VECTOR_SIZE> nullmask_t;
 
@@ -117,6 +124,11 @@ public:
 	//! Get the sequence attributes of a sequence vector
 	void GetSequence(int64_t &start, int64_t &increment) const;
 
+	//! Encrypt the whole vector
+	void Encrypt();
+	//! Decrypt the whole vector
+    void Decrypt();
+
 	//! Verify that the Vector is in a consistent, not corrupt state. DEBUG
 	//! FUNCTION ONLY!
 	void Verify();
@@ -150,6 +162,8 @@ protected:
 
 	//! child vectors used for nested data
 	child_list_t<unique_ptr<Vector>> children;
+
+    vector_aes_tags aes_tags;
 
 private:
 };

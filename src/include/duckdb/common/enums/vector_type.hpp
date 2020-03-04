@@ -15,7 +15,8 @@ namespace duckdb {
 enum class VectorType : uint8_t {
 	FLAT_VECTOR,     // Flat vectors represent a standard uncompressed vector
 	CONSTANT_VECTOR, // Constant vector represents a single constant
-	SEQUENCE_VECTOR  // Sequence vector represents a sequence with a start point and an increment
+	SEQUENCE_VECTOR, // Sequence vector represents a sequence with a start point and an increment
+	ENCRYPTED        // Encrypted vectors are encrypted using symmetric encryption
 };
 
 string VectorTypeToString(VectorType type);

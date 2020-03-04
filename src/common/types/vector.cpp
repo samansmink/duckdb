@@ -5,6 +5,8 @@
 #include "duckdb/common/printer.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 
+#include "duckdb/common/aes.hpp"
+
 using namespace std;
 
 namespace duckdb {
@@ -200,6 +202,7 @@ void Vector::Reference(Vector &other) {
 	sel_vector = other.sel_vector;
 	type = other.type;
 	nullmask = other.nullmask;
+	aes_tags = other.aes_tags;
 	if (type == TypeId::STRUCT || type == TypeId::LIST) {
 		for (size_t i = 0; i < other.children.size(); i++) {
 			auto &other_child_vec = other.children[i].second;
@@ -371,7 +374,9 @@ string VectorTypeToString(VectorType type) {
 		return "SEQUENCE";
 	case VectorType::CONSTANT_VECTOR:
 		return "CONSTANT";
-	default:
+    case VectorType::ENCRYPTED:
+        return "ENCRYPTED";
+    default:
 		return "UNKNOWN";
 	}
 }
@@ -487,6 +492,11 @@ void Vector::Normalify() {
 		VectorOperations::GenerateSequence(*this, start, increment);
 		break;
 	}
+	case VectorType::ENCRYPTED: {
+        vector_type = VectorType::FLAT_VECTOR;
+	    this->Decrypt();
+        break;
+	}
 	default:
 		throw NotImplementedException("FIXME: unimplemented type for normalify");
 	}
@@ -508,6 +518,53 @@ void Vector::GetSequence(int64_t &start, int64_t &increment) const {
 	auto data = buffer->GetData();
 	start = *((int64_t *)data);
 	increment = *((int64_t *)(data + sizeof(int64_t)));
+}
+
+void Vector::Encrypt() {
+    if (vector_type != VectorType::FLAT_VECTOR)
+        throw NotImplementedException("Can only encrypt flat vectors");
+
+    if (type != TypeId::INT32)
+        throw NotImplementedException("Only INT32 vectors can be encrypted currently");
+
+    size_t data_size = STANDARD_VECTOR_SIZE *  GetTypeIdSize(type);
+
+    // Create encryption & tag buffers.
+    auto encryption_buffer = unique_ptr<char[]>{new char[data_size]};
+    auto aes = AES();
+    int encrypted_bytes = aes.Encrypt(data, data_size, (unsigned char*) encryption_buffer.get(), (unsigned char*)&(aes_tags.data));
+
+    if (encrypted_bytes > -1) {
+        memcpy(data, encryption_buffer.get(), data_size);
+    } else {
+        throw FatalException("Vector encryption failed");
+    }
+
+    vector_type = VectorType::ENCRYPTED;
+}
+
+void Vector::Decrypt() {
+    if (vector_type != VectorType::ENCRYPTED)
+        throw NotImplementedException("Can only decrypt encrypted vectors");
+
+    if (type != TypeId::INT32)
+        throw NotImplementedException("Only INT32 vectors can be encrypted currently");
+
+    size_t data_size = STANDARD_VECTOR_SIZE *  GetTypeIdSize(type);
+
+    // Create encryption & tag buffers.
+    auto decryption_buffer = unique_ptr<char[]>{new char[data_size]};
+
+    auto aes = AES();
+    int decrypted_bytes = aes.Decrypt(data, data_size, (unsigned char*)&(aes_tags.data) , (unsigned char*) decryption_buffer.get());
+
+    // TODO encrypt NULLMASK
+
+    if (decrypted_bytes > -1) {
+        memcpy(data, decryption_buffer.get(), data_size);
+    } else {
+        throw FatalException("Vector decryption failed");
+    }
 }
 
 void Vector::Verify() {

@@ -17,10 +17,9 @@ struct EncryptedTableData : public TableFunctionData {
     EncryptedTableData() {
 
         // fill values with bogus data
-        for (int i  = 0; i < 100; i++) {
-            values.push_back(i);
-        }
-
+        for (int i  = 0; i < 10000; i++) {
+			values.push_back(i);
+		}
         offset = 0;
 	}
 
@@ -52,9 +51,12 @@ void encrypted_table(ClientContext &context, DataChunk &input, DataChunk &output
 		auto index = i - data.offset;
 		auto value = data.values[i];
 		output.data[0].SetValue(index, Value::INTEGER(value));
-		output.data[1].SetValue(index, Value::INTEGER(value));
+		output.data[1].SetValue(index, Value::INTEGER(value+1));
 	}
 	data.offset = next;
+
+	output.data[0].Encrypt();
+    output.data[1].Encrypt();
 }
 
 } // namespace duckdb

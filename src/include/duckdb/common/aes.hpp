@@ -16,6 +16,8 @@
 
 namespace duckdb {
 
+typedef unsigned char aes_tag_t[TAG_SIZE];
+
 class AES {
 public:
 	AES();
