@@ -12,8 +12,8 @@ namespace duckdb {
 
 void BuiltinFunctions::RegisterEncryptedTableFunctions() {
 	AddFunction(TableFunction(
-	    "encrypted_table", {}, {SQLType::INTEGER, SQLType::INTEGER},
-	    {"value", "encrypted"}, encrypted_table_init, encrypted_table, nullptr));
+	    "encrypted_table", {}, {SQLType::INTEGER, SQLType::SQLType::INTEGER, SQLType::SQLType::INTEGER},
+	    {"id", "value1", "value2"}, encrypted_table_init, encrypted_table, nullptr));
 
 	CreateViewInfo info;
 	info.schema = DEFAULT_SCHEMA;

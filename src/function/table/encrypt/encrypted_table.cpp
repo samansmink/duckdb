@@ -51,12 +51,13 @@ void encrypted_table(ClientContext &context, DataChunk &input, DataChunk &output
 		auto index = i - data.offset;
 		auto value = data.values[i];
 		output.data[0].SetValue(index, Value::INTEGER(value));
-		output.data[1].SetValue(index, Value::INTEGER(value+1));
+		output.data[1].SetValue(index, Value::INTEGER(value+112));
+		output.data[2].SetValue(index, Value::INTEGER(value+70982));
 	}
 	data.offset = next;
 
 	output.data[0].Encrypt();
-    output.data[1].Encrypt();
+//    output.data[1].Encrypt();
 }
 
 } // namespace duckdb

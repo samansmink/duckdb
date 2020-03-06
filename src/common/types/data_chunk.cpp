@@ -48,6 +48,7 @@ void DataChunk::Reset() {
 	auto ptr = owned_data.get();
 	for (index_t i = 0; i < column_count; i++) {
 		data[i].data = ptr;
+		data[i].vector_type = VectorType::FLAT_VECTOR;
 		data[i].count = 0;
 		data[i].sel_vector = nullptr;
 		data[i].buffer.reset();

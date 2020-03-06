@@ -69,6 +69,10 @@ void Vector::SetValue(uint64_t index_, Value val) {
 	}
 	Value newVal = val.CastAs(type);
 
+    if (vector_type == VectorType::ENCRYPTED) {
+        throw NotImplementedException("Cannot set value on encrypted vector");
+    }
+
 	uint64_t index = sel_vector ? sel_vector[index_] : index_;
 	nullmask[index] = newVal.is_null;
 	switch (type) {
@@ -140,7 +144,11 @@ Value Vector::GetValue(uint64_t index) const {
 	uint64_t entry = sel_vector ? sel_vector[index] : index;
 	if (vector_type == VectorType::CONSTANT_VECTOR) {
 		entry = 0;
+	} else if (vector_type == VectorType::ENCRYPTED) {
+	    throw NotImplementedException("Cannot get value from encrypted vector");
 	}
+
+
 	if (nullmask[entry]) {
 		return Value(type);
 	}
@@ -493,7 +501,6 @@ void Vector::Normalify() {
 		break;
 	}
 	case VectorType::ENCRYPTED: {
-        vector_type = VectorType::FLAT_VECTOR;
 	    this->Decrypt();
         break;
 	}
@@ -521,6 +528,7 @@ void Vector::GetSequence(int64_t &start, int64_t &increment) const {
 }
 
 void Vector::Encrypt() {
+
     if (vector_type != VectorType::FLAT_VECTOR)
         throw NotImplementedException("Can only encrypt flat vectors");
 
@@ -546,6 +554,8 @@ void Vector::Encrypt() {
 void Vector::Decrypt() {
     if (vector_type != VectorType::ENCRYPTED)
         throw NotImplementedException("Can only decrypt encrypted vectors");
+
+    vector_type = VectorType::FLAT_VECTOR;
 
     if (type != TypeId::INT32)
         throw NotImplementedException("Only INT32 vectors can be encrypted currently");
