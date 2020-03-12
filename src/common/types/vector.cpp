@@ -528,7 +528,6 @@ void Vector::GetSequence(int64_t &start, int64_t &increment) const {
 }
 
 void Vector::Encrypt() {
-
     if (vector_type != VectorType::FLAT_VECTOR)
         throw NotImplementedException("Can only encrypt flat vectors");
 
@@ -537,14 +536,17 @@ void Vector::Encrypt() {
 
     size_t data_size = STANDARD_VECTOR_SIZE *  GetTypeIdSize(type);
 
-    // Create encryption & tag buffers.
-    auto encryption_buffer = unique_ptr<char[]>{new char[data_size]};
-    auto aes = AES();
-    int encrypted_bytes = aes.Encrypt(data, data_size, (unsigned char*) encryption_buffer.get(), (unsigned char*)&(aes_tags.data));
+    // allocate a new buffer for the vector
+    auto old_buffer = move(buffer);
+    auto old_data = data;
+    buffer = VectorBuffer::CreateStandardVector(type);
+    data = buffer->GetData();
 
-    if (encrypted_bytes > -1) {
-        memcpy(data, encryption_buffer.get(), data_size);
-    } else {
+    // Create encryption & tag buffers.
+    auto aes = AES();
+    int encrypted_bytes = aes.Encrypt(old_data, data_size, (unsigned char*) data, (unsigned char*)&(aes_tags.data));
+
+    if (encrypted_bytes < 0) {
         throw FatalException("Vector encryption failed");
     }
 
@@ -562,17 +564,21 @@ void Vector::Decrypt() {
 
     size_t data_size = STANDARD_VECTOR_SIZE *  GetTypeIdSize(type);
 
+    // allocate a new buffer for the vector
+    auto old_buffer = move(buffer);
+    auto old_data = data;
+    buffer = VectorBuffer::CreateStandardVector(type);
+    data = buffer->GetData();
+
     // Create encryption & tag buffers.
     auto decryption_buffer = unique_ptr<char[]>{new char[data_size]};
 
     auto aes = AES();
-    int decrypted_bytes = aes.Decrypt(data, data_size, (unsigned char*)&(aes_tags.data) , (unsigned char*) decryption_buffer.get());
+    int decrypted_bytes = aes.Decrypt(old_data, data_size, (unsigned char*)&(aes_tags.data) , (unsigned char*) data);
 
     // TODO encrypt NULLMASK
 
-    if (decrypted_bytes > -1) {
-        memcpy(data, decryption_buffer.get(), data_size);
-    } else {
+    if (decrypted_bytes < 0) {
         throw FatalException("Vector decryption failed");
     }
 }
