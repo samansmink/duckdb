@@ -42,6 +42,7 @@ FileBuffer::~FileBuffer() {
 	free(malloced_buffer);
 }
 
+// Abuse this to encrypt and decrypt?
 void FileBuffer::Read(FileHandle &handle, uint64_t location) {
 	// read the buffer from disk
 	handle.Read(internal_buffer, internal_size, location);
