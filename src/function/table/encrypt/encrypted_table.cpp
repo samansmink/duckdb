@@ -51,8 +51,8 @@ void encrypted_table(ClientContext &context, DataChunk &input, DataChunk &output
 		auto index = i - data.offset;
 		auto value = data.values[i];
 		output.data[0].SetValue(index, Value::INTEGER(value));
-		output.data[1].SetValue(index, Value::INTEGER(value+112));
-		output.data[2].SetValue(index, Value::INTEGER(value+70982));
+		output.data[1].SetValue(index, Value::INTEGER(0xAAAAAAAA));
+		output.data[2].SetValue(index, Value::INTEGER(0xAAAAAAAA));
 	}
 	data.offset = next;
 
