@@ -13,6 +13,7 @@
 #include "duckdb/storage/block.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/unordered_set.hpp"
+#include "crypto_stream.h"
 
 namespace duckdb {
 class BufferManager;
@@ -24,7 +25,7 @@ class SingleFileBlockManager : public BlockManager {
 	static constexpr uint64_t BLOCK_START = Storage::FILE_HEADER_SIZE * 3;
 
 public:
-	SingleFileBlockManager(FileSystem &fs, string path, bool read_only, bool create_new, bool use_direct_io);
+	SingleFileBlockManager(FileSystem &fs, string path, bool read_only, bool create_new, bool use_direct_io, bool encrypted_storage);
 
 	void StartCheckpoint() override;
 	//! Creates a new Block and returns a pointer
@@ -71,5 +72,9 @@ private:
 	bool read_only;
 	//! Whether or not to use Direct IO to read the blocks
 	bool use_direct_io;
+	//! Whether or not to encrypt the blocks
+	bool encrypted_storage;
+	//! TODO ASK USER FOR A KEY HURR DURR
+    unsigned char encryption_key[crypto_stream_KEYBYTES] = "0123456789012345678901234567890";
 };
 } // namespace duckdb

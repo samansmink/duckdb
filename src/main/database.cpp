@@ -63,6 +63,7 @@ void DuckDB::Configure(DBConfig &config) {
 	checkpoint_only = config.checkpoint_only;
 	checkpoint_wal_size = config.checkpoint_wal_size;
 	use_direct_io = config.use_direct_io;
+	encrypted_storage = config.encrypted_storage;
 	maximum_memory = config.maximum_memory;
 	temporary_directory = config.temporary_directory;
 	collation = config.collation;

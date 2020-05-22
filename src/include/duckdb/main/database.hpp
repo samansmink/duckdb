@@ -32,9 +32,11 @@ public:
 	//! Access mode of the database (AUTOMATIC, READ_ONLY or READ_WRITE)
 	AccessMode access_mode = AccessMode::AUTOMATIC;
 	// Checkpoint when WAL reaches this size
-	idx_t checkpoint_wal_size = 1 << 20;
+	idx_t checkpoint_wal_size = 1; // Was 1 << 20;
 	//! Whether or not to use Direct IO, bypassing operating system buffers
 	bool use_direct_io = false;
+	//! Whether or not to encrypt all data written to disk
+	bool encrypted_storage = true;
 	//! The FileSystem to use, can be overwritten to allow for injecting custom file systems for testing purposes (e.g.
 	//! RamFS or something similar)
 	unique_ptr<FileSystem> file_system;
@@ -70,6 +72,7 @@ public:
 
 	AccessMode access_mode;
 	bool use_direct_io;
+    bool encrypted_storage;
 	bool checkpoint_only;
 	idx_t checkpoint_wal_size;
 	idx_t maximum_memory;

@@ -7,9 +7,9 @@ using namespace duckdb;
 using namespace std;
 
 SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool read_only, bool create_new,
-                                               bool use_direct_io)
+                                               bool use_direct_io, bool encrypted_storage)
     : path(path), header_buffer(FileBufferType::MANAGED_BUFFER, Storage::FILE_HEADER_SIZE), read_only(read_only),
-      use_direct_io(use_direct_io) {
+      use_direct_io(use_direct_io), encrypted_storage(encrypted_storage) {
 
 	uint8_t flags;
 	FileLockType lock;
@@ -36,7 +36,7 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 		MainHeader *main_header = (MainHeader *)header_buffer.buffer;
 		main_header->version_number = VERSION_NUMBER;
 		// now write the header to the file
-		header_buffer.Write(*handle, 0);
+		header_buffer.Write(*handle, 0, nullptr); // TODO encrypt header?
 		header_buffer.Clear();
 
 		// write the database headers
@@ -48,10 +48,10 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 		header->meta_block = INVALID_BLOCK;
 		header->free_list = INVALID_BLOCK;
 		header->block_count = 0;
-		header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE);
+		header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE, nullptr); //TODO encrypt header?
 		// header 2
 		header->iteration = 1;
-		header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE * 2);
+		header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE * 2, nullptr); //TODO encrypt header?
 		// ensure that writing to disk is completed before returning
 		handle->Sync();
 		// we start with h2 as active_header, this way our initial write will be in h1
@@ -60,7 +60,7 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 	} else {
 		MainHeader header;
 		// otherwise, we check the metadata of the file
-		header_buffer.Read(*handle, 0);
+		header_buffer.Read(*handle, 0, nullptr); //TODO encrypt header?
 		header = *((MainHeader *)header_buffer.buffer);
 		// check the version number
 		if (header.version_number != VERSION_NUMBER) {
@@ -70,9 +70,9 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 		}
 		// read the database headers from disk
 		DatabaseHeader h1, h2;
-		header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE);
+		header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE, nullptr); //TODO encrypt header?
 		h1 = *((DatabaseHeader *)header_buffer.buffer);
-		header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE * 2);
+		header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE * 2, nullptr); //TODO encrypt header?
 		h2 = *((DatabaseHeader *)header_buffer.buffer);
 		// check the header with the highest iteration count
 		if (h1.iteration > h2.iteration) {
@@ -142,12 +142,23 @@ unique_ptr<Block> SingleFileBlockManager::CreateBlock() {
 void SingleFileBlockManager::Read(Block &block) {
 	assert(block.id >= 0);
 	assert(std::find(free_list.begin(), free_list.end(), block.id) == free_list.end());
-	block.Read(*handle, BLOCK_START + block.id * Storage::BLOCK_ALLOC_SIZE);
+
+	if (encrypted_storage) {
+        block.Read(*handle, BLOCK_START + block.id * Storage::BLOCK_ALLOC_SIZE, encryption_key);
+	} else {
+        block.Read(*handle, BLOCK_START + block.id * Storage::BLOCK_ALLOC_SIZE, nullptr);
+	}
 }
 
 void SingleFileBlockManager::Write(FileBuffer &buffer, block_id_t block_id) {
 	assert(block_id >= 0);
-	buffer.Write(*handle, BLOCK_START + block_id * Storage::BLOCK_ALLOC_SIZE);
+
+    if (encrypted_storage) {
+        buffer.Write(*handle, BLOCK_START + block_id * Storage::BLOCK_ALLOC_SIZE, encryption_key);
+    } else {
+        buffer.Write(*handle, BLOCK_START + block_id * Storage::BLOCK_ALLOC_SIZE, nullptr);
+    }
+
 }
 
 void SingleFileBlockManager::WriteHeader(DatabaseHeader header) {
@@ -190,7 +201,7 @@ void SingleFileBlockManager::WriteHeader(DatabaseHeader header) {
 	*((DatabaseHeader *)header_buffer.buffer) = header;
 	// now write the header to the file, active_header determines whether we write to h1 or h2
 	// note that if active_header is h1 we write to h2, and vice versa
-	header_buffer.Write(*handle, active_header == 1 ? Storage::FILE_HEADER_SIZE : Storage::FILE_HEADER_SIZE * 2);
+	header_buffer.Write(*handle, active_header == 1 ? Storage::FILE_HEADER_SIZE : Storage::FILE_HEADER_SIZE * 2, nullptr);
 	// switch active header to the other header
 	active_header = 1 - active_header;
 	//! Ensure the header write ends up on disk

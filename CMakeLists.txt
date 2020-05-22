@@ -5,6 +5,9 @@ cmake_minimum_required(VERSION 2.8.7)
 
 project(DuckDB)
 
+# NACL external lib, TODO add source code version to third party folder
+set(NACL_INCLUDE_PATH /Users/samansmink/Development/nacl-20110221/build/sam/include/amd64)
+
 set(DUCKDB_MAJOR_VERSION 0)
 set(DUCKDB_MINOR_VERSION 1)
 set(DUCKDB_PATCH_VERSION 1)
@@ -170,6 +173,7 @@ include_directories(third_party/re2)
 include_directories(third_party/miniz)
 include_directories(third_party/utf8proc/include)
 include_directories(third_party/miniparquet)
+include_directories(${NACL_INCLUDE_PATH})
 
 # todo only regenerate ub file if one of the input files changed hack alert
 function(enable_unity_build UB_SUFFIX SOURCE_VARIABLE_NAME)

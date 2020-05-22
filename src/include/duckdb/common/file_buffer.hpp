@@ -35,10 +35,10 @@ public:
 public:
 	//! Read into the FileBuffer from the specified location. Automatically verifies the checksum, and throws an
 	//! exception if the checksum does not match correctly.
-	void Read(FileHandle &handle, uint64_t location);
+	void Read(FileHandle &handle, uint64_t location, unsigned char * key);
 	//! Write the contents of the FileBuffer to the specified location. Automatically adds a checksum of the contents of
 	//! the filebuffer in front of the written data.
-	void Write(FileHandle &handle, uint64_t location);
+	void Write(FileHandle &handle, uint64_t location, unsigned char * key);
 
 	void Clear();
 
