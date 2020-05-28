@@ -14,9 +14,11 @@ add_library_unity(duckdb_storage
                   meta_block_reader.cpp
                   meta_block_writer.cpp
                   numeric_segment.cpp
+                  numeric_encrypted_segment.cpp
                   storage_manager.cpp
                   write_ahead_log.cpp
                   uncompressed_segment.cpp
+                  encrypted_segment.cpp
                   single_file_block_manager.cpp
                   string_segment.cpp
                   storage_info.cpp
