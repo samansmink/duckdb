@@ -6,7 +6,7 @@
 #include "duckdb/storage/checkpoint/table_data_writer.hpp"
 #include "duckdb/storage/meta_block_reader.hpp"
 
-#include "duckdb/storage/numeric_segment.hpp"
+#include "duckdb/storage/numeric_encrypted_segment.hpp"
 #include "duckdb/storage/string_segment.hpp"
 
 using namespace duckdb;
@@ -21,7 +21,7 @@ PersistentSegment::PersistentSegment(BufferManager &manager, block_id_t id, idx_
 		data = make_unique<StringSegment>(manager, start, id);
 		data->max_vector_count = count / STANDARD_VECTOR_SIZE + (count % STANDARD_VECTOR_SIZE == 0 ? 0 : 1);
 	} else {
-		data = make_unique<NumericSegment>(manager, type, start, id);
+		data = make_unique<NumericEncryptedSegment>(manager, type, start, id);
 	}
 	data->tuple_count = count;
 }

@@ -2,7 +2,7 @@
 #include "duckdb/common/types/null_value.hpp"
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
-#include "duckdb/storage/numeric_segment.hpp"
+#include "duckdb/storage/numeric_encrypted_segment.hpp"
 #include "duckdb/storage/string_segment.hpp"
 #include "duckdb/storage/table/append_state.hpp"
 
@@ -14,7 +14,7 @@ TransientSegment::TransientSegment(BufferManager &manager, TypeId type, idx_t st
 	if (type == TypeId::VARCHAR) {
 		data = make_unique<StringSegment>(manager, start);
 	} else {
-		data = make_unique<NumericSegment>(manager, type, start);
+		data = make_unique<NumericEncryptedSegment>(manager, type, start);
 	}
 }
 

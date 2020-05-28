@@ -6,7 +6,7 @@
 #include "duckdb/catalog/catalog_entry/table_catalog_entry.hpp"
 #include "duckdb/common/serializer/buffered_serializer.hpp"
 
-#include "duckdb/storage/numeric_segment.hpp"
+#include "duckdb/storage/numeric_encrypted_segment.hpp"
 #include "duckdb/storage/string_segment.hpp"
 #include "duckdb/storage/table/column_segment.hpp"
 
@@ -96,7 +96,7 @@ void TableDataWriter::CreateSegment(idx_t col_idx) {
 		string_segment->overflow_writer = make_unique<WriteOverflowStringsToDisk>(manager);
 		segments[col_idx] = move(string_segment);
 	} else {
-		segments[col_idx] = make_unique<NumericSegment>(manager.buffer_manager, type_id, 0);
+		segments[col_idx] = make_unique<NumericEncryptedSegment>(manager.buffer_manager, type_id, 0);
 	}
 }
 
