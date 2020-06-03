@@ -8,6 +8,8 @@
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "duckdb/storage/data_table.hpp"
 #include "crypto_stream.h"
+#include "crypto_stream_salsa208.h"
+
 
 using namespace duckdb;
 using namespace std;
@@ -40,141 +42,6 @@ NumericEncryptedSegment::NumericEncryptedSegment(BufferManager &manager, TypeId 
     }
 }
 
-
-template <class T, class OP>
-void EncryptedSelect(SelectionVector &sel, Vector &result, unsigned char *source, nullmask_t *source_nullmask, T constant,
-            idx_t &approved_tuple_count) {
-	result.vector_type = VectorType::FLAT_VECTOR;
-	auto result_data = FlatVector::GetData(result);
-	SelectionVector new_sel(approved_tuple_count);
-	idx_t result_count = 0;
-	if (source_nullmask->any()) {
-		for (idx_t i = 0; i < approved_tuple_count; i++) {
-			idx_t src_idx = sel.get_index(i);
-			if (!(*source_nullmask)[src_idx] && OP::Operation(((T *)source)[src_idx], constant)) {
-				((T *)result_data)[src_idx] = ((T *)source)[src_idx];
-				new_sel.set_index(result_count++, src_idx);
-			}
-		}
-	} else {
-		for (idx_t i = 0; i < approved_tuple_count; i++) {
-			idx_t src_idx = sel.get_index(i);
-			if (OP::Operation(((T *)source)[src_idx], constant)) {
-				((T *)result_data)[src_idx] = ((T *)source)[src_idx];
-				new_sel.set_index(result_count++, src_idx);
-			}
-		}
-	}
-	sel.Initialize(new_sel);
-	approved_tuple_count = result_count;
-}
-
-template <class T, class OPL, class OPR>
-void EncryptedSelect(SelectionVector &sel, Vector &result, unsigned char *source, nullmask_t *source_nullmask,
-            const T constantLeft, const T constantRight, idx_t &approved_tuple_count) {
-	result.vector_type = VectorType::FLAT_VECTOR;
-	auto result_data = FlatVector::GetData(result);
-	SelectionVector new_sel(approved_tuple_count);
-	idx_t result_count = 0;
-	if (source_nullmask->any()) {
-		for (idx_t i = 0; i < approved_tuple_count; i++) {
-			idx_t src_idx = sel.get_index(i);
-			if (!(*source_nullmask)[src_idx] && OPL::Operation(((T *)source)[src_idx], constantLeft) &&
-			    OPR::Operation(((T *)source)[src_idx], constantRight)) {
-				((T *)result_data)[src_idx] = ((T *)source)[src_idx];
-				new_sel.set_index(result_count++, src_idx);
-			}
-		}
-	} else {
-		for (idx_t i = 0; i < approved_tuple_count; i++) {
-			idx_t src_idx = sel.get_index(i);
-			if (OPL::Operation(((T *)source)[src_idx], constantLeft) &&
-			    OPR::Operation(((T *)source)[src_idx], constantRight)) {
-				((T *)result_data)[src_idx] = ((T *)source)[src_idx];
-				new_sel.set_index(result_count++, src_idx);
-			}
-		}
-	}
-	sel.Initialize(new_sel);
-	approved_tuple_count = result_count;
-}
-
-template <class OPL, class OPR>
-static void encrypted_templated_select_operation_between(SelectionVector &sel, Vector &result, TypeId type, unsigned char *source,
-                                               nullmask_t *source_mask, Value &constantLeft, Value &constantRight,
-                                               idx_t &approved_tuple_count) {
-    // the inplace loops take the result as the last parameter
-    switch (type) {
-    case TypeId::INT8: {
-        EncryptedSelect<int8_t, OPL, OPR>(sel, result, source, source_mask, constantLeft.value_.tinyint,
-                                 constantRight.value_.tinyint, approved_tuple_count);
-        break;
-    }
-    case TypeId::INT16: {
-        EncryptedSelect<int16_t, OPL, OPR>(sel, result, source, source_mask, constantLeft.value_.smallint,
-                                  constantRight.value_.smallint, approved_tuple_count);
-        break;
-    }
-    case TypeId::INT32: {
-        EncryptedSelect<int32_t, OPL, OPR>(sel, result, source, source_mask, constantLeft.value_.integer,
-                                  constantRight.value_.integer, approved_tuple_count);
-        break;
-    }
-    case TypeId::INT64: {
-        EncryptedSelect<int64_t, OPL, OPR>(sel, result, source, source_mask, constantLeft.value_.bigint,
-                                  constantRight.value_.bigint, approved_tuple_count);
-        break;
-    }
-    case TypeId::FLOAT: {
-        EncryptedSelect<float, OPL, OPR>(sel, result, source, source_mask, constantLeft.value_.float_,
-                                constantRight.value_.float_, approved_tuple_count);
-        break;
-    }
-    case TypeId::DOUBLE: {
-        EncryptedSelect<double, OPL, OPR>(sel, result, source, source_mask, constantLeft.value_.double_,
-                                 constantRight.value_.double_, approved_tuple_count);
-        break;
-    }
-    default:
-        throw InvalidTypeException(type, "Invalid type for filter pushed down to table comparison");
-    }
-}
-
-template <class OP>
-static void encrypted_templated_select_operation(SelectionVector &sel, Vector &result, TypeId type, unsigned char *source,
-                                       nullmask_t *source_mask, Value &constant, idx_t &approved_tuple_count) {
-    // the inplace loops take the result as the last parameter
-    switch (type) {
-    case TypeId::INT8: {
-        EncryptedSelect<int8_t, OP>(sel, result, source, source_mask, constant.value_.tinyint, approved_tuple_count);
-        break;
-    }
-    case TypeId::INT16: {
-        EncryptedSelect<int16_t, OP>(sel, result, source, source_mask, constant.value_.smallint, approved_tuple_count);
-        ;
-        break;
-    }
-    case TypeId::INT32: {
-        EncryptedSelect<int32_t, OP>(sel, result, source, source_mask, constant.value_.integer, approved_tuple_count);
-        break;
-    }
-    case TypeId::INT64: {
-        EncryptedSelect<int64_t, OP>(sel, result, source, source_mask, constant.value_.bigint, approved_tuple_count);
-        break;
-    }
-    case TypeId::FLOAT: {
-        EncryptedSelect<float, OP>(sel, result, source, source_mask, constant.value_.float_, approved_tuple_count);
-        break;
-    }
-    case TypeId::DOUBLE: {
-        EncryptedSelect<double, OP>(sel, result, source, source_mask, constant.value_.double_, approved_tuple_count);
-        break;
-    }
-    default:
-        throw InvalidTypeException(type, "Invalid type for filter pushed down to table comparison");
-    }
-}
-
 void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, SelectionVector &sel, idx_t &approved_tuple_count,
                             vector<TableFilter> &tableFilter) {
 	auto vector_index = state.vector_index;
@@ -193,7 +60,7 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
         throw FatalException("Fetch decryption failed");
     }
 
@@ -203,27 +70,27 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 	if (tableFilter.size() == 1) {
 		switch (tableFilter[0].comparison_type) {
 		case ExpressionType::COMPARE_EQUAL: {
-            encrypted_templated_select_operation<Equals>(sel, result, state.current->type, source_data, source_nullmask,
+            templated_select_operation<Equals>(sel, result, state.current->type, source_data, source_nullmask,
 			                                   tableFilter[0].constant, approved_tuple_count);
 			break;
 		}
 		case ExpressionType::COMPARE_LESSTHAN: {
-            encrypted_templated_select_operation<LessThan>(sel, result, state.current->type, source_data, source_nullmask,
+            templated_select_operation<LessThan>(sel, result, state.current->type, source_data, source_nullmask,
 			                                     tableFilter[0].constant, approved_tuple_count);
 			break;
 		}
 		case ExpressionType::COMPARE_GREATERTHAN: {
-            encrypted_templated_select_operation<GreaterThan>(sel, result, state.current->type, source_data, source_nullmask,
+            templated_select_operation<GreaterThan>(sel, result, state.current->type, source_data, source_nullmask,
 			                                        tableFilter[0].constant, approved_tuple_count);
 			break;
 		}
 		case ExpressionType::COMPARE_LESSTHANOREQUALTO: {
-            encrypted_templated_select_operation<LessThanEquals>(sel, result, state.current->type, source_data, source_nullmask,
+            templated_select_operation<LessThanEquals>(sel, result, state.current->type, source_data, source_nullmask,
 			                                           tableFilter[0].constant, approved_tuple_count);
 			break;
 		}
 		case ExpressionType::COMPARE_GREATERTHANOREQUALTO: {
-            encrypted_templated_select_operation<GreaterThanEquals>(sel, result, state.current->type, source_data,
+            templated_select_operation<GreaterThanEquals>(sel, result, state.current->type, source_data,
 			                                              source_nullmask, tableFilter[0].constant,
 			                                              approved_tuple_count);
 			break;
@@ -239,21 +106,21 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 
 		if (tableFilter[0].comparison_type == ExpressionType::COMPARE_GREATERTHAN) {
 			if (tableFilter[1].comparison_type == ExpressionType::COMPARE_LESSTHAN) {
-                encrypted_templated_select_operation_between<GreaterThan, LessThan>(
+                templated_select_operation_between<GreaterThan, LessThan>(
 				    sel, result, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
 				    tableFilter[1].constant, approved_tuple_count);
 			} else {
-                encrypted_templated_select_operation_between<GreaterThan, LessThanEquals>(
+                templated_select_operation_between<GreaterThan, LessThanEquals>(
 				    sel, result, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
 				    tableFilter[1].constant, approved_tuple_count);
 			}
 		} else {
 			if (tableFilter[1].comparison_type == ExpressionType::COMPARE_LESSTHAN) {
-                encrypted_templated_select_operation_between<GreaterThanEquals, LessThan>(
+                templated_select_operation_between<GreaterThanEquals, LessThan>(
 				    sel, result, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
 				    tableFilter[1].constant, approved_tuple_count);
 			} else {
-                encrypted_templated_select_operation_between<GreaterThanEquals, LessThanEquals>(
+                templated_select_operation_between<GreaterThanEquals, LessThanEquals>(
 				    sel, result, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
 				    tableFilter[1].constant, approved_tuple_count);
 			}
@@ -284,7 +151,7 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
 
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
         throw FatalException("Fetch decryption failed");
     }
 
@@ -300,24 +167,6 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
 void NumericEncryptedSegment::FetchUpdateData(ColumnScanState &state, Transaction &transaction, UpdateInfo *version,
                                      Vector &result) {
 	throw new NotImplementedException("FetchUpdateData not implemented on encrypted segment");
-}
-
-template <class T>
-static void encrypted_templated_assignment(SelectionVector &sel, data_ptr_t source, data_ptr_t result,
-                                 nullmask_t &source_nullmask, nullmask_t &result_nullmask, idx_t approved_tuple_count) {
-	if (source_nullmask.any()) {
-		for (size_t i = 0; i < approved_tuple_count; i++) {
-			if (source_nullmask[sel.get_index(i)]) {
-				result_nullmask.set(i, true);
-			} else {
-				((T *)result)[i] = ((T *)source)[sel.get_index(i)];
-			}
-		}
-	} else {
-		for (size_t i = 0; i < approved_tuple_count; i++) {
-			((T *)result)[i] = ((T *)source)[sel.get_index(i)];
-		}
-	}
 }
 
 void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector &result, SelectionVector &sel,
@@ -338,7 +187,7 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
         throw FatalException("Fetch decryption failed");
     }
 
@@ -353,32 +202,32 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	switch (type) {
 	case TypeId::BOOL:
 	case TypeId::INT8: {
-        encrypted_templated_assignment<int8_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
+        templated_assignment<int8_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
 		                             approved_tuple_count);
 		break;
 	}
 	case TypeId::INT16: {
-        encrypted_templated_assignment<int16_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
+        templated_assignment<int16_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
 		                              approved_tuple_count);
 		break;
 	}
 	case TypeId::INT32: {
-        encrypted_templated_assignment<int32_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
+        templated_assignment<int32_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
 		                              approved_tuple_count);
 		break;
 	}
 	case TypeId::INT64: {
-        encrypted_templated_assignment<int64_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
+        templated_assignment<int64_t>(sel, source_data, result_data, *source_nullmask, result_nullmask,
 		                              approved_tuple_count);
 		break;
 	}
 	case TypeId::FLOAT: {
-        encrypted_templated_assignment<float>(sel, source_data, result_data, *source_nullmask, result_nullmask,
+        templated_assignment<float>(sel, source_data, result_data, *source_nullmask, result_nullmask,
 		                            approved_tuple_count);
 		break;
 	}
 	case TypeId::DOUBLE: {
-        encrypted_templated_assignment<double>(sel, source_data, result_data, *source_nullmask, result_nullmask,
+        templated_assignment<double>(sel, source_data, result_data, *source_nullmask, result_nullmask,
 		                             approved_tuple_count);
 		break;
 	}
@@ -412,7 +261,7 @@ void NumericEncryptedSegment::FetchRow(ColumnFetchState &state, Transaction &tra
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
         throw FatalException("FetchRow decryption failed");
     }
 
@@ -464,7 +313,7 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 
 		if (current_tuple_count > 0) {
 		    // Not first tuple in here, we need to decrypt first before appending
-            if (crypto_stream_xor(encryption_buffer ,vector_buffer + crypto_stream_NONCEBYTES, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+            if (crypto_stream_salsa208_xor(encryption_buffer ,vector_buffer + crypto_stream_NONCEBYTES, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
                 throw FatalException("Append decryption failed");
             }
 		} else {
@@ -477,7 +326,7 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 		append_function(stats, encryption_buffer, current_tuple_count, data, offset,
 		                append_count);
 
-        if (crypto_stream_xor(vector_buffer + crypto_stream_NONCEBYTES, encryption_buffer, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+        if (crypto_stream_salsa208_xor(vector_buffer + crypto_stream_NONCEBYTES, encryption_buffer, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
             throw FatalException("Append encryption failed");
         }
 
@@ -493,55 +342,21 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 // TODO redefinition?
 //template <class T> static void update_min_max(T value, T *__restrict min, T *__restrict max);
 
-template <class T>
-static void encrypted_append_loop(SegmentStatistics &stats, data_ptr_t target, idx_t target_offset, Vector &source, idx_t offset,
-                        idx_t count) {
-	auto &nullmask = *((nullmask_t *)target);
-	auto min = (T *)stats.minimum.get();
-	auto max = (T *)stats.maximum.get();
-
-	VectorData adata;
-	source.Orrify(count, adata);
-	auto sdata = (T *)adata.data;
-	auto tdata = (T *)(target + sizeof(nullmask_t));
-	if (adata.nullmask->any()) {
-		for (idx_t i = 0; i < count; i++) {
-			auto source_idx = adata.sel->get_index(offset + i);
-			auto target_idx = target_offset + i;
-			bool is_null = (*adata.nullmask)[source_idx];
-			if (is_null) {
-				nullmask[target_idx] = true;
-				stats.has_null = true;
-			} else {
-				update_min_max(sdata[source_idx], min, max);
-				tdata[target_idx] = sdata[source_idx];
-			}
-		}
-	} else {
-		for (idx_t i = 0; i < count; i++) {
-			auto source_idx = adata.sel->get_index(offset + i);
-			auto target_idx = target_offset + i;
-			update_min_max(sdata[source_idx], min, max);
-			tdata[target_idx] = sdata[source_idx];
-		}
-	}
-}
-
 static NumericEncryptedSegment::append_function_t GetEncryptedAppendFunction(TypeId type) {
 	switch (type) {
 	case TypeId::BOOL:
 	case TypeId::INT8:
-		return encrypted_append_loop<int8_t>;
+		return append_loop<int8_t>;
 	case TypeId::INT16:
-		return encrypted_append_loop<int16_t>;
+		return append_loop<int16_t>;
 	case TypeId::INT32:
-		return encrypted_append_loop<int32_t>;
+		return append_loop<int32_t>;
 	case TypeId::INT64:
-		return encrypted_append_loop<int64_t>;
+		return append_loop<int64_t>;
 	case TypeId::FLOAT:
-		return encrypted_append_loop<float>;
+		return append_loop<float>;
 	case TypeId::DOUBLE:
-		return encrypted_append_loop<double>;
+		return append_loop<double>;
 	default:
 		throw NotImplementedException("Unimplemented type for encrypted segment");
 	}
