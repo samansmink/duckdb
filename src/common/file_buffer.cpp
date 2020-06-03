@@ -43,7 +43,7 @@ FileBuffer::~FileBuffer() {
 	free(malloced_buffer);
 }
 
-void FileBuffer::Read(FileHandle &handle, uint64_t location, unsigned char * key) {
+void FileBuffer::Read(FileHandle &handle, uint64_t location, const char * key) {
     if (key /*Encryption*/) {
         auto tmp_buffer = unique_ptr<unsigned char[]>{new unsigned char[internal_size]};
         auto tmp_data = tmp_buffer.get();
@@ -54,7 +54,7 @@ void FileBuffer::Read(FileHandle &handle, uint64_t location, unsigned char * key
         auto nonce = tmp_data;
         tmp_data += crypto_stream_NONCEBYTES;
 
-        if (crypto_stream_xor(internal_buffer + Storage::BLOCK_HEADER_SIZE, tmp_data, internal_size - crypto_stream_NONCEBYTES, nonce, key) != 0) {
+        if (crypto_stream_xor(internal_buffer + Storage::BLOCK_HEADER_SIZE, tmp_data, internal_size - crypto_stream_NONCEBYTES, nonce, (unsigned char*)key) != 0) {
             throw IOException("Could not read database file: decryption failed, either key is wrong or file is corrupt");
         }
     } else {
@@ -71,7 +71,7 @@ void FileBuffer::Read(FileHandle &handle, uint64_t location, unsigned char * key
     }
 }
 
-void FileBuffer::Write(FileHandle &handle, uint64_t location, unsigned char * key) {
+void FileBuffer::Write(FileHandle &handle, uint64_t location, const char * key) {
 
     if (key) {
         auto tmp_buffer = unique_ptr<unsigned char[]>{new unsigned char[internal_size]};
@@ -84,7 +84,7 @@ void FileBuffer::Write(FileHandle &handle, uint64_t location, unsigned char * ke
 
         memcpy(nonce_stored, nonce, crypto_stream_NONCEBYTES);
 
-        if (crypto_stream_xor(tmp_data ,internal_buffer + Storage::BLOCK_HEADER_SIZE, internal_size - Storage::BLOCK_HEADER_SIZE, nonce, key) != 0) {
+        if (crypto_stream_xor(tmp_data ,internal_buffer + Storage::BLOCK_HEADER_SIZE, internal_size - Storage::BLOCK_HEADER_SIZE, nonce, (unsigned char*)key) != 0) {
             throw FatalException("Filebuffer encryption failed");
         }
 

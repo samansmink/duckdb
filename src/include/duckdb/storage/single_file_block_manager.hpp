@@ -75,6 +75,6 @@ private:
 	//! Whether or not to encrypt the blocks
 	bool encrypted_storage;
 
-    unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
+    const char * encryption_key;
 };
 } // namespace duckdb

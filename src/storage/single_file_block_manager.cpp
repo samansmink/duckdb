@@ -27,6 +27,9 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 	if (use_direct_io) {
 		flags |= FileFlags::DIRECT_IO;
 	}
+
+	this->encryption_key = TEST_KEY;
+
 	// open the RDBMS handle
 	handle = fs.OpenFile(path, flags, lock);
 	if (create_new) {
