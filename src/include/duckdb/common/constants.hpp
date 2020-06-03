@@ -35,6 +35,9 @@ using std::vector;
 #define STANDARD_VECTOR_SIZE 1024
 #endif
 
+#define TEST_KEY "0123456789012345678901234567890"
+#define TEST_NONCE "012345678901"
+
 #if ((STANDARD_VECTOR_SIZE & (STANDARD_VECTOR_SIZE - 1)) != 0)
 #error Vector size should be a power of two
 #endif

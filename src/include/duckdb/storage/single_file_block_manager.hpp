@@ -74,7 +74,7 @@ private:
 	bool use_direct_io;
 	//! Whether or not to encrypt the blocks
 	bool encrypted_storage;
-	//! TODO ASK USER FOR A KEY HURR DURR
-    unsigned char encryption_key[crypto_stream_KEYBYTES] = "0123456789012345678901234567890";
+
+    unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 };
 } // namespace duckdb
