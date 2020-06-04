@@ -151,9 +151,10 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
 
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-        throw FatalException("Fetch decryption failed");
-    }
+//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+//        throw FatalException("Fetch decryption failed");
+//    }
+    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
 
 	// fetch the nullmask and copy the data from the base table
 	result.vector_type = VectorType::FLAT_VECTOR;
@@ -187,9 +188,10 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-        throw FatalException("Fetch decryption failed");
-    }
+//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+//        throw FatalException("Fetch decryption failed");
+//    }
+    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
 
 	auto source_nullmask = (nullmask_t *)(decryption_buffer);
 	auto source_data = decryption_buffer + sizeof(nullmask_t);
@@ -261,9 +263,10 @@ void NumericEncryptedSegment::FetchRow(ColumnFetchState &state, Transaction &tra
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-        throw FatalException("FetchRow decryption failed");
-    }
+//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+//        throw FatalException("FetchRow decryption failed");
+//    }
+    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
 
 	auto &nullmask = *((nullmask_t *)(decryption_buffer));
 	auto vector_ptr = decryption_buffer + sizeof(nullmask_t);
@@ -313,9 +316,10 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 
 		if (current_tuple_count > 0) {
 		    // Not first tuple in here, we need to decrypt first before appending
-            if (crypto_stream_salsa208_xor(encryption_buffer ,vector_buffer + crypto_stream_NONCEBYTES, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-                throw FatalException("Append decryption failed");
-            }
+//            if (crypto_stream_salsa208_xor(encryption_buffer ,vector_buffer + crypto_stream_NONCEBYTES, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+//                throw FatalException("Append decryption failed");
+//            }
+            memcpy(encryption_buffer, vector_buffer + crypto_stream_NONCEBYTES, this->vector_size - crypto_stream_NONCEBYTES);
 		} else {
 		    // This is the first tuple in this vector, we don't need to decrypt just copy the nullmask
 		    // TODO copying the nullmask is not necessary as it should be all 0 here, right?
@@ -326,9 +330,10 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 		append_function(stats, encryption_buffer, current_tuple_count, data, offset,
 		                append_count);
 
-        if (crypto_stream_salsa208_xor(vector_buffer + crypto_stream_NONCEBYTES, encryption_buffer, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-            throw FatalException("Append encryption failed");
-        }
+//        if (crypto_stream_salsa208_xor(vector_buffer + crypto_stream_NONCEBYTES, encryption_buffer, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+//            throw FatalException("Append encryption failed");
+//        }
+        memcpy(vector_buffer + crypto_stream_NONCEBYTES, encryption_buffer, this->vector_size - crypto_stream_NONCEBYTES);
 
         memcpy(vector_buffer, nonce, crypto_stream_NONCEBYTES);
 
