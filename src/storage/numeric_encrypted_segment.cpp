@@ -60,9 +60,10 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-        throw FatalException("Fetch decryption failed");
-    }
+//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
+//        throw FatalException("Fetch decryption failed");
+//    }
+    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
 
     auto source_nullmask = (nullmask_t *)(decryption_buffer);
     auto source_data = decryption_buffer + sizeof(nullmask_t);
