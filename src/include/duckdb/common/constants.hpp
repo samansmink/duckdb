@@ -36,7 +36,7 @@ using std::vector;
 #endif
 
 #define TEST_KEY "0123456789012345678901234567890"
-#define TEST_NONCE "012345678901"
+#define TEST_NONCE "0123456789012345678901234567890"
 
 #if ((STANDARD_VECTOR_SIZE & (STANDARD_VECTOR_SIZE - 1)) != 0)
 #error Vector size should be a power of two

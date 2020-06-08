@@ -7,9 +7,7 @@
 #include "duckdb/transaction/transaction.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "duckdb/storage/data_table.hpp"
-#include "crypto_stream.h"
-#include "crypto_stream_salsa208.h"
-
+#include "duckdb/common/crypto.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -23,7 +21,7 @@ NumericEncryptedSegment::NumericEncryptedSegment(BufferManager &manager, TypeId 
 
     // figure out how many vectors we want to store in this block
     this->type_size = GetTypeIdSize(type);
-    this->vector_size = sizeof(nullmask_t) + crypto_stream_NONCEBYTES + type_size * STANDARD_VECTOR_SIZE;
+    this->vector_size = sizeof(nullmask_t) + NONCE_BYTES + type_size * STANDARD_VECTOR_SIZE;
     this->max_vector_count = Storage::BLOCK_SIZE / vector_size;
 
     this->block_id = block;
@@ -53,17 +51,13 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 	auto data = handle->node->buffer;
 	auto offset = vector_index * vector_size;
 
-    auto encrypted_data = data + offset + crypto_stream_NONCEBYTES;
+    auto encrypted_data = data + offset + NONCE_BYTES;
     auto nonce = (unsigned char*)(data + offset);
 
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-    unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-//        throw FatalException("Fetch decryption failed");
-//    }
-    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
+    Decrypt(decryption_buffer, encrypted_data, this->vector_size - NONCE_BYTES, nonce);
 
     auto source_nullmask = (nullmask_t *)(decryption_buffer);
     auto source_data = decryption_buffer + sizeof(nullmask_t);
@@ -144,26 +138,19 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
 
 	idx_t count = GetVectorCount(vector_index);
 
-	auto encrypted_data = data + offset + crypto_stream_NONCEBYTES;
-	auto nonce = (unsigned char*)(data + offset);
+    auto encrypted_data = data + offset + NONCE_BYTES;
+    auto nonce = (unsigned char*)(data + offset);
 
     // Decrypt the vector to a decryption buffer;
-	auto decryption_buffer = (data_ptr_t) malloc(this->vector_size);
+    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
-    unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
-
-//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-//        throw FatalException("Fetch decryption failed");
-//    }
-    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
+    Decrypt(decryption_buffer, encrypted_data, this->vector_size - NONCE_BYTES, nonce);
 
 	// fetch the nullmask and copy the data from the base table
 	result.vector_type = VectorType::FLAT_VECTOR;
 	auto source_nullmask = (nullmask_t *)(decryption_buffer);
 	FlatVector::SetNullmask(result, *source_nullmask);
 	memcpy(FlatVector::GetData(result), decryption_buffer + sizeof(nullmask_t), count * type_size);
-
-    free(decryption_buffer);
 }
 
 void NumericEncryptedSegment::FetchUpdateData(ColumnScanState &state, Transaction &transaction, UpdateInfo *version,
@@ -182,17 +169,13 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	auto data = handle->node->buffer;
 	auto offset = vector_index * vector_size;
 
-    auto encrypted_data = data + offset + crypto_stream_NONCEBYTES;
+    auto encrypted_data = data + offset + NONCE_BYTES;
     auto nonce = (unsigned char*)(data + offset);
 
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-    unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-//        throw FatalException("Fetch decryption failed");
-//    }
-    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
+    Decrypt(decryption_buffer, encrypted_data, this->vector_size - NONCE_BYTES, nonce);
 
 	auto source_nullmask = (nullmask_t *)(decryption_buffer);
 	auto source_data = decryption_buffer + sizeof(nullmask_t);
@@ -257,17 +240,13 @@ void NumericEncryptedSegment::FetchRow(ColumnFetchState &state, Transaction &tra
 	// first fetch the data from the base table
 	auto data = handle->node->buffer + vector_index * vector_size;
 
-    auto encrypted_data = data + crypto_stream_NONCEBYTES;
+    auto encrypted_data = data + NONCE_BYTES;
     auto nonce = (unsigned char*)(data);
 
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-    unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
 
-//    if (crypto_stream_salsa208_xor(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-//        throw FatalException("FetchRow decryption failed");
-//    }
-    memcpy(decryption_buffer, encrypted_data, this->vector_size - crypto_stream_NONCEBYTES);
+    Decrypt(decryption_buffer, encrypted_data, this->vector_size - NONCE_BYTES, nonce);
 
 	auto &nullmask = *((nullmask_t *)(decryption_buffer));
 	auto vector_ptr = decryption_buffer + sizeof(nullmask_t);
@@ -298,9 +277,6 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 	assert(data.type == type);
 	auto handle = manager.Pin(block_id);
 
-    const unsigned char nonce[crypto_stream_NONCEBYTES] = TEST_NONCE;
-    unsigned char encryption_key[crypto_stream_KEYBYTES] = TEST_KEY;
-
     auto encryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
 	idx_t initial_count = tuple_count;
@@ -316,27 +292,17 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
         auto vector_buffer = handle->node->buffer + vector_size * vector_index;
 
 		if (current_tuple_count > 0) {
-		    // Not first tuple in here, we need to decrypt first before appending
-//            if (crypto_stream_salsa208_xor(encryption_buffer ,vector_buffer + crypto_stream_NONCEBYTES, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-//                throw FatalException("Append decryption failed");
-//            }
-            memcpy(encryption_buffer, vector_buffer + crypto_stream_NONCEBYTES, this->vector_size - crypto_stream_NONCEBYTES);
+            Decrypt(encryption_buffer, vector_buffer + NONCE_BYTES, this->vector_size - NONCE_BYTES, vector_buffer);
 		} else {
-		    // This is the first tuple in this vector, we don't need to decrypt just copy the nullmask
-		    // TODO copying the nullmask is not necessary as it should be all 0 here, right?
-            memcpy(encryption_buffer, vector_buffer + crypto_stream_NONCEBYTES, sizeof(nullmask_t));
+            memcpy(encryption_buffer, vector_buffer + NONCE_BYTES, sizeof(nullmask_t));
 		}
 
 		// now perform the actual append
 		append_function(stats, encryption_buffer, current_tuple_count, data, offset,
 		                append_count);
 
-//        if (crypto_stream_salsa208_xor(vector_buffer + crypto_stream_NONCEBYTES, encryption_buffer, this->vector_size - crypto_stream_NONCEBYTES, nonce, encryption_key) != 0) {
-//            throw FatalException("Append encryption failed");
-//        }
-        memcpy(vector_buffer + crypto_stream_NONCEBYTES, encryption_buffer, this->vector_size - crypto_stream_NONCEBYTES);
+        Encrypt(vector_buffer + NONCE_BYTES, encryption_buffer, this->vector_size - NONCE_BYTES, vector_buffer);
 
-        memcpy(vector_buffer, nonce, crypto_stream_NONCEBYTES);
 
 		count -= append_count;
 		offset += append_count;
