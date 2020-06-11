@@ -174,6 +174,7 @@ include_directories(third_party/re2)
 include_directories(third_party/miniz)
 include_directories(third_party/utf8proc/include)
 include_directories(third_party/miniparquet)
+include_directories(third_party/crypto/include)
 include_directories(${NACL_INCLUDE_PATH})
 include_directories(${OPENSSL_INCLUDE_DIR})
 

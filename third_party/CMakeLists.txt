@@ -8,6 +8,7 @@ add_subdirectory(libpg_query)
 add_subdirectory(re2)
 add_subdirectory(miniz)
 add_subdirectory(utf8proc)
+add_subdirectory(crypto)
 
 endif()
 

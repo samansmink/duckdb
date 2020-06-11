@@ -52,6 +52,7 @@ else()
       utf8proc
       Threads::Threads
       OpenSSL::Crypto
+      crypto
       ${NACL_LIBRARY})
 
   add_library(duckdb SHARED ${ALL_OBJECT_FILES})
