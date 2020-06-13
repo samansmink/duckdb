@@ -203,6 +203,11 @@ struct FlatVector {
 		assert(vector.vector_type == VectorType::FLAT_VECTOR);
 		vector.nullmask = move(new_mask);
 	}
+	// Used to set nullmask directly from decryption primitive
+	static inline nullmask_t* GetNullmaskPtr(Vector &vector) {
+        assert(vector.vector_type == VectorType::FLAT_VECTOR);
+        return &vector.nullmask;
+	}
 	static inline void SetNull(Vector &vector, idx_t idx, bool value) {
 		assert(vector.vector_type == VectorType::FLAT_VECTOR);
 		vector.nullmask[idx] = value;
