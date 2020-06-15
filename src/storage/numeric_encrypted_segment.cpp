@@ -25,19 +25,12 @@ NumericEncryptedSegment::NumericEncryptedSegment(BufferManager &manager, TypeId 
     this->max_vector_count = Storage::BLOCK_SIZE / vector_size;
 
     this->block_id = block;
-
     this->decryption_buffer = unique_ptr<unsigned char[]>(new unsigned char[this->vector_size]);
 
     if (block_id == INVALID_BLOCK) {
         // no block id specified: allocate a buffer for the encrypted segment
         auto handle = manager.Allocate(Storage::BLOCK_ALLOC_SIZE);
         this->block_id = handle->block_id;
-
-        // initialize nullmasks to 0 for all vectors
-        for (idx_t i = 0; i < max_vector_count; i++) {
-            auto header = (encrypted_vector_header_t*)(handle->node->buffer + (i * vector_size));
-            ((nullmask_t)header->nullmask).reset();
-        }
     }
 }
 
@@ -51,9 +44,6 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 	auto handle = manager.Pin(block_id);
 	auto data = handle->node->buffer;
 	auto offset = vector_index * vector_size;
-
-//    auto encrypted_data = data + offset + NONCE_BYTES;
-//    auto nonce = (unsigned char*)(data + offset);
 
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
     auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
@@ -298,6 +288,8 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 		if (current_tuple_count > 0) {
             Decrypt(encryption_buffer, encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nullmask_nonce);
             Decrypt(encryption_buffer + sizeof(nullmask_t), encrypted_data, type_size * STANDARD_VECTOR_SIZE, encrypted_header->data_nonce);
+		} else {
+            ((nullmask_t*)encryption_buffer)->reset();
 		}
 
 		// Now perform the actual append
@@ -314,8 +306,6 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 	return tuple_count - initial_count;
 }
 
-// TODO redefinition?
-//template <class T> static void update_min_max(T value, T *__restrict min, T *__restrict max);
 
 static NumericEncryptedSegment::append_function_t GetEncryptedAppendFunction(TypeId type) {
 	switch (type) {
