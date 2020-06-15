@@ -131,14 +131,19 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
 
 	idx_t count = GetVectorCount(vector_index);
 
-    auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
-    auto encrypted_data = data + offset + sizeof(encrypted_vector_header_t);
+	auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
+    auto nonce = (unsigned char*)(data + offset);
 
-	// fetch the nullmask and decrypt data into nullmask of result vector
-	result.vector_type = VectorType::FLAT_VECTOR;
-    Decrypt((unsigned char*)FlatVector::GetNullmaskPtr(result), encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nonce);
-    // TODO this used to say count * type_size in previous commit, that might be wrong?
-    DecryptAtOffset(FlatVector::GetData(result), encrypted_data, count * type_size, encrypted_header->nonce, 2);
+    // Decrypt the vector to a decryption buffer;
+    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
+
+    Decrypt(decryption_buffer, encrypted_header->nullmask, this->vector_size - NONCE_BYTES, nonce);
+
+    // fetch the nullmask and copy the data from the base table
+    result.vector_type = VectorType::FLAT_VECTOR;
+    auto source_nullmask = (nullmask_t *)(decryption_buffer);
+    FlatVector::SetNullmask(result, *source_nullmask);
+    memcpy(FlatVector::GetData(result), decryption_buffer + sizeof(nullmask_t), count * type_size);
 }
 
 void NumericEncryptedSegment::FetchUpdateData(ColumnScanState &state, Transaction &transaction, UpdateInfo *version,
