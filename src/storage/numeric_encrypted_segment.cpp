@@ -46,12 +46,11 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 	auto offset = vector_index * vector_size;
 
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
-    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
+//    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
 
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-    Decrypt(decryption_buffer, encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nullmask_nonce);
-    Decrypt(decryption_buffer + sizeof(nullmask_t), encrypted_data, STANDARD_VECTOR_SIZE * type_size, encrypted_header->data_nonce);
+    Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
     auto source_nullmask = (nullmask_t *)(decryption_buffer);
     auto source_data = decryption_buffer + sizeof(nullmask_t);
@@ -133,12 +132,13 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
 	idx_t count = GetVectorCount(vector_index);
 
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
-    auto vector_data = data + offset + sizeof(encrypted_vector_header_t);
+    auto encrypted_data = data + offset + sizeof(encrypted_vector_header_t);
 
 	// fetch the nullmask and decrypt data into nullmask of result vector
 	result.vector_type = VectorType::FLAT_VECTOR;
-    Decrypt((unsigned char*)FlatVector::GetNullmaskPtr(result), encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nullmask_nonce);
-    Decrypt(FlatVector::GetData(result), vector_data, count * type_size, encrypted_header->data_nonce);
+    Decrypt((unsigned char*)FlatVector::GetNullmaskPtr(result), encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nonce);
+    // TODO this used to say count * type_size in previous commit, that might be wrong?
+    DecryptAtOffset(FlatVector::GetData(result), encrypted_data, count * type_size, encrypted_header->nonce, 2);
 }
 
 void NumericEncryptedSegment::FetchUpdateData(ColumnScanState &state, Transaction &transaction, UpdateInfo *version,
@@ -158,14 +158,13 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	auto offset = vector_index * vector_size;
 
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
-    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
+//    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
 
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
     // TODO can we optimize for a certain selectivity here?
-    Decrypt(decryption_buffer, encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nullmask_nonce);
-    Decrypt(decryption_buffer + sizeof(nullmask_t), encrypted_data, STANDARD_VECTOR_SIZE * type_size, encrypted_header->data_nonce);
+    Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
 	auto source_nullmask = (nullmask_t *)(decryption_buffer);
 	auto source_data = decryption_buffer + sizeof(nullmask_t);
@@ -231,13 +230,12 @@ void NumericEncryptedSegment::FetchRow(ColumnFetchState &state, Transaction &tra
 	auto data = handle->node->buffer + vector_index * vector_size;
 
 	auto encrypted_header = (encrypted_vector_header_t*)data;
-    auto encrypted_data = data + sizeof(encrypted_vector_header_t);
+//    auto encrypted_data = data + sizeof(encrypted_vector_header_t);
 
     // Decrypt the vector to a decryption buffer;
     // TODO we know where in the vector we need to decrypt here so we should be able to optimize this.
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-    Decrypt(decryption_buffer, encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nullmask_nonce);
-    Decrypt(decryption_buffer + sizeof(nullmask_t), encrypted_data, STANDARD_VECTOR_SIZE * type_size, encrypted_header->data_nonce);
+    Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
 	auto &nullmask = *((nullmask_t *)(decryption_buffer));
 	auto vector_ptr = decryption_buffer + sizeof(nullmask_t);
@@ -282,12 +280,11 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 
         auto vector_buffer = handle->node->buffer + vector_size * vector_index;
         auto encrypted_header = (encrypted_vector_header_t*) vector_buffer;
-        auto encrypted_data = (unsigned char*)vector_buffer + sizeof(encrypted_vector_header_t);
+//        auto encrypted_data = (unsigned char*)vector_buffer + sizeof(encrypted_vector_header_t);
 
         // Decrypt existing values to encryption buffer before appending
 		if (current_tuple_count > 0) {
-            Decrypt(encryption_buffer, encrypted_header->nullmask, sizeof(nullmask_t), encrypted_header->nullmask_nonce);
-            Decrypt(encryption_buffer + sizeof(nullmask_t), encrypted_data, type_size * STANDARD_VECTOR_SIZE, encrypted_header->data_nonce);
+            Decrypt(encryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 		} else {
             ((nullmask_t*)encryption_buffer)->reset();
 		}
@@ -296,8 +293,7 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 		append_function(stats, encryption_buffer, current_tuple_count, data, offset, append_count);
 
 		// Encrypt appended values and set nonces
-        Encrypt(encrypted_header->nullmask, encryption_buffer, sizeof(nullmask_t), encrypted_header->nullmask_nonce);
-        Encrypt(encrypted_data, encryption_buffer + sizeof(nullmask_t), type_size * STANDARD_VECTOR_SIZE, encrypted_header->data_nonce);
+        Encrypt(encrypted_header->nullmask, encryption_buffer, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
 		count -= append_count;
 		offset += append_count;

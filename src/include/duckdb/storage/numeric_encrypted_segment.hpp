@@ -14,9 +14,8 @@
 namespace duckdb {
 
 typedef struct {
-    unsigned char nullmask_nonce[NONCE_BYTES];
+    unsigned char nonce[NONCE_BYTES];
     unsigned char nullmask[sizeof(nullmask_t)];
-    unsigned char data_nonce[NONCE_BYTES];
 } encrypted_vector_header_t;
 
 class NumericEncryptedSegment : public EncryptedSegment {
