@@ -163,12 +163,10 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	auto offset = vector_index * vector_size;
 
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
-//    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
 
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
-    // TODO can we optimize for a certain selectivity here?
     Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
 	auto source_nullmask = (nullmask_t *)(decryption_buffer);
