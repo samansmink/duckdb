@@ -38,10 +38,9 @@ else()
   add_subdirectory(storage)
   add_subdirectory(transaction)
 
-  # NACL external lib, TODO add source code version to third party folder
-  set(NACL_LIB_PATH /Users/samansmink/Development/nacl-20110221/build/sam/lib/amd64)
-  link_directories(/Users/samansmink/Development/nacl-20110221/build/sam/lib/amd64)
-  find_library(NACL_LIBRARY nacl HINTS /Users/samansmink/Development/nacl-20110221/build/sam/lib/amd64)
+  set(NACL_LIB_PATH $ENV{NACL_PATH}/lib/amd64)
+  link_directories(${NACL_LIB_PATH})
+  find_library(NACL_LIBRARY nacl HINTS ${NACL_LIB_PATH})
 
   set(DUCKDB_LINK_LIBS
       fmt

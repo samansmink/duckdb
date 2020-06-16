@@ -5,8 +5,14 @@ cmake_minimum_required(VERSION 2.8.7)
 
 project(DuckDB)
 
-# NACL external lib, TODO add source code version to third party folder
-set(NACL_INCLUDE_PATH /Users/samansmink/Development/nacl-20110221/build/sam/include/amd64)
+# NACL external lib, testing code
+if(DEFINED ENV{NACL_PATH})
+  message("NACL path env found, setting include path to $ENV{NACL_PATH}")
+else()
+  message( FATAL_ERROR "Did not find NACL path variable")
+endif()
+
+set(NACL_INCLUDE_PATH $ENV{NACL_PATH}/include/amd64)
 
 set(DUCKDB_MAJOR_VERSION 0)
 set(DUCKDB_MINOR_VERSION 1)
