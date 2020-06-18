@@ -6,6 +6,7 @@
 #include "duckdb/parser/column_definition.hpp"
 #include "tpch_constants.hpp"
 #include "duckdb/main/appender.hpp"
+#include <string>
 
 #define DECLARER /* EXTERN references get defined here */
 
@@ -40,6 +41,14 @@ struct tpch_append_information {
 
 void append_value(tpch_append_information &info, int32_t value) {
 	info.appender->Append<int32_t>(value);
+}
+
+void append_smallvalue(tpch_append_information &info, int16_t value) {
+    info.appender->Append<int16_t>(value);
+}
+
+void append_tinyvalue(tpch_append_information &info, int8_t value) {
+    info.appender->Append<int8_t>(value);
 }
 
 void append_string(tpch_append_information &info, const char *value) {
@@ -101,20 +110,46 @@ static void append_line(order_t *o, tpch_append_information *info) {
 		append_value(append_info, o->l[i].suppkey);
 		// l_linenumber
 		append_value(append_info, o->l[i].lcnt);
+
 		// l_quantity
 		append_value(append_info, o->l[i].quantity);
+		append_smallvalue(append_info, (uint16_t)(o->l[i].quantity));
+		append_value(append_info, (uint32_t)((uint16_t)(o->l[i].quantity)));
+
 		// l_extendedprice
 		append_decimal(append_info, o->l[i].eprice);
+        int eprice_integer = (int)(o->l[i].eprice*100);
+		append_value(append_info, eprice_integer);
+		append_decimal(append_info, (double)(eprice_integer)/100);
+
 		// l_discount
 		append_decimal(append_info, o->l[i].discount);
-		// l_tax
+		int8_t discount_integer = (int8_t)(o->l[i].discount*100);
+        append_tinyvalue(append_info, discount_integer);
+        append_decimal(append_info, (double)(discount_integer)/100);
+
+        // l_tax
 		append_decimal(append_info, o->l[i].tax);
 		// l_returnflag
 		append_char(append_info, o->l[i].rflag[0]);
 		// l_linestatus
 		append_char(append_info, o->l[i].lstatus[0]);
+
 		// l_shipdate
 		append_date(append_info, o->l[i].sdate);
+        char year[5];
+        memcpy(year, o->l[i].sdate, 4);
+        year[4] = '\0';
+        uint16_t sdate_integer = (uint16_t)atoi(year);
+        append_smallvalue(append_info, sdate_integer);
+        char decompressed_date[DATE_LEN];
+        memcpy(decompressed_date, o->l[i].sdate, DATE_LEN);
+        decompressed_date[5] = '0';
+        decompressed_date[6] = '1';
+        decompressed_date[8] = '0';
+        decompressed_date[9] = '1';
+        append_date(append_info, decompressed_date);
+
 		// l_commitdate
 		append_date(append_info, o->l[i].cdate);
 		// l_receiptdate
@@ -408,12 +443,20 @@ static string LineitemSchema(string schema, string suffix) {
 	       "l_suppkey INT NOT NULL,"
 	       "l_linenumber INT NOT NULL,"
 	       "l_quantity INTEGER NOT NULL,"
+	       "l_quantity_compressed TINYINT NOT NULL,"
+	       "l_quantity_decompressed INTEGER NOT NULL,"
 	       "l_extendedprice DECIMAL(15,2) NOT NULL,"
+           "l_extendedprice_compressed INT NOT NULL,"
+	       "l_extendedprice_decompressed DECIMAL(15,2) NOT NULL,"
 	       "l_discount DECIMAL(15,2) NOT NULL,"
+	       "l_discount_compressed TINYINT NOT NULL,"
+	       "l_discount_decompressed DECIMAL(15,2) NOT NULL,"
 	       "l_tax DECIMAL(15,2) NOT NULL,"
 	       "l_returnflag VARCHAR(1) NOT NULL,"
 	       "l_linestatus VARCHAR(1) NOT NULL,"
 	       "l_shipdate DATE NOT NULL,"
+	       "l_shipdate_compressed SMALLINT NOT NULL,"
+	       "l_shipdate_decompressed DATE NOT NULL,"
 	       "l_commitdate DATE NOT NULL,"
 	       "l_receiptdate DATE NOT NULL,"
 	       "l_shipinstruct VARCHAR(25) NOT NULL,"
