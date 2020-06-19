@@ -65,7 +65,7 @@ inline void Encrypt(unsigned char *ciphertext, unsigned char *plaintext, long le
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    aes_ctr_128_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
     chacha8avx_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
-    memcpy(ciphertext, plaintext, length);
+//    memcpy(ciphertext, plaintext, length);
 }
 
 inline void Decrypt(unsigned char *plaintext, unsigned char *ciphertext, long length, unsigned char *nonce) {
@@ -74,7 +74,7 @@ inline void Decrypt(unsigned char *plaintext, unsigned char *ciphertext, long le
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char *)TEST_KEY);
 //    aes_ctr_128_decrypt(ciphertext, length, (unsigned char*)TEST_KEY, nonce, plaintext);
     chacha8avx_decrypt(ciphertext, length, (unsigned char *)TEST_KEY, nonce, plaintext);
-    memcpy(plaintext, ciphertext, length);
+//    memcpy(plaintext, ciphertext, length);
 }
 
 inline void DecryptAtOffset(unsigned char *plaintext, unsigned char *ciphertext, long length, unsigned char *nonce,
