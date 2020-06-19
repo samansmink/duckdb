@@ -124,9 +124,9 @@ static void append_line(order_t *o, tpch_append_information *info) {
 
 		// l_discount
 		append_decimal(append_info, o->l[i].discount);
-		int8_t discount_integer = (int8_t)(o->l[i].discount*100);
-        append_tinyvalue(append_info, discount_integer);
-        append_decimal(append_info, (double)(discount_integer)/100);
+		int discount_integer = (int)(o->l[i].discount);
+        append_value(append_info, discount_integer);
+        append_decimal(append_info, (double)(discount_integer));
 
         // l_tax
 		append_decimal(append_info, o->l[i].tax);

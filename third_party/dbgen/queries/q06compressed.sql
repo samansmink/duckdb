@@ -1,5 +1,5 @@
 select
- sum((CAST(l_extendedprice_compressed AS DOUBLE)/100) * (CAST(l_discount_compressed AS DOUBLE)/100)) as revenue
+ sum((CAST(l_extendedprice_compressed AS DOUBLE)/10000) * (CAST(l_discount_compressed AS DOUBLE)/100)) as revenue
 from
  lineitem
 where
