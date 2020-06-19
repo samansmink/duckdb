@@ -24,8 +24,8 @@ extern "C" {
 
 namespace duckdb {
 
-//#define NONCE_BYTES crypto_stream_NONCEBYTES // For all NACL functions
-#define NONCE_BYTES 16 // For OPENSSL AES CTR
+#define NONCE_BYTES crypto_stream_NONCEBYTES // For all NACL functions
+//#define NONCE_BYTES 16 // For OPENSSL AES CTR
 
 int aes_ctr_128_encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key, unsigned char *iv,
                         unsigned char *ciphertext);
@@ -61,20 +61,20 @@ inline void Encrypt(unsigned char *ciphertext, unsigned char *plaintext, long le
 	memcpy(nonce, (unsigned char *)TEST_NONCE, NONCE_BYTES);
 
 //    crypto_stream_salsa208_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
-//    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
+    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    aes_ctr_128_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
 //    chacha8avx_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
-    memcpy(ciphertext, plaintext, length);
+//    memcpy(ciphertext, plaintext, length);
 }
 
 inline void Decrypt(unsigned char *plaintext, unsigned char *ciphertext, long length, unsigned char *nonce) {
 //    crypto_stream_salsa208_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
-//    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
+    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char *)TEST_KEY);
 //    aes_ctr_128_decrypt(ciphertext, length, (unsigned char*)TEST_KEY, nonce, plaintext);
 //    chacha8avx_decrypt(ciphertext, length, (unsigned char *)TEST_KEY, nonce, plaintext);
-    memcpy(plaintext, ciphertext, length);
+//    memcpy(plaintext, ciphertext, length);
 }
 
 inline void DecryptAtOffset(unsigned char *plaintext, unsigned char *ciphertext, long length, unsigned char *nonce,
