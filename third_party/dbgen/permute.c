@@ -60,7 +60,7 @@ extern seed_t Seed[];
 tdef tdefs = {NULL};
 #endif
 
-#define MAX_QUERY 24
+#define MAX_QUERY 25
 #define ITERATIONS 1000
 #define UNSET 0
 
