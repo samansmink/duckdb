@@ -14,6 +14,7 @@
 #include "duckdb.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "test_helpers.hpp"
+#include "shim_unistd.h"
 
 namespace duckdb {
 
@@ -72,8 +73,8 @@ public:
 
 	virtual unique_ptr<DuckDBBenchmarkState> CreateBenchmarkState() {
         auto config = make_unique<DBConfig>();
-        config->custom_malloc = malloc;
-        config->custom_free = free;
+        config->custom_malloc = unsecure_malloc;
+        config->custom_free = unsecure_free;
 
 		return make_unique<DuckDBBenchmarkState>(GetDatabasePath(), config.get());
 	}
