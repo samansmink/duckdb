@@ -26,6 +26,9 @@ struct DuckDBBenchmarkState : public BenchmarkState {
 	DuckDBBenchmarkState(string path) : db(path.empty() ? nullptr : path.c_str()), conn(db) {
 		conn.EnableProfiling();
 	}
+    DuckDBBenchmarkState(string path, DBConfig* config) : db(path.empty() ? nullptr : path.c_str(), config), conn(db) {
+        conn.EnableProfiling();
+    }
 	virtual ~DuckDBBenchmarkState() {
 	}
 };
@@ -68,7 +71,11 @@ public:
 	}
 
 	virtual unique_ptr<DuckDBBenchmarkState> CreateBenchmarkState() {
-		return make_unique<DuckDBBenchmarkState>(GetDatabasePath());
+        auto config = make_unique<DBConfig>();
+        config->custom_malloc = malloc;
+        config->custom_free = free;
+
+		return make_unique<DuckDBBenchmarkState>(GetDatabasePath(), config.get());
 	}
 
 	unique_ptr<BenchmarkState> Initialize() override {

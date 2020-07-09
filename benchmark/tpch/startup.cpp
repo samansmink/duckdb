@@ -19,11 +19,16 @@ using namespace std;
 		{                                                                                                              \
 			auto config = GetConfig();                                                                                 \
 			config->checkpoint_wal_size = 0;                                                                           \
+			config->custom_malloc = malloc;\
+			config->custom_free = free;\
 			DuckDB db(db_path, config.get());                                                                          \
 		}                                                                                                              \
 	}                                                                                                                  \
 	void RunBenchmark(DuckDBBenchmarkState *state) override {                                                          \
 		auto config = GetConfig();                                                                                     \
+		config->checkpoint_wal_size = 2;                                                                           \
+        config->custom_malloc = malloc;\
+        config->custom_free = free;\
 		DuckDB db(db_path, config.get());                                                                              \
 		Connection con(db);                                                                                            \
 		state->result = con.Query(QUERY);                                                                              \

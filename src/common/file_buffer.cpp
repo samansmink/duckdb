@@ -3,6 +3,7 @@
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/checksum.hpp"
 #include "duckdb/common/exception.hpp"
+#include "duckdb/common/malloc.hpp"
 
 #include <cstring>
 #include "crypto_stream.h"
@@ -19,7 +20,7 @@ FileBuffer::FileBuffer(FileBufferType type, uint64_t bufsiz) : type(type) {
 	assert(bufsiz % SECTOR_SIZE == 0);
 	assert(bufsiz >= SECTOR_SIZE);
 	// we add (SECTOR_SIZE - 1) to ensure that we can align the buffer to SECTOR_SIZE
-	malloced_buffer = (data_ptr_t)malloc(bufsiz + (SECTOR_SIZE - 1));
+	malloced_buffer = (data_ptr_t)custom_malloc(bufsiz + (SECTOR_SIZE - 1));
 	if (!malloced_buffer) {
 		throw std::bad_alloc();
 	}
@@ -40,7 +41,7 @@ FileBuffer::FileBuffer(FileBufferType type, uint64_t bufsiz) : type(type) {
 }
 
 FileBuffer::~FileBuffer() {
-	free(malloced_buffer);
+    custom_free(malloced_buffer);
 }
 
 void FileBuffer::Read(FileHandle &handle, uint64_t location, const char * key) {

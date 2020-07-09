@@ -49,6 +49,9 @@ public:
 	//! The collation type of the database
 	string collation = string();
 
+    void* (*custom_malloc)(size_t size) = nullptr;
+    void (*custom_free)(void* buf) = nullptr;
+
 private:
 	// FIXME: don't set this as a user: used internally (only for now)
 	bool checkpoint_only = false;
@@ -61,6 +64,8 @@ class DuckDB {
 public:
 	DuckDB(const char *path = nullptr, DBConfig *config = nullptr);
 	DuckDB(const string &path, DBConfig *config = nullptr);
+
+	static void set_custom_malloc(void* (*malloc_fun)(size_t size),  void (*free_fun)(void* buf));
 
 	~DuckDB();
 

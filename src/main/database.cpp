@@ -6,6 +6,8 @@
 #include "duckdb/storage/storage_manager.hpp"
 #include "duckdb/transaction/transaction_manager.hpp"
 
+#include "duckdb/common/malloc.hpp"
+
 using namespace duckdb;
 using namespace std;
 
@@ -67,4 +69,15 @@ void DuckDB::Configure(DBConfig &config) {
 	maximum_memory = config.maximum_memory;
 	temporary_directory = config.temporary_directory;
 	collation = config.collation;
+
+	printf("config.custom_malloc: %p\n", config.custom_malloc);
+    printf("config.custom_free: %p\n", config.custom_free);
+    printf("global custom_malloc: %p\n", custom_malloc);
+    printf("global custom_free: %p\n", custom_free);
+
+    custom_malloc = config.custom_malloc;
+    custom_free = config.custom_free;
+
+    printf("global custom_malloc after init: %p\n", custom_malloc);
+    printf("global custom_free after init: %p\n", custom_free);
 }

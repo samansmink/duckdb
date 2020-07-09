@@ -20,6 +20,7 @@ add_library_unity(duckdb_common
                   symbols.cpp
                   types.cpp
                   crypto.cpp
+                  malloc.cpp
                   fstream_util.cpp)
 set(ALL_OBJECT_FILES
     ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:duckdb_common>
