@@ -13,8 +13,7 @@ add_subdirectory(tpcds)
 add_subdirectory(imdb)
 add_subdirectory(expression_reordering)
 
-add_library(libos SHARED IMPORTED)
-set_property(TARGET libos PROPERTY IMPORTED_LOCATION "/home/sam/Documents/graphene/LibOS/glibc-build/libos/liblibos.so")
+find_library(LIBOS_LIBRARY libos HINTS /home/sam/Documents/graphene/LibOS/glibc-build/libos)
 
 add_executable(benchmark_runner benchmark_runner.cpp ${BENCHMARK_OBJECT_FILES})
 target_link_libraries(benchmark_runner
@@ -24,4 +23,5 @@ target_link_libraries(benchmark_runner
                       imdb
                       test_helpers
                       tpce
+                      ${LIBOS_LIBRARY}
                       sqlite_transfer)

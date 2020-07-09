@@ -14,7 +14,10 @@
 #include "duckdb.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "test_helpers.hpp"
+
+extern "C" {
 #include "shim_unistd.h"
+}
 
 namespace duckdb {
 
