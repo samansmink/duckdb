@@ -1,6 +1,7 @@
 #include "duckdb/storage/table/version_manager.hpp"
 #include "duckdb/transaction/transaction.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
+#include "duckdb/common/malloc.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -133,7 +134,8 @@ ChunkInsertInfo *VersionManager::GetInsertInfo(idx_t chunk_idx) {
 	auto entry = info.find(chunk_idx);
 	if (entry == info.end()) {
 		// no version info yet: have to create one
-		auto new_info = make_unique<ChunkInsertInfo>(*this, chunk_idx * STANDARD_VECTOR_SIZE);
+		auto buf = custom_malloc(sizeof(ChunkInsertInfo)); //TODO this is a memoryleak
+		auto new_info = unique_ptr<ChunkInsertInfo>(new (buf)ChunkInsertInfo(*this, chunk_idx * STANDARD_VECTOR_SIZE));
 		auto result = new_info.get();
 		info[chunk_idx] = move(new_info);
 		return result;
@@ -145,7 +147,8 @@ ChunkInsertInfo *VersionManager::GetInsertInfo(idx_t chunk_idx) {
 		} else {
 			assert(current_info->type == ChunkInfoType::DELETE_INFO);
 			// delete info, change to insert info
-			auto new_info = make_unique<ChunkInsertInfo>((ChunkDeleteInfo &)*current_info);
+			auto buf = custom_malloc(sizeof(ChunkInsertInfo));  //TODO this is a memoryleak
+			auto new_info = unique_ptr<ChunkInsertInfo>(new (buf)ChunkInsertInfo((ChunkDeleteInfo &)*current_info));
 			auto result = new_info.get();
 			info[chunk_idx] = move(new_info);
 			return result;
