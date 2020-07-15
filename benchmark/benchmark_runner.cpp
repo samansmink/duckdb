@@ -12,6 +12,11 @@
 #include <fstream>
 #include <sstream>
 #include <thread>
+#include <map>
+
+extern "C" {
+#include "shim_unistd.h"
+}
 
 using namespace duckdb;
 using namespace std;
@@ -24,6 +29,24 @@ Benchmark::Benchmark(bool register_benchmark, string name, string group) : name(
 	if (register_benchmark) {
 		BenchmarkRunner::RegisterBenchmark(this);
 	}
+}
+
+size_t duckdb::malloced = 0;
+size_t duckdb::malloced_max = 0;
+std::map<void*, size_t> duckdb::malloced_bufs;
+
+void* duckdb::malloc_with_counter(size_t size) {
+	void* buf = unsecure_malloc(size);
+	duckdb::malloced_bufs[buf] = size;
+	duckdb::malloced += size;
+	duckdb::malloced_max = std::max(duckdb::malloced_max, duckdb::malloced);
+	return buf;
+}
+
+void duckdb::free_with_counter(void* ptr) {
+	duckdb::malloced -= duckdb::malloced_bufs[ptr];
+	duckdb::malloced_bufs.erase(ptr);
+	unsecure_free(ptr);
 }
 
 void BenchmarkRunner::SaveDatabase(DuckDB &db, string name) {
@@ -192,6 +215,7 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		}
 	}
 	benchmark->Finalize();
+	fprintf(stderr,"Max malloced %ld\n", duckdb::malloced_max);
 }
 
 void BenchmarkRunner::RunBenchmarks() {

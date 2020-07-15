@@ -13,6 +13,7 @@
 #include "benchmark.hpp"
 #include "duckdb/common/constants.hpp"
 #include "duckdb/common/fstream.hpp"
+#include <map>
 
 namespace duckdb {
 class DuckDB;
@@ -52,4 +53,9 @@ public:
 	ofstream log_file;
 };
 
+extern size_t malloced;
+extern size_t malloced_max;
+extern std::map<void*, size_t> malloced_bufs;
+void* malloc_with_counter(size_t size);
+void free_with_counter(void* ptr);
 } // namespace duckdb

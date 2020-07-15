@@ -11,13 +11,10 @@
 #pragma once
 
 #include "benchmark.hpp"
+#include "benchmark_runner.hpp"
 #include "duckdb.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "test_helpers.hpp"
-
-extern "C" {
-#include "shim_unistd.h"
-}
 
 namespace duckdb {
 
@@ -76,8 +73,8 @@ public:
 
 	virtual unique_ptr<DuckDBBenchmarkState> CreateBenchmarkState() {
         auto config = make_unique<DBConfig>();
-        config->custom_malloc = unsecure_malloc;
-        config->custom_free = unsecure_free;
+        config->custom_malloc = malloc_with_counter;
+        config->custom_free = free_with_counter;
 
 		return make_unique<DuckDBBenchmarkState>(GetDatabasePath(), config.get());
 	}
@@ -92,6 +89,7 @@ public:
 		auto state = (DuckDBBenchmarkState *)state_;
 		string query = GetQuery();
 		if (query.empty()) {
+			
 			RunBenchmark(state);
 		} else {
 			state->result = state->conn.Query(query);
