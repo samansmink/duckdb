@@ -14,6 +14,7 @@
 
 #include "duckdb/storage/table/chunk_info.hpp"
 #include "duckdb/storage/storage_lock.hpp"
+#include "duckdb/common/malloc.hpp"
 
 namespace duckdb {
 class DataTable;
@@ -32,7 +33,7 @@ public:
 	//! The read/write lock for the delete info and insert info
 	StorageLock lock;
 	//! The info for each of the chunks
-	unordered_map<idx_t, unique_ptr<ChunkInfo>> info;
+	unordered_map<idx_t, unique_ptr<ChunkInfo, CustomObjDeleter<ChunkInfo>>> info;
 	//! The maximum amount of rows managed by the version manager
 	idx_t max_row;
 	//! The base row of the version manager, i.e. when passing row = base_row, it will be treated as row = 0

@@ -49,8 +49,8 @@ public:
 	//! The collation type of the database
 	string collation = string();
 
-    void* (*custom_malloc)(size_t size) = nullptr;
-    void (*custom_free)(void* buf) = nullptr;
+    void* (*custom_malloc)(size_t size) = malloc;
+    void (*custom_free)(void* buf) = free;
 
 private:
 	// FIXME: don't set this as a user: used internally (only for now)

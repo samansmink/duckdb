@@ -1,7 +1,6 @@
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/common/types/vector_buffer.hpp"
 #include "duckdb/common/types/chunk_collection.hpp"
-
 #include "duckdb/common/assert.hpp"
 
 using namespace duckdb;

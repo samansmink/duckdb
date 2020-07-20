@@ -4,6 +4,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb.hpp"
 #include "duckdb_benchmark.hpp"
+#include "sgx_stats.hpp"
 
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
@@ -13,6 +14,8 @@
 #include <sstream>
 #include <thread>
 #include <map>
+#include <malloc.h>
+#include <unistd.h>
 
 extern "C" {
 #include "shim_unistd.h"
@@ -171,6 +174,7 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 	auto state = benchmark->Initialize();
 	auto nruns = benchmark->NRuns();
 	for (size_t i = 0; i < nruns + 1; i++) {
+		struct sgx_stats stats_before, stats_after;
 		bool hotrun = i > 0;
 		if (hotrun) {
 			Log(StringUtil::Format("%d/%d...", i, nruns));
@@ -184,9 +188,16 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		timeout = false;
 		thread interrupt_thread(sleep_thread, benchmark, state.get(), benchmark->Timeout());
 
+		sgx_stats_read(&stats_before);
 		profiler.Start();
 		benchmark->Run(state.get());
 		profiler.End();
+		sgx_stats_read(&stats_after);
+
+		// fprintf(stderr, "Paging: Paged in:%ld Paged out: %ld\n", stats_after.pageins - stats_before.pageins, stats_after.pageouts - stats_before.pageouts);
+		// fprintf(stderr,"Max malloced custom malloc:%ld\n", duckdb::malloced_max);
+		// fprintf(stderr,"Max malloced regular malloc:\n");
+		// malloc_stats();
 
 		benchmark->Cleanup(state.get());
 
@@ -214,8 +225,8 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 			LogLine("DONE");
 		}
 	}
+
 	benchmark->Finalize();
-	fprintf(stderr,"Max malloced %ld\n", duckdb::malloced_max);
 }
 
 void BenchmarkRunner::RunBenchmarks() {
