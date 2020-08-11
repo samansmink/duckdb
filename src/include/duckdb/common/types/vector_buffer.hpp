@@ -25,7 +25,8 @@ enum class VectorBufferType : uint8_t {
 	VECTOR_CHILD_BUFFER, // vector child buffer: holds another vector
 	STRING_BUFFER,       // string buffer, holds a string heap
 	STRUCT_BUFFER,       // struct buffer, holds a ordered mapping from name to child vector
-	LIST_BUFFER          // list buffer, holds a single flatvector child
+	LIST_BUFFER,         // list buffer, holds a single flatvector child
+	DECRYPTION_BUFFER    // holds the nullmask and the data consecutively stored in a single array of data.
 };
 
 //! The VectorBuffer is a class used by the vector to hold its data
@@ -45,6 +46,7 @@ public:
 	}
 
 	static buffer_ptr<VectorBuffer> CreateStandardVector(TypeId type);
+    static buffer_ptr<VectorBuffer> CreateDecryptionVector(TypeId type);
 	static buffer_ptr<VectorBuffer> CreateConstantVector(TypeId type);
 
 protected:

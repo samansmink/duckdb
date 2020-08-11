@@ -51,6 +51,10 @@ void VectorOperations::Copy(Vector &source, Vector &target, const SelectionVecto
 	case VectorType::CONSTANT_VECTOR:
 	case VectorType::FLAT_VECTOR:
 		break;
+	case VectorType::SGX_VECTOR:
+        SGXVector::Decrypt(source);
+        fprintf(stderr, "Note: unhandled SGX Vector in copy operation.\n");
+	    break;
 	default:
 		throw NotImplementedException("FIXME unimplemented vector type for VectorOperations::Copy");
 	}
@@ -180,10 +184,21 @@ void VectorOperations::Copy(Vector &source, Vector &target, idx_t source_count, 
 		VectorOperations::Copy(child, target, dict_sel, source_count, source_offset, target_offset);
 		break;
 	}
+    case VectorType::SGX_DICTIONARY_VECTOR: {
+        // dictionary: continue into child with selection vector
+        auto &child = DictionaryVector::Child(source);
+        auto &dict_sel = DictionaryVector::SelVector(source);
+        VectorOperations::Copy(child, target, dict_sel, source_count, source_offset, target_offset);
+        break;
+    }
 	case VectorType::CONSTANT_VECTOR:
 		VectorOperations::Copy(source, target, ConstantVector::ZeroSelectionVector, source_count, source_offset,
 		                       target_offset);
 		break;
+    case VectorType::SGX_VECTOR:
+        VectorOperations::Copy(source, target, FlatVector::IncrementalSelectionVector, source_count, source_offset,
+                               target_offset);
+        break;
 	default:
 		source.Normalify(source_count);
 		VectorOperations::Copy(source, target, FlatVector::IncrementalSelectionVector, source_count, source_offset,

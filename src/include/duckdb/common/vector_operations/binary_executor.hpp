@@ -12,6 +12,7 @@
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include <functional>
+#include "duckdb/common/crypto.hpp"
 
 namespace duckdb {
 
@@ -160,6 +161,37 @@ private:
 		    *ldata.nullmask, *rdata.nullmask, FlatVector::Nullmask(result), fun);
 	}
 
+    template <class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE, class OPWRAPPER, class OP, class FUNC,
+        bool IGNORE_NULL>
+    static void ExecuteGenericSGX(Vector &left, Vector &right, Vector &result, idx_t count, FUNC fun) {
+        VectorData ldata, rdata;
+
+        result.vector_type = VectorType::SGX_VECTOR;
+
+        // TODO ENTER SGX
+
+        // TODO WHY DO I INITIALIZE TWICE?
+        // Initialize DecryptedDataBuffer if it doesnt have TODO this should probably already be done here?
+        if (!SGXVector::hasDecryptedData(result)) SGXVector::InitializeDecryptedData(result);
+
+        // Get pointer to decryption buffer of result vector, if it doesnt exists we create one
+        auto decrypted_result = SGXVector::GetDecryptedData(result);
+        if (decrypted_result == nullptr) {
+            decrypted_result = SGXVector::InitializeDecryptedData(result);
+        }
+        auto decrypted_result_data = decrypted_result + sizeof(nullmask_t);
+        nullmask_t &decrypted_result_nullmask = *((nullmask_t*)decrypted_result);
+
+        SGXVector::Orrify(left, count, ldata);
+        SGXVector::Orrify(right, count, rdata);
+
+        ExecuteGenericLoop<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(
+            (LEFT_TYPE *)ldata.data, (RIGHT_TYPE *)rdata.data, (RESULT_TYPE*)decrypted_result_data, ldata.sel, rdata.sel, count,
+            *ldata.nullmask, *rdata.nullmask, decrypted_result_nullmask, fun);
+
+        // TODO EXIT SGX
+    }
+
 	template <class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE, class OPWRAPPER, class OP, class FUNC,
 	          bool IGNORE_NULL>
 	static void ExecuteSwitch(Vector &left, Vector &right, Vector &result, idx_t count, FUNC fun) {
@@ -175,7 +207,19 @@ private:
 		} else if (left.vector_type == VectorType::FLAT_VECTOR && right.vector_type == VectorType::FLAT_VECTOR) {
 			ExecuteFlat<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL, false, false>(
 			    left, right, result, count, fun);
-		} else {
+		} else if (left.vector_type == VectorType::SGX_VECTOR && right.vector_type == VectorType::SGX_VECTOR) {
+            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
+                                                                                                 count, fun);
+        } else if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR && right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
+            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
+                                                                                                    count, fun);
+        } else if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR && right.vector_type == VectorType::SGX_VECTOR) {
+            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
+                                                                                                    count, fun);
+        } else if (left.vector_type == VectorType::SGX_VECTOR && right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
+            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
+                                                                                                    count, fun);
+        } else {
 			ExecuteGeneric<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
 			                                                                                     count, fun);
 		}

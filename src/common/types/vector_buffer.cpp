@@ -4,6 +4,8 @@
 
 #include "duckdb/common/assert.hpp"
 
+#include "duckdb/common/crypto.hpp"
+
 using namespace duckdb;
 using namespace std;
 
@@ -14,7 +16,12 @@ VectorBuffer::VectorBuffer(idx_t data_size) : type(VectorBufferType::STANDARD_BU
 }
 
 buffer_ptr<VectorBuffer> VectorBuffer::CreateStandardVector(TypeId type) {
-	return make_buffer<VectorBuffer>(STANDARD_VECTOR_SIZE * GetTypeIdSize(type));
+//    Buffers should store encrypted data, nullmask and the nonce.
+	return make_buffer<VectorBuffer>(STANDARD_VECTOR_SIZE * GetTypeIdSize(type) + sizeof(nullmask_t) +  NONCE_BYTES);
+}
+
+buffer_ptr<VectorBuffer> VectorBuffer::CreateDecryptionVector(TypeId type){
+    return make_buffer<VectorBuffer>(STANDARD_VECTOR_SIZE * GetTypeIdSize(type) + sizeof(nullmask_t));
 }
 
 buffer_ptr<VectorBuffer> VectorBuffer::CreateConstantVector(TypeId type) {

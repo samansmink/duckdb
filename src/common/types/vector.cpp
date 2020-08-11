@@ -92,6 +92,16 @@ void Vector::Slice(const SelectionVector &sel, idx_t count) {
 		buffer = make_unique<DictionaryBuffer>(move(sliced_dictionary));
 		return;
 	}
+	if (vector_type == VectorType::SGX_VECTOR) {
+        auto child_ref = make_buffer<VectorChildBuffer>();
+        child_ref->data.Reference(*this);
+
+        auto dict_buffer = make_unique<DictionaryBuffer>(sel);
+        buffer = move(dict_buffer);
+        auxiliary = move(child_ref);
+        vector_type = VectorType::SGX_DICTIONARY_VECTOR;
+        return;
+	}
 	auto child_ref = make_buffer<VectorChildBuffer>();
 	child_ref->data.Reference(*this);
 
@@ -809,6 +819,80 @@ bool ListVector::HasEntry(const Vector &vector) {
 	}
 	assert(vector.vector_type == VectorType::FLAT_VECTOR || vector.vector_type == VectorType::CONSTANT_VECTOR);
 	return vector.auxiliary != nullptr;
+}
+
+
+void SGXVector::Decrypt(Vector &vector) {
+    assert(vector.vector_type == VectorType::SGX_VECTOR);
+
+    auto decrypted = SGXVector::GetDecryptedData(vector);
+    auto encrypted = SGXVector::GetEncryptedData(vector);
+
+    if (decrypted == nullptr) {
+        decrypted = SGXVector::InitializeDecryptedData(vector);
+        auto encrypted_header = (encrypted_vector_header_t*)encrypted;
+        duckdb::Decrypt(decrypted, encrypted_header->nullmask, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t), encrypted_header->nonce);
+    }
+
+    // Copy decrypted data to regular vector buffer
+    memcpy(encrypted, (data_ptr_t)decrypted + sizeof(nullmask_t), GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE);
+
+    vector.vector_type = VectorType::FLAT_VECTOR;
+    auto nullmask = FlatVector::GetNullmaskPtr(vector);
+    memcpy(nullmask, decrypted, sizeof(nullmask_t));
+}
+
+data_ptr_t SGXVector::InitializeDecryptedData(Vector &vector) {
+    assert(vector.vector_type == VectorType::SGX_VECTOR);
+    assert(vector.auxiliary == nullptr);
+    vector.auxiliary = VectorBuffer::CreateDecryptionVector(vector.type);
+
+    auto aux_buf = vector.auxiliary->GetData();
+    auto aux_buf_nullmask = aux_buf;
+
+    // Init nullmask to all false;
+    memset(aux_buf_nullmask, 0, sizeof(nullmask_t));
+
+    return vector.auxiliary->GetData();
+}
+
+// To be called from enclave only, TODO rewrite to work without Vector class
+void SGXVector::Orrify(Vector &vector, idx_t count, VectorData &data) {
+    data_ptr_t decrypted_data;
+
+    if (vector.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
+
+        auto &sel = DictionaryVector::SelVector(vector);
+        auto &child = DictionaryVector::Child(vector);
+        assert(child.vector_type == VectorType::SGX_VECTOR);
+
+        decrypted_data = SGXVector::GetDecryptedData(child);
+        if (decrypted_data == nullptr) {
+            decrypted_data = SGXVector::InitializeDecryptedData(child);
+            auto encrypted_data = SGXVector::GetEncryptedData(child);
+            auto encrypted_header = (encrypted_vector_header_t*)encrypted_data;
+            duckdb::Decrypt(decrypted_data, encrypted_header->nullmask, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t), encrypted_header->nonce);
+        }
+
+        data.sel = &sel;
+    } else if (vector.vector_type == VectorType::SGX_VECTOR) {
+
+        decrypted_data = SGXVector::GetDecryptedData(vector);
+        if (decrypted_data == nullptr) {
+            decrypted_data = SGXVector::InitializeDecryptedData(vector);
+            auto encrypted_data = SGXVector::GetEncryptedData(vector);
+            auto encrypted_header = (encrypted_vector_header_t*)encrypted_data;
+            duckdb::Decrypt(decrypted_data, encrypted_header->nullmask, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t), encrypted_header->nonce);
+        }
+
+        data.sel = &FlatVector::IncrementalSelectionVector;
+
+    } else {
+        throw NotImplementedException("Unimplemented Vector Type for SGXVector::Orrify!");
+    }
+
+    data.data = (data_ptr_t)decrypted_data + sizeof(nullmask_t);
+    data.nullmask = (nullmask_t*) decrypted_data;
 }
 
 ChunkCollection &ListVector::GetEntry(const Vector &vector) {

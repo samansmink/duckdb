@@ -14,6 +14,7 @@
 #include "duckdb/common/types/value.hpp"
 #include "duckdb/common/enums/vector_type.hpp"
 #include "duckdb/common/types/vector_buffer.hpp"
+#include "duckdb/common/crypto.hpp"
 
 namespace duckdb {
 //! Type used for nullmasks
@@ -41,6 +42,7 @@ class Vector {
 	friend struct StringVector;
 	friend struct StructVector;
 	friend struct SequenceVector;
+	friend struct SGXVector;
 
 	friend class DataChunk;
 
@@ -171,11 +173,11 @@ struct ConstantVector {
 
 struct DictionaryVector {
 	static inline SelectionVector &SelVector(const Vector &vector) {
-		assert(vector.vector_type == VectorType::DICTIONARY_VECTOR);
+		assert(vector.vector_type == VectorType::DICTIONARY_VECTOR || vector.vector_type == VectorType::SGX_DICTIONARY_VECTOR);
 		return ((DictionaryBuffer &)*vector.buffer).GetSelVector();
 	}
 	static inline Vector &Child(const Vector &vector) {
-		assert(vector.vector_type == VectorType::DICTIONARY_VECTOR);
+		assert(vector.vector_type == VectorType::DICTIONARY_VECTOR || vector.vector_type == VectorType::SGX_DICTIONARY_VECTOR);
 		return ((VectorChildBuffer &)*vector.auxiliary).data;
 	}
 };
@@ -225,6 +227,32 @@ struct ListVector {
 	static ChunkCollection &GetEntry(const Vector &vector);
 	static bool HasEntry(const Vector &vector);
 	static void SetEntry(Vector &vector, unique_ptr<ChunkCollection> entry);
+};
+
+struct SGXVector {
+    static inline data_ptr_t GetEncryptedData(Vector &vector) {
+        assert(vector.vector_type == VectorType::SGX_VECTOR);
+        return vector.data;
+	}
+
+    static inline data_ptr_t GetDecryptedData(Vector &vector) {
+        assert(vector.vector_type == VectorType::SGX_VECTOR);
+        if (vector.auxiliary != nullptr) {
+			return vector.auxiliary->GetData();
+		} else {
+            return nullptr;
+        }
+    }
+
+    static inline bool hasDecryptedData(Vector &vector) {
+        assert(vector.vector_type == VectorType::SGX_VECTOR);
+        return vector.auxiliary == nullptr;
+    }
+
+    static data_ptr_t InitializeDecryptedData(Vector &vector);
+    // Only used for testing, decrypting of vectors should happen in SGX
+    static void Decrypt(Vector &vector);
+    static void Orrify(Vector &vector, idx_t count, VectorData &data);
 };
 
 struct StringVector {

@@ -173,7 +173,28 @@ public:
 			                                                   FlatVector::Nullmask(input), nullptr);
 			break;
 		}
-		default: {
+		case VectorType::SGX_VECTOR: {
+
+            // TODO ENTER SGX
+
+            // Get pointers to decryption buffer of arg vectors.
+            auto decrypted_data = SGXVector::GetDecryptedData(input);
+
+            if (decrypted_data == nullptr) {
+                decrypted_data = SGXVector::InitializeDecryptedData(input);
+                auto encrypted_data = SGXVector::GetEncryptedData(input);
+                auto encrypted_header = (encrypted_vector_header_t*)encrypted_data;
+                Decrypt(decrypted_data, encrypted_header->nullmask, GetTypeIdSize(input.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t), encrypted_header->nonce);
+            }
+
+            auto idata =  (data_ptr_t)decrypted_data + sizeof(nullmask_t);
+            auto nullmask = *((nullmask_t*)decrypted_data);
+            UnaryUpdateLoop<STATE_TYPE, INPUT_TYPE, OP, false>((INPUT_TYPE *)idata, (STATE_TYPE *)state, count, nullmask, nullptr);
+
+            //TODO EXIT SGX
+            break;
+        }
+        default: {
 			VectorData idata;
 			input.Orrify(count, idata);
 			UnaryUpdateLoop<STATE_TYPE, INPUT_TYPE, OP, true>((INPUT_TYPE *)idata.data, (STATE_TYPE *)state, count,
