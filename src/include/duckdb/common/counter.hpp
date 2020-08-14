@@ -10,6 +10,6 @@
 
 namespace duckdb {
 
-extern long ocall_count;
+extern long ecall_count;
 
 } // namespace duckdb

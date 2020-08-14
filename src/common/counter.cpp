@@ -5,6 +5,6 @@ using namespace std;
 
 namespace duckdb {
 
-long ocall_counter = 0;
+long ecall_count = 0;
 
 } // namespace duckdb

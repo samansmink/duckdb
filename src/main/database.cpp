@@ -5,6 +5,7 @@
 #include "duckdb/main/connection_manager.hpp"
 #include "duckdb/storage/storage_manager.hpp"
 #include "duckdb/transaction/transaction_manager.hpp"
+#include "duckdb/common/counter.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -47,6 +48,7 @@ DuckDB::DuckDB(const string &path, DBConfig *config) : DuckDB(path.c_str(), conf
 }
 
 DuckDB::~DuckDB() {
+    fprintf(stderr, "Total ecalls: %ld\n", ecall_count);
 }
 
 void DuckDB::Configure(DBConfig &config) {

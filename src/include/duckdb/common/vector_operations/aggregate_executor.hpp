@@ -11,6 +11,7 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
+#include "duckdb/common/counter.hpp"
 
 namespace duckdb {
 
@@ -176,6 +177,7 @@ public:
 		case VectorType::SGX_VECTOR: {
 
             // TODO ENTER SGX
+            ecall_count++;
 
             // Get pointers to decryption buffer of arg vectors.
             auto decrypted_data = SGXVector::GetDecryptedData(input);

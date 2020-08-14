@@ -8,6 +8,7 @@
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "duckdb/storage/data_table.hpp"
 #include "duckdb/common/crypto.hpp"
+#include "duckdb/common/counter.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -178,8 +179,9 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
 //    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
 
+    // TODO ENTER SGX
+    ecall_count++;
 
-    // TODO ENTER SGX HERE
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
@@ -297,6 +299,9 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
 
+    // TODO enter SGX
+    ecall_count++;
+
     // Decrypt the vector to a decryption buffer;
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
@@ -350,6 +355,8 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	default:
 		throw InvalidTypeException(type, "Invalid type for filter scan");
 	}
+
+	//TODO Exit SGX
 }
 
 //===--------------------------------------------------------------------===//

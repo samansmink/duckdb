@@ -13,6 +13,7 @@
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include <functional>
 #include "duckdb/common/crypto.hpp"
+#include "duckdb/common/counter.hpp"
 
 namespace duckdb {
 
@@ -169,6 +170,7 @@ private:
         result.vector_type = VectorType::SGX_VECTOR;
 
         // TODO ENTER SGX
+        ecall_count++;
 
         // TODO WHY DO I INITIALIZE TWICE?
         // Initialize DecryptedDataBuffer if it doesnt have TODO this should probably already be done here?

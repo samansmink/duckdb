@@ -10,6 +10,7 @@
 #include "duckdb/transaction/transaction_manager.hpp"
 #include "duckdb/storage/table/transient_segment.hpp"
 #include "duckdb/storage/storage_manager.hpp"
+#include "duckdb/common/counter.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -232,6 +233,9 @@ void DataTable::Scan(Transaction &transaction, DataChunk &result, TableScanState
 }
 
 template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_filter, T constant) {
+    //TODO ENTER SGX
+
+    ecall_count++;
 	T *min = (T *)state.column_scans[table_filter.column_index].current->stats.minimum.get();
 	T *max = (T *)state.column_scans[table_filter.column_index].current->stats.maximum.get();
 	switch (table_filter.comparison_type) {
@@ -248,6 +252,8 @@ template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_f
 	default:
 		throw NotImplementedException("Operation not implemented");
 	}
+
+	//TODO EXIT SGX;
 }
 
 bool checkZonemapString(TableScanState &state, TableFilter &table_filter, const char *constant) {
