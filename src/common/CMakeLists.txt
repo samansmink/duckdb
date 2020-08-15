@@ -20,6 +20,7 @@ add_library_unity(duckdb_common
                   symbols.cpp
                   types.cpp
                   crypto.cpp
+                  sgx.cpp
                   counter.cpp
                   fstream_util.cpp)
 set(ALL_OBJECT_FILES

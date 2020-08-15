@@ -42,6 +42,11 @@ else()
   link_directories(${NACL_LIB_PATH})
   find_library(NACL_LIBRARY nacl HINTS ${NACL_LIB_PATH})
 
+  find_library(SGXURTS_LIB sgx_urts HINTS /usr/lib/x86_64-linux-gnu)
+
+  set(DUCKENCLAVE_PATH ../third_party/sgx)
+  find_library(DUCKENCLAVE_LIBRARY duck_enclave HINTS ${DUCKENCLAVE_PATH})
+
   set(DUCKDB_LINK_LIBS
       fmt
       pg_query
@@ -52,7 +57,10 @@ else()
       Threads::Threads
       OpenSSL::Crypto
       crypto
-      ${NACL_LIBRARY})
+      ${DUCKENCLAVE_LIBRARY}
+      pthread
+      ${NACL_LIBRARY}
+      ${SGXURTS_LIB})
 
   add_library(duckdb SHARED ${ALL_OBJECT_FILES})
   target_link_libraries(duckdb ${DUCKDB_LINK_LIBS})

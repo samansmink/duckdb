@@ -13,6 +13,7 @@ else()
 endif()
 
 set(NACL_INCLUDE_PATH $ENV{NACL_PATH}/include/amd64)
+set(SGX_SDK_INCLUDE_PATH $ENV{SGX_SDK}/include)
 
 set(DUCKDB_MAJOR_VERSION 0)
 set(DUCKDB_MINOR_VERSION 1)
@@ -183,6 +184,8 @@ include_directories(third_party/miniparquet)
 include_directories(third_party/crypto/include)
 include_directories(${NACL_INCLUDE_PATH})
 include_directories(${OPENSSL_INCLUDE_DIR})
+include_directories(${SGX_SDK_INCLUDE_PATH})
+include_directories(third_party/sgx)
 
 # todo only regenerate ub file if one of the input files changed hack alert
 function(enable_unity_build UB_SUFFIX SOURCE_VARIABLE_NAME)

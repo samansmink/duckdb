@@ -6,6 +6,7 @@
 #include "duckdb/storage/storage_manager.hpp"
 #include "duckdb/transaction/transaction_manager.hpp"
 #include "duckdb/common/counter.hpp"
+#include "duckdb/common/sgx.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -14,6 +15,8 @@ DBConfig::~DBConfig() {
 }
 
 DuckDB::DuckDB(const char *path, DBConfig *config) {
+    EnclaveExecutor::InitializeEnclave();
+
 	if (config) {
 		// user-supplied configuration
 		Configure(*config);
@@ -48,7 +51,7 @@ DuckDB::DuckDB(const string &path, DBConfig *config) : DuckDB(path.c_str(), conf
 }
 
 DuckDB::~DuckDB() {
-    fprintf(stderr, "Total ecalls: %ld\n", ecall_count);
+    EnclaveExecutor::DestroyEnclave();
 }
 
 void DuckDB::Configure(DBConfig &config) {

@@ -18,6 +18,7 @@ if(NOT WIN32 AND NOT SUN)
   add_subdirectory(dsdgen)
   add_subdirectory(sqlsmith)
   add_subdirectory(sqlite)
+  add_subdirectory(sgx)
   add_subdirectory(tpce-tool)
 
 endif()
