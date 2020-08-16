@@ -40,29 +40,39 @@ void BinaryDoubleAdditionExecutor(double *__restrict ldata,
     }
 }
 
-void decrypt_buffer(data_ptr_t encrypted, data_ptr_t* decrypted, idx_t length, size_t data_size) {
+// TODO NONCE IS IN BUFFER
+void decrypt_buffer(data_ptr_t encrypted, data_ptr_t* decrypted, idx_t buf_size) {
     if(*decrypted == nullptr){
-        *decrypted = new data_t[data_size * length];
-
-        sgx_aes_ctr_decrypt((const sgx_aes_gcm_128bit_key_t *)TEST_KEY,
-            encrypted,
-            (uint32_t)length * (uint32_t)data_size,
-            TEST_NONCE,
-            NONCE_BYTES,
-            *decrypted);
-        return;
-    } else {
-        // TODO Decryption buffer exists already -> We should verify if the address is within secure memory to be secure
-
-        return;
+        *decrypted = new data_t[buf_size];
     }
+    // TODO Decryption buffer exists already -> We should verify if the address is within secure memory to be secure (But for now its usefull for debugging)
+
+    uint8_t key[16], iv[16];
+    memset(key,0,16); memset(iv,0,16);
+
+    memcpy(key, TEST_KEY, 16);
+    memcpy(iv, TEST_NONCE, 16);
+
+    sgx_aes_ctr_decrypt(&key,
+                        encrypted + NONCE_BYTES,
+                        (uint32_t)buf_size,
+                        iv, // TODO GET NONCE FROM VALUE
+                        NONCE_BYTES*8,
+                        *decrypted);
+
+    printf("Finished decrypting!");
+
+}
+
+void ecall_decrypt_buffer(void* encrypted, void** decrypted, uint64_t buf_size) {
+    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)decrypted, (idx_t)buf_size);
 }
 
 void ecall_binary_double_addition_executor(void* l_encrypted, void** l_decrypted, void* r_encrypted, void** r_decrypted, void** result_decrypted, void* l_sel, void* r_sel, int count)
 {
     // Decrypt encrypted vectors
-    decrypt_buffer((data_ptr_t)l_encrypted, (data_ptr_t*)l_decrypted, VECTOR_SIZE, sizeof(double));
-    decrypt_buffer((data_ptr_t)r_encrypted, (data_ptr_t*)r_decrypted, VECTOR_SIZE, sizeof(double));
+    decrypt_buffer((data_ptr_t)l_encrypted, (data_ptr_t*)l_decrypted, VECTOR_SIZE * sizeof(double));
+    decrypt_buffer((data_ptr_t)r_encrypted, (data_ptr_t*)r_decrypted, VECTOR_SIZE * sizeof(double));
 
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {

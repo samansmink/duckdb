@@ -7,6 +7,7 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/types/null_value.hpp"
 #include "duckdb/common/types/chunk_collection.hpp"
+#include "duckdb/common/sgx.hpp"
 
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 
@@ -52,7 +53,7 @@ void VectorOperations::Copy(Vector &source, Vector &target, const SelectionVecto
 	case VectorType::FLAT_VECTOR:
 		break;
 	case VectorType::SGX_VECTOR:
-        SGXVector::Decrypt(source);
+        EnclaveExecutor::Decrypt(source);
         fprintf(stderr, "Note: unhandled SGX Vector in copy operation.\n");
 	    break;
 	default:

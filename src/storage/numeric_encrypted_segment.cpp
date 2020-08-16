@@ -191,10 +191,10 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 
     result.vector_type = VectorType::SGX_VECTOR;
 
-    auto decrypted_result = SGXVector::GetDecryptedData(result);
-    if (decrypted_result == nullptr) {
-        decrypted_result = SGXVector::InitializeDecryptedData(result);
-    }
+    data_ptr_t decrypted_result = nullptr; //SGXVector::GetDecryptedData(result);
+//    if (decrypted_result == nullptr) {
+//        decrypted_result = SGXVector::InitializeDecryptedData(result);
+//    }
     auto decrypted_result_data = decrypted_result + sizeof(nullmask_t);
 
 	if (tableFilter.size() == 1) {
@@ -312,10 +312,10 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 
     result.vector_type = VectorType::SGX_VECTOR;
 
-    auto decrypted_result = SGXVector::GetDecryptedData(result);
-    if (decrypted_result == nullptr) {
-        decrypted_result = SGXVector::InitializeDecryptedData(result);
-    }
+    data_ptr_t decrypted_result = nullptr; //SGXVector::GetDecryptedData(result);
+//    if (decrypted_result == nullptr) {
+//        decrypted_result = SGXVector::InitializeDecryptedData(result);
+//    }
     auto decrypted_result_data = decrypted_result + sizeof(nullmask_t);
     nullmask_t &decrypted_result_nullmask = *((nullmask_t*)decrypted_result);
 

@@ -67,21 +67,26 @@ inline void chacha8avx_decrypt_offset(unsigned char *ciphertext, int ciphertext_
 inline void Encrypt(unsigned char *ciphertext, unsigned char *plaintext, long length, unsigned char *nonce) {
 	memcpy(nonce, (unsigned char *)TEST_NONCE, NONCE_BYTES);
 
-//    crypto_stream_salsa208_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
+	printf("Key for encrypt in chars: ");
+	for (int i = 0; i < 16; ++i) {
+        printf("%c", TEST_KEY[i]);
+	}
+
+	//    crypto_stream_salsa208_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
-//    aes_ctr_128_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
+    aes_ctr_128_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
 //    chacha8avx_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
-    memcpy(ciphertext, plaintext, length);
+//    memcpy(ciphertext, plaintext, length);
 }
 
 inline void Decrypt(unsigned char *plaintext, unsigned char *ciphertext, long length, unsigned char *nonce) {
 //    crypto_stream_salsa208_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char *)TEST_KEY);
-//    aes_ctr_128_decrypt(ciphertext, length, (unsigned char*)TEST_KEY, nonce, plaintext);
+    aes_ctr_128_decrypt(ciphertext, length, (unsigned char*)TEST_KEY, nonce, plaintext);
 //    chacha8avx_decrypt(ciphertext, length, (unsigned char *)TEST_KEY, nonce, plaintext);
-    memcpy(plaintext, ciphertext, length);
+//    memcpy(plaintext, ciphertext, length);
 }
 
 inline void DecryptAtOffset(unsigned char *plaintext, unsigned char *ciphertext, long length, unsigned char *nonce,

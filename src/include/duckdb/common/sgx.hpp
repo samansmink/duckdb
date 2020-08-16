@@ -17,7 +17,8 @@ namespace duckdb {
 struct EnclaveExecutor {
     static void InitializeEnclave();
     static void DestroyEnclave();
-    static bool BinaryExecutor();
+    static bool Decrypt(Vector &vector);
+    static bool BinaryDoubleAdditionExecutor(Vector &left, Vector &right, Vector &result, idx_t count);
     static bool AggregateExecutor();
     static bool InitMinMax();
     static bool GetMinMax();

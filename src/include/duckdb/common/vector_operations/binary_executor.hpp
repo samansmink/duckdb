@@ -170,26 +170,26 @@ private:
         result.vector_type = VectorType::SGX_VECTOR;
 
         // TODO ENTER SGX
-        ecall_count++;
-
-        // TODO WHY DO I INITIALIZE TWICE?
-        // Initialize DecryptedDataBuffer if it doesnt have TODO this should probably already be done here?
-        if (!SGXVector::hasDecryptedData(result)) SGXVector::InitializeDecryptedData(result);
-
-        // Get pointer to decryption buffer of result vector, if it doesnt exists we create one
-        auto decrypted_result = SGXVector::GetDecryptedData(result);
-        if (decrypted_result == nullptr) {
-            decrypted_result = SGXVector::InitializeDecryptedData(result);
-        }
-        auto decrypted_result_data = decrypted_result + sizeof(nullmask_t);
-        nullmask_t &decrypted_result_nullmask = *((nullmask_t*)decrypted_result);
-
-        SGXVector::Orrify(left, count, ldata);
-        SGXVector::Orrify(right, count, rdata);
-
-        ExecuteGenericLoop<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(
-            (LEFT_TYPE *)ldata.data, (RIGHT_TYPE *)rdata.data, (RESULT_TYPE*)decrypted_result_data, ldata.sel, rdata.sel, count,
-            *ldata.nullmask, *rdata.nullmask, decrypted_result_nullmask, fun);
+//        ecall_count++;
+//
+//        // TODO WHY DO I INITIALIZE TWICE?
+//        // Initialize DecryptedDataBuffer if it doesnt have TODO this should probably already be done here?
+//        if (!SGXVector::hasDecryptedData(result)) SGXVector::InitializeDecryptedData(result);
+//
+//        // Get pointer to decryption buffer of result vector, if it doesnt exists we create one
+//        auto decrypted_result = SGXVector::GetDecryptedData(result);
+//        if (decrypted_result == nullptr) {
+//            decrypted_result = SGXVector::InitializeDecryptedData(result);
+//        }
+//        auto decrypted_result_data = decrypted_result + sizeof(nullmask_t);
+//        nullmask_t &decrypted_result_nullmask = *((nullmask_t*)decrypted_result);
+//
+//        SGXVector::Orrify(left, count, ldata);
+//        SGXVector::Orrify(right, count, rdata);
+//
+//        ExecuteGenericLoop<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(
+//            (LEFT_TYPE *)ldata.data, (RIGHT_TYPE *)rdata.data, (RESULT_TYPE*)decrypted_result_data, ldata.sel, rdata.sel, count,
+//            *ldata.nullmask, *rdata.nullmask, decrypted_result_nullmask, fun);
 
         // TODO EXIT SGX
     }

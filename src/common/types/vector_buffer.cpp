@@ -20,8 +20,8 @@ buffer_ptr<VectorBuffer> VectorBuffer::CreateStandardVector(TypeId type) {
 	return make_buffer<VectorBuffer>(STANDARD_VECTOR_SIZE * GetTypeIdSize(type) + sizeof(nullmask_t) +  NONCE_BYTES);
 }
 
-buffer_ptr<VectorBuffer> VectorBuffer::CreateDecryptionVector(TypeId type){
-    return make_buffer<VectorBuffer>(STANDARD_VECTOR_SIZE * GetTypeIdSize(type) + sizeof(nullmask_t));
+buffer_ptr<VectorBuffer> VectorBuffer::CreateDecryptionVector(){
+    return make_buffer<VectorBuffer>(sizeof(data_ptr_t)); // TODO alternatively we could just add this directly as a property of Vector
 }
 
 buffer_ptr<VectorBuffer> VectorBuffer::CreateConstantVector(TypeId type) {

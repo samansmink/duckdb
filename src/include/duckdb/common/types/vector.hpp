@@ -235,20 +235,23 @@ struct SGXVector {
         return vector.data;
 	}
 
-    static inline data_ptr_t GetDecryptedData(Vector &vector) {
+    static inline data_ptr_t* GetDecryptedData(Vector &vector) {
         assert(vector.vector_type == VectorType::SGX_VECTOR);
-        if (vector.auxiliary != nullptr) {
-			return vector.auxiliary->GetData();
-		} else {
-            return nullptr;
-        }
+        if (vector.auxiliary == nullptr) {
+            vector.auxiliary = VectorBuffer::CreateDecryptionVector();
+            data_ptr_t* decr_buf_ptr = (data_ptr_t*)(vector.auxiliary->GetData());
+            *decr_buf_ptr = (data_ptr_t)nullptr;
+		}
+        return (data_ptr_t*)vector.auxiliary->GetData();
     }
 
+    // TODO BS function now?
     static inline bool hasDecryptedData(Vector &vector) {
         assert(vector.vector_type == VectorType::SGX_VECTOR);
         return vector.auxiliary == nullptr;
     }
 
+    // TODO BS function now?
     static data_ptr_t InitializeDecryptedData(Vector &vector);
     // Only used for testing, decrypting of vectors should happen in SGX
     static void Decrypt(Vector &vector);
