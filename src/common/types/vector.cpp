@@ -822,6 +822,16 @@ bool ListVector::HasEntry(const Vector &vector) {
 }
 
 
+data_ptr_t* SGXVector::GetDecryptedData(Vector &vector) {
+    assert(vector.vector_type == VectorType::SGX_VECTOR);
+    if (vector.auxiliary == nullptr) {
+        vector.auxiliary = VectorBuffer::CreateDecryptionVector();
+        data_ptr_t* decr_buf_ptr = (data_ptr_t*)(vector.auxiliary->GetData());
+        *decr_buf_ptr = (data_ptr_t)nullptr;
+    }
+    return (data_ptr_t*)vector.auxiliary->GetData();
+}
+
 void SGXVector::Decrypt(Vector &vector) {
 //    assert(vector.vector_type == VectorType::SGX_VECTOR);
 //

@@ -67,11 +67,6 @@ inline void chacha8avx_decrypt_offset(unsigned char *ciphertext, int ciphertext_
 inline void Encrypt(unsigned char *ciphertext, unsigned char *plaintext, long length, unsigned char *nonce) {
 	memcpy(nonce, (unsigned char *)TEST_NONCE, NONCE_BYTES);
 
-	printf("Key for encrypt in chars: ");
-	for (int i = 0; i < 16; ++i) {
-        printf("%c", TEST_KEY[i]);
-	}
-
 	//    crypto_stream_salsa208_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);

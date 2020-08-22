@@ -176,85 +176,25 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 	auto data = handle->node->buffer;
 	auto offset = vector_index * vector_size;
 
-    auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
-//    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
-
-    // TODO ENTER SGX
-    ecall_count++;
-
-    // Decrypt the vector to a decryption buffer;
-    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-    Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
-
-    auto source_nullmask = (nullmask_t *)(decryption_buffer);
-    auto source_data = decryption_buffer + sizeof(nullmask_t);
-
-    result.vector_type = VectorType::SGX_VECTOR;
-
-    data_ptr_t decrypted_result = nullptr; //SGXVector::GetDecryptedData(result);
-//    if (decrypted_result == nullptr) {
-//        decrypted_result = SGXVector::InitializeDecryptedData(result);
-//    }
-    auto decrypted_result_data = decrypted_result + sizeof(nullmask_t);
+    auto encrypted_data = (data_ptr_t)(data + offset);
 
 	if (tableFilter.size() == 1) {
-		switch (tableFilter[0].comparison_type) {
-		case ExpressionType::COMPARE_EQUAL: {
-            templated_select_encrypted_operation<Equals>(sel, decrypted_result_data, state.current->type, source_data, source_nullmask,
-			                                   tableFilter[0].constant, approved_tuple_count);
-			break;
-		}
-		case ExpressionType::COMPARE_LESSTHAN: {
-            templated_select_encrypted_operation<LessThan>(sel, decrypted_result_data, state.current->type, source_data, source_nullmask,
-			                                     tableFilter[0].constant, approved_tuple_count);
-			break;
-		}
-		case ExpressionType::COMPARE_GREATERTHAN: {
-            templated_select_encrypted_operation<GreaterThan>(sel, decrypted_result_data, state.current->type, source_data, source_nullmask,
-			                                        tableFilter[0].constant, approved_tuple_count);
-			break;
-		}
-		case ExpressionType::COMPARE_LESSTHANOREQUALTO: {
-            templated_select_encrypted_operation<LessThanEquals>(sel, decrypted_result_data, state.current->type, source_data, source_nullmask,
-			                                           tableFilter[0].constant, approved_tuple_count);
-			break;
-		}
-		case ExpressionType::COMPARE_GREATERTHANOREQUALTO: {
-            templated_select_encrypted_operation<GreaterThanEquals>(sel, decrypted_result_data, state.current->type, source_data,
-			                                              source_nullmask, tableFilter[0].constant,
-			                                              approved_tuple_count);
-			break;
-		}
-		default:
-			throw NotImplementedException("Unknown comparison type for filter pushed down to table!");
-		}
-	} else {
-		assert(tableFilter[0].comparison_type == ExpressionType::COMPARE_GREATERTHAN ||
-		       tableFilter[0].comparison_type == ExpressionType::COMPARE_GREATERTHANOREQUALTO);
-		assert(tableFilter[1].comparison_type == ExpressionType::COMPARE_LESSTHAN ||
-		       tableFilter[1].comparison_type == ExpressionType::COMPARE_LESSTHANOREQUALTO);
 
-		if (tableFilter[0].comparison_type == ExpressionType::COMPARE_GREATERTHAN) {
-			if (tableFilter[1].comparison_type == ExpressionType::COMPARE_LESSTHAN) {
-                templated_select_encrypted_operation_between<GreaterThan, LessThan>(
-				    sel, decrypted_result_data, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
-				    tableFilter[1].constant, approved_tuple_count);
-			} else {
-                templated_select_encrypted_operation_between<GreaterThan, LessThanEquals>(
-				    sel, decrypted_result_data, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
-				    tableFilter[1].constant, approved_tuple_count);
-			}
-		} else {
-			if (tableFilter[1].comparison_type == ExpressionType::COMPARE_LESSTHAN) {
-                templated_select_encrypted_operation_between<GreaterThanEquals, LessThan>(
-				    sel, decrypted_result_data, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
-				    tableFilter[1].constant, approved_tuple_count);
-			} else {
-                templated_select_encrypted_operation_between<GreaterThanEquals, LessThanEquals>(
-				    sel, decrypted_result_data, state.current->type, source_data, source_nullmask, tableFilter[0].constant,
-				    tableFilter[1].constant, approved_tuple_count);
-			}
-		}
+	    if (state.current->type == TypeId::INT32)
+            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.integer);
+	    else if (state.current->type == TypeId::DOUBLE)
+            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.double_);
+        else
+            throw Exception("Unimplemented type for select on encrypted segment");
+
+	} else {
+
+        if (state.current->type == TypeId::INT32)
+            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.integer, tableFilter[1].constant.value_.integer);
+        else if (state.current->type == TypeId::DOUBLE)
+            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.double_);
+        else
+            throw Exception("Unimplemented type for select on encrypted segment");
 	}
 
 //    SGXVector::Decrypt(result);
@@ -297,66 +237,9 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	auto data = handle->node->buffer;
 	auto offset = vector_index * vector_size;
 
-    auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
+    auto encrypted_data = (data_ptr_t)(data + offset);
 
-    // TODO enter SGX
-    ecall_count++;
-
-    // Decrypt the vector to a decryption buffer;
-    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-
-    Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
-
-	auto source_nullmask = (nullmask_t *)(decryption_buffer);
-	auto source_data = decryption_buffer + sizeof(nullmask_t);
-
-    result.vector_type = VectorType::SGX_VECTOR;
-
-    data_ptr_t decrypted_result = nullptr; //SGXVector::GetDecryptedData(result);
-//    if (decrypted_result == nullptr) {
-//        decrypted_result = SGXVector::InitializeDecryptedData(result);
-//    }
-    auto decrypted_result_data = decrypted_result + sizeof(nullmask_t);
-    nullmask_t &decrypted_result_nullmask = *((nullmask_t*)decrypted_result);
-
-	// the inplace loops take the result as the last parameter
-	switch (type) {
-	case TypeId::BOOL:
-	case TypeId::INT8: {
-        templated_assignment<int8_t>(sel, source_data, decrypted_result_data, *source_nullmask, decrypted_result_nullmask,
-		                             approved_tuple_count);
-		break;
-	}
-	case TypeId::INT16: {
-        templated_assignment<int16_t>(sel, source_data, decrypted_result_data, *source_nullmask, decrypted_result_nullmask,
-		                              approved_tuple_count);
-		break;
-	}
-	case TypeId::INT32: {
-        templated_assignment<int32_t>(sel, source_data, decrypted_result_data, *source_nullmask, decrypted_result_nullmask,
-		                              approved_tuple_count);
-		break;
-	}
-	case TypeId::INT64: {
-        templated_assignment<int64_t>(sel, source_data, decrypted_result_data, *source_nullmask, decrypted_result_nullmask,
-		                              approved_tuple_count);
-		break;
-	}
-	case TypeId::FLOAT: {
-        templated_assignment<float>(sel, source_data, decrypted_result_data, *source_nullmask, decrypted_result_nullmask,
-		                            approved_tuple_count);
-		break;
-	}
-	case TypeId::DOUBLE: {
-        templated_assignment<double>(sel, source_data, decrypted_result_data, *source_nullmask, decrypted_result_nullmask,
-		                             approved_tuple_count);
-		break;
-	}
-	default:
-		throw InvalidTypeException(type, "Invalid type for filter scan");
-	}
-
-	//TODO Exit SGX
+    EnclaveExecutor::FilterFetchBaseData(encrypted_data, result, sel, approved_tuple_count, type);
 }
 
 //===--------------------------------------------------------------------===//

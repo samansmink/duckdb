@@ -42,6 +42,8 @@ enclave {
       
     from "TrustedLibrary/Libcxx.edl" import *;
     from "DuckDB/Operators.edl" import *;
+    from "DuckDB/Common.edl" import *;
+    from "DuckDB/Select.edl" import *;
     from "sgx_tstdc.edl" import *;
 
     /* 

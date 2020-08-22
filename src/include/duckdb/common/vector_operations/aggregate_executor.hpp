@@ -12,6 +12,7 @@
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "duckdb/common/counter.hpp"
+#include "duckdb/common/sgx.hpp"
 
 namespace duckdb {
 
@@ -192,8 +193,10 @@ public:
 //            auto idata =  (data_ptr_t)decrypted_data + sizeof(nullmask_t);
 //            auto nullmask = *((nullmask_t*)decrypted_data);
 //            UnaryUpdateLoop<STATE_TYPE, INPUT_TYPE, OP, false>((INPUT_TYPE *)idata, (STATE_TYPE *)state, count, nullmask, nullptr);
-//
-//            //TODO EXIT SGX
+
+            EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(input, (void*)state, count);
+
+            //TODO EXIT SGX
             break;
         }
         default: {

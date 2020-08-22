@@ -1,0 +1,14 @@
+/* Libcxx.edl - EDL sample for trusted C++ library. */
+
+enclave {
+
+    /*
+     * A subset of the C++03 standard is supported.
+     */
+
+    trusted {
+
+		public void ecall_decrypt_buffer([user_check]void* encrypted, [user_check]void** decrypted, uint64_t buf_size);
+		public void ecall_copy_secure_to_unsecure([user_check]void** secure, [user_check]void* unsecure, uint64_t buf_size);
+    };
+};

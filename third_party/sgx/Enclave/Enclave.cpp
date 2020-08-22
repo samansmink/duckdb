@@ -36,10 +36,10 @@
 #include "Enclave_t.h"  /* print_string */
 
 /* 
- * printf: 
+ * print:
  *   Invokes OCALL to display the enclave buffer to the terminal.
  */
-void printf(const char *fmt, ...)
+void print(const char *fmt, ...)
 {
     char buf[BUFSIZ] = {'\0'};
     va_list ap;

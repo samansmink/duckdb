@@ -6,6 +6,7 @@
 #include "duckdb/common/printer.hpp"
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/common/crypto.hpp"
+#include "duckdb/common/enums/expression_type.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -25,56 +26,124 @@ void EnclaveExecutor::DestroyEnclave(){
     sgx_destroy_enclave(global_eid);
 }
 
+// Function for debugging to easily print output
 bool EnclaveExecutor::Decrypt(Vector &vector){
-    printf("Decrypting vector\n");
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     data_ptr_t encrypted = SGXVector::GetEncryptedData(vector);
-    data_ptr_t decrypted = (data_ptr_t)malloc(STANDARD_VECTOR_SIZE * GetTypeIdSize(vector.type) + sizeof(nullmask_t));
+    data_ptr_t* decrypted = SGXVector::GetDecryptedData(vector);
 
-    ret = ecall_decrypt_buffer(global_eid, (void*)(encrypted), (void**) &decrypted, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
+    if (*decrypted == nullptr) {
 
-//    duckdb::Decrypt(decrypted, encrypted + NONCE_BYTES, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t), (unsigned char*)TEST_NONCE);
+        ret = ecall_decrypt_buffer(global_eid, (void*)(encrypted), (void**) decrypted, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
+        if (ret != SGX_SUCCESS)
+            throw Exception("SGX ECALL FAILED\n");
+    }
 
+    // buffer to move the data outside the enclave
+    auto tmp_decryption_buf = (data_ptr_t)malloc(STANDARD_VECTOR_SIZE * GetTypeIdSize(vector.type) + sizeof(nullmask_t));
+
+    ret = ecall_copy_secure_to_unsecure(global_eid, (void**) decrypted, (void*) tmp_decryption_buf, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
-    else
-        printf("Returned from ECALL\n");
 
-    memcpy(encrypted, ((data_ptr_t)decrypted) + sizeof(nullmask_t), GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE);
+    // Note that the variable encrypted will contain the decrypted data after this operation, so the name is confusing
+    memcpy(encrypted, tmp_decryption_buf + sizeof(nullmask_t), GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE);
 
     vector.vector_type = VectorType::FLAT_VECTOR;
     auto nullmask = FlatVector::GetNullmaskPtr(vector);
-    memcpy(nullmask, ((data_ptr_t)decrypted), sizeof(nullmask_t));
+    memcpy(nullmask, ((data_ptr_t)tmp_decryption_buf), sizeof(nullmask_t));
 
-    free(decrypted);
+    free(tmp_decryption_buf);
 
     return true;
 }
 
+// TODO Does not work when vectors left and right point to same data, ecall seems to compromise encrypted data?
 bool EnclaveExecutor::BinaryDoubleAdditionExecutor(Vector &left, Vector &right, Vector &result, idx_t count){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+    result.vector_type = VectorType::SGX_VECTOR;
 
     // TODO implement for Dict vectors
 
-    auto l_encrypted = SGXVector::GetEncryptedData(left);
-    auto r_encrypted = SGXVector::GetEncryptedData(right);
+    data_ptr_t l_encrypted;
+    data_ptr_t *l_decrypted;
+    sel_t* l_sel;
+    if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
+        printf("Left is SGXDICT\n");
+        auto l_sel_vec = DictionaryVector::SelVector(left);
+        l_sel = l_sel_vec.data();
+        auto &child = DictionaryVector::Child(left);
+        l_encrypted = SGXVector::GetEncryptedData(child);
+        l_decrypted = SGXVector::GetDecryptedData(child);
+    } else {
+        printf("Left is SGX\n");
+        l_sel = (sel_t*)FlatVector::incremental_vector;
+        l_encrypted = SGXVector::GetEncryptedData(left);
+        l_decrypted = SGXVector::GetDecryptedData(left);
+    }
 
-    data_ptr_t* l_decrypted = SGXVector::GetDecryptedData(left);
-    data_ptr_t* r_decrypted = SGXVector::GetDecryptedData(right);
+    data_ptr_t r_encrypted;
+    data_ptr_t* r_decrypted;
+    sel_t* r_sel;
+    if (right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
+        printf("Right is SGXDICT\n");
+        auto r_sel_vec = DictionaryVector::SelVector(right);
+        r_sel = r_sel_vec.data();
+        auto &child = DictionaryVector::Child(right);
+        r_encrypted = SGXVector::GetEncryptedData(child);
+        r_decrypted = SGXVector::GetDecryptedData(child);
+    } else {
+        printf("Right is SGX\n");
+        r_sel = (sel_t*)FlatVector::incremental_vector;
+        r_encrypted = SGXVector::GetEncryptedData(right);
+        r_decrypted = SGXVector::GetDecryptedData(right);
+    }
+
     data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
 
-    ret = ecall_binary_double_addition_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, (sel_t *)FlatVector::incremental_vector, (sel_t *)FlatVector::incremental_vector, count);
+    ret = ecall_binary_double_addition_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, l_sel, r_sel, count);
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
 
     return true;
 }
 
-bool EnclaveExecutor::AggregateExecutor(){
+void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &result, SelectionVector &sel, idx_t &approved_tuple_count, TypeId type_id) {
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+    result.vector_type = VectorType::SGX_VECTOR;
+
+    data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
+
+    switch (type_id) {
+    case TypeId::INT32: {
+        ret = ecall_filter_fetch_base_data_int(global_eid, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
+
+        if (ret != SGX_SUCCESS)
+            throw Exception("SGX ECALL FAILED\n");
+
+        break;
+    }
+    case TypeId::DOUBLE: {
+        ret = ecall_filter_fetch_base_data_double(global_eid, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
+
+        if (ret != SGX_SUCCESS)
+            throw Exception("SGX ECALL FAILED\n");
+
+        break;
+    }
+    default:
+        throw InvalidTypeException(type_id, "Invalid type for filter scan");
+    }
+}
+
+bool EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* state, idx_t count){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    ret = ecall_aggregate_executor(global_eid);
+    auto encrypted = SGXVector::GetEncryptedData(vector);
+    data_ptr_t* decrypted = SGXVector::GetDecryptedData(vector);
+
+    ret = ecall_aggregate_unary_double_update_executor(global_eid, (void*)encrypted, (void**)decrypted, state, count);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");

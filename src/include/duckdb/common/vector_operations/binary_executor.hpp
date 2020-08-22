@@ -14,6 +14,7 @@
 #include <functional>
 #include "duckdb/common/crypto.hpp"
 #include "duckdb/common/counter.hpp"
+#include "duckdb/common/sgx.hpp"
 
 namespace duckdb {
 
@@ -165,9 +166,9 @@ private:
     template <class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE, class OPWRAPPER, class OP, class FUNC,
         bool IGNORE_NULL>
     static void ExecuteGenericSGX(Vector &left, Vector &right, Vector &result, idx_t count, FUNC fun) {
-        VectorData ldata, rdata;
-
-        result.vector_type = VectorType::SGX_VECTOR;
+//        VectorData ldata, rdata;
+//
+//        result.vector_type = VectorType::SGX_VECTOR;
 
         // TODO ENTER SGX
 //        ecall_count++;
@@ -210,17 +211,13 @@ private:
 			ExecuteFlat<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL, false, false>(
 			    left, right, result, count, fun);
 		} else if (left.vector_type == VectorType::SGX_VECTOR && right.vector_type == VectorType::SGX_VECTOR) {
-            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
-                                                                                                 count, fun);
+            EnclaveExecutor::BinaryDoubleAdditionExecutor(left, right, result, count);
         } else if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR && right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
-                                                                                                    count, fun);
+            EnclaveExecutor::BinaryDoubleAdditionExecutor(left, right, result, count);
         } else if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR && right.vector_type == VectorType::SGX_VECTOR) {
-            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
-                                                                                                    count, fun);
+            EnclaveExecutor::BinaryDoubleAdditionExecutor(left, right, result, count);
         } else if (left.vector_type == VectorType::SGX_VECTOR && right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-            ExecuteGenericSGX<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
-                                                                                                    count, fun);
+            EnclaveExecutor::BinaryDoubleAdditionExecutor(left, right, result, count);
         } else {
 			ExecuteGeneric<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
 			                                                                                     count, fun);
