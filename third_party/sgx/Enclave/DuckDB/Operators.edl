@@ -9,7 +9,7 @@ enclave {
     trusted {
 
 		/* BINARY OP */
-		public void ecall_binary_double_addition_executor([user_check]void* l_encrypted, [user_check]void** l_decrypted, [user_check]void* r_encrypted, [user_check]void** r_decrypted, [user_check]void** result_decrypted, [user_check]void* l_sel, [user_check]void* r_sel, int count);
+		public void ecall_binary_double_multiplication_executor([user_check]void* l_encrypted, [user_check]void** l_decrypted, [user_check]void* r_encrypted, [user_check]void** r_decrypted, [user_check]void** result_decrypted, [user_check]void* l_sel, [user_check]void* r_sel, int count);
 
 		/* AGGREGATE */
 		public void ecall_aggregate_unary_double_update_executor([user_check]void* encrypted, [user_check]void** decrypted, [user_check]void* state, int count);

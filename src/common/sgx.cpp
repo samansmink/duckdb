@@ -22,8 +22,33 @@ void EnclaveExecutor::InitializeEnclave(){
 }
 
 void EnclaveExecutor::DestroyEnclave(){
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+
     Printer::Print("Deleting SGX Enclave");
+
+    PrintAllocedBuffers();
+
     sgx_destroy_enclave(global_eid);
+}
+
+void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+
+    ret = ecall_free_secure_buffer(global_eid, (void**)buffer_ptr);
+
+    if (ret != SGX_SUCCESS) {
+        throw Exception("SGX ECALL FAILED\n");
+    }
+}
+
+void EnclaveExecutor::PrintAllocedBuffers() {
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+
+    ret = ecall_print_alloced_buffers(global_eid);
+
+    if (ret != SGX_SUCCESS) {
+        throw Exception("SGX ECALL FAILED\n");
+    }
 }
 
 // Function for debugging to easily print output
@@ -60,7 +85,7 @@ bool EnclaveExecutor::Decrypt(Vector &vector){
 }
 
 // TODO Does not work when vectors left and right point to same data, ecall seems to compromise encrypted data?
-bool EnclaveExecutor::BinaryDoubleAdditionExecutor(Vector &left, Vector &right, Vector &result, idx_t count){
+bool EnclaveExecutor::BinaryDoubleMultiplicationExecutor(Vector &left, Vector &right, Vector &result, idx_t count){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
     result.vector_type = VectorType::SGX_VECTOR;
 
@@ -70,14 +95,12 @@ bool EnclaveExecutor::BinaryDoubleAdditionExecutor(Vector &left, Vector &right, 
     data_ptr_t *l_decrypted;
     sel_t* l_sel;
     if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-        printf("Left is SGXDICT\n");
         auto l_sel_vec = DictionaryVector::SelVector(left);
         l_sel = l_sel_vec.data();
         auto &child = DictionaryVector::Child(left);
         l_encrypted = SGXVector::GetEncryptedData(child);
         l_decrypted = SGXVector::GetDecryptedData(child);
     } else {
-        printf("Left is SGX\n");
         l_sel = (sel_t*)FlatVector::incremental_vector;
         l_encrypted = SGXVector::GetEncryptedData(left);
         l_decrypted = SGXVector::GetDecryptedData(left);
@@ -87,14 +110,12 @@ bool EnclaveExecutor::BinaryDoubleAdditionExecutor(Vector &left, Vector &right, 
     data_ptr_t* r_decrypted;
     sel_t* r_sel;
     if (right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-        printf("Right is SGXDICT\n");
         auto r_sel_vec = DictionaryVector::SelVector(right);
         r_sel = r_sel_vec.data();
         auto &child = DictionaryVector::Child(right);
         r_encrypted = SGXVector::GetEncryptedData(child);
         r_decrypted = SGXVector::GetDecryptedData(child);
     } else {
-        printf("Right is SGX\n");
         r_sel = (sel_t*)FlatVector::incremental_vector;
         r_encrypted = SGXVector::GetEncryptedData(right);
         r_decrypted = SGXVector::GetDecryptedData(right);
@@ -102,7 +123,7 @@ bool EnclaveExecutor::BinaryDoubleAdditionExecutor(Vector &left, Vector &right, 
 
     data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
 
-    ret = ecall_binary_double_addition_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, l_sel, r_sel, count);
+    ret = ecall_binary_double_multiplication_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, l_sel, r_sel, count);
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
 

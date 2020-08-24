@@ -75,14 +75,15 @@ void SelectEncrypted(sel_t* sel, sel_t* new_sel, data_ptr_t result_data, data_pt
 
 template <class T>
 void filter_fetch_base_data(void* sel, void**result_decrypted, void* encrypted, uint64_t approved_tuple_count) {
+    data_t decrypted[VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t)];
+    data_ptr_t decrypted_ptr = decrypted;
 
-    // Note these two lines are maybe not very nice, see select function for comment
-    data_ptr_t decrypted = nullptr;
-    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
+    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
 
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
         *result_decrypted = new data_t[sizeof(T) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+        buffers_alloced++;
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
@@ -90,26 +91,29 @@ void filter_fetch_base_data(void* sel, void**result_decrypted, void* encrypted, 
     data_ptr_t result_decrypted_data = ((data_ptr_t)*result_decrypted) + sizeof(nullmask_t);
     nullmask_t &result_decrypted_nullmask = *((nullmask_t*) (*(data_ptr_t*)result_decrypted));
 
-    templated_assignment<T>((sel_t*)sel, decrypted_data, result_decrypted_data, decrypted_nullmask, result_decrypted_nullmask, approved_tuple_count);
+    memset(&result_decrypted_nullmask, 0, sizeof(nullmask_t));
 
-    delete decrypted;
+    templated_assignment<T>((sel_t*)sel, decrypted_data, result_decrypted_data, decrypted_nullmask, result_decrypted_nullmask, approved_tuple_count);
 }
 
 template<class T>
 void select(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, T constant, uint64_t* approved_tuple_count) {
-    // This is fcking weird: we should consider the cases in which we actually repetitively decrypt data. Maybe we should just decrypt onto stack if the
-    // operation needs an extra copy operation anyway? Although we could/should optimize unneccessary decryptions?
-    data_ptr_t decrypted = nullptr;
-    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
+    data_t decrypted[VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t)];
+    data_ptr_t decrypted_ptr = decrypted;
+
+    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
 
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
         *result_decrypted = new data_t[sizeof(T) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+        buffers_alloced++;
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
     nullmask_t &decrypted_nullmask = *((nullmask_t*)decrypted);
     data_ptr_t result_decrypted_data = ((data_ptr_t)*result_decrypted) + sizeof(nullmask_t);
+    nullmask_t &result_decrypted_nullmask = *((nullmask_t*) (*(data_ptr_t*)result_decrypted));
+    memset(&result_decrypted_nullmask, 0, sizeof(nullmask_t));
 
     switch ((ExpressionType)op) {
     case ExpressionType::COMPARE_LESSTHAN: {
@@ -137,25 +141,26 @@ void select(void* sel_old, void* sel_new, void**result_decrypted, void* encrypte
         print("INVALID OPERATION IN ENCLAVE\n");
 
     }
-
-    delete decrypted;
 }
 
 template<class T>
 void select_between(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op_left, uint8_t op_right, T constant_left, T constant_right, uint64_t* approved_tuple_count) {
-    // This is fcking weird: we should consider the cases in which we actually repetitively decrypt data. Maybe we should just decrypt onto stack if the
-    // operation needs an extra copy operation anyway? Although we could/should optimize unneccessary decryptions?
-    data_ptr_t decrypted = nullptr;
-    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
+    data_t decrypted[VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t)];
+    data_ptr_t decrypted_ptr = decrypted;
+
+    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
 
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
         *result_decrypted = new data_t[sizeof(T) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+        buffers_alloced++;
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
     nullmask_t &decrypted_nullmask = *((nullmask_t*)decrypted);
     data_ptr_t result_decrypted_data = ((data_ptr_t)*result_decrypted) + sizeof(nullmask_t);
+    nullmask_t &result_decrypted_nullmask = *((nullmask_t*) (*(data_ptr_t*)result_decrypted));
+    memset(&result_decrypted_nullmask, 0, sizeof(nullmask_t));
 
     if ((ExpressionType)op_left == ExpressionType::COMPARE_GREATERTHAN) {
         if ((ExpressionType)op_right == ExpressionType::COMPARE_LESSTHAN) {
@@ -170,8 +175,6 @@ void select_between(void* sel_old, void* sel_new, void**result_decrypted, void* 
             SelectEncryptedBetween<T, GreaterThanEquals, LessThanEquals>((sel_t*)sel_old, (sel_t*) sel_new, result_decrypted_data, decrypted_data, decrypted_nullmask, constant_left, constant_right, (idx_t*)approved_tuple_count);
         }
     }
-
-    delete decrypted;
 }
 
 void ecall_select_integer(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, int constant, uint64_t* approved_tuple_count)

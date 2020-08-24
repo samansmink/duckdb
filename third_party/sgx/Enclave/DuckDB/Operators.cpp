@@ -5,7 +5,7 @@
 #include "Types.hpp"
 #include "Common.hpp"
 
-void BinaryDoubleAdditionExecutor(double *__restrict ldata,
+void BinaryDoubleMultiplicationExecutor(double *__restrict ldata,
     double *__restrict rdata,
     double *__restrict result_data,
     const sel_t *__restrict lsel,
@@ -22,7 +22,7 @@ void BinaryDoubleAdditionExecutor(double *__restrict ldata,
             if (!lnullmask[lindex] && !rnullmask[rindex]) {
                 auto lentry = ldata[lindex];
                 auto rentry = rdata[rindex];
-                result_data[i] = lentry + rentry;
+                result_data[i] = lentry * rentry;
             } else {
                 result_nullmask[i] = true;
             }
@@ -31,7 +31,7 @@ void BinaryDoubleAdditionExecutor(double *__restrict ldata,
         for (idx_t i = 0; i < count; i++) {
             auto lentry = ldata[lsel[i]];
             auto rentry = rdata[rsel[i]];
-            result_data[i] = lentry + rentry;
+            result_data[i] = lentry * rentry;
         }
     }
 }
@@ -58,7 +58,7 @@ void UnaryDoubleSummationUpdateLoop(double *__restrict idata, void *__restrict s
 // |NONCE|ENCRYPTED NULLMASK|ENCRYPTED DATA|
 // All decrypted buffers will be of format:
 // |NULLMASK|ENCRYPTED|
-void ecall_binary_double_addition_executor(void* l_encrypted, void** l_decrypted, void* r_encrypted, void** r_decrypted, void** result_decrypted, void* l_sel, void* r_sel, int count)
+void ecall_binary_double_multiplication_executor(void* l_encrypted, void** l_decrypted, void* r_encrypted, void** r_decrypted, void** result_decrypted, void* l_sel, void* r_sel, int count)
 {
     if (*l_decrypted == nullptr) {
         decrypt_buffer((data_ptr_t)l_encrypted, (data_ptr_t*)l_decrypted, VECTOR_SIZE * sizeof(double) + sizeof(nullmask_t));
@@ -70,6 +70,7 @@ void ecall_binary_double_addition_executor(void* l_encrypted, void** l_decrypted
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
         *result_decrypted = new data_t[sizeof(double) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+        buffers_alloced++;
     }
     // TODO if Decryption buffer exists already -> We should verify if the address is within secure memory to be secure
 
@@ -82,7 +83,7 @@ void ecall_binary_double_addition_executor(void* l_encrypted, void** l_decrypted
     nullmask_t &result_decrypted_nullmask = *((nullmask_t*) (*(data_ptr_t*)result_decrypted));
 
     // TODO pointer to result should be copied and checked after copy before calling Executor to prevent security issue?
-    BinaryDoubleAdditionExecutor(l_decrypted_data, r_decrypted_data, result_decrypted_data, (sel_t*)l_sel, (sel_t*)r_sel, (idx_t)count, l_decrypted_nullmask, r_decrypted_nullmask, result_decrypted_nullmask);
+    BinaryDoubleMultiplicationExecutor(l_decrypted_data, r_decrypted_data, result_decrypted_data, (sel_t*)l_sel, (sel_t*)r_sel, (idx_t)count, l_decrypted_nullmask, r_decrypted_nullmask, result_decrypted_nullmask);
 }
 
 // TODO state should be in secure memory

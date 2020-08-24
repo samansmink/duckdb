@@ -23,9 +23,11 @@ struct EnclaveExecutor {
     static void InitializeEnclave();
     static void DestroyEnclave();
     static bool Decrypt(Vector &vector);
+    static void FreeSecureBuffer(data_ptr_t* buffer_ptr);
+    static void PrintAllocedBuffers();
 
     // Binary Executors
-    static bool BinaryDoubleAdditionExecutor(Vector &left, Vector &right, Vector &result, idx_t count);
+    static bool BinaryDoubleMultiplicationExecutor(Vector &left, Vector &right, Vector &result, idx_t count);
 
     // Aggregate Executors
     static bool AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* state, idx_t count);

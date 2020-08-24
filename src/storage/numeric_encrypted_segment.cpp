@@ -192,7 +192,7 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
         if (state.current->type == TypeId::INT32)
             EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.integer, tableFilter[1].constant.value_.integer);
         else if (state.current->type == TypeId::DOUBLE)
-            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.double_);
+            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.double_, tableFilter[1].constant.value_.double_);
         else
             throw Exception("Unimplemented type for select on encrypted segment");
 	}

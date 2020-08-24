@@ -46,11 +46,17 @@ public:
 	}
 
 	static buffer_ptr<VectorBuffer> CreateStandardVector(TypeId type);
-    static buffer_ptr<VectorBuffer> CreateDecryptionVector();
 	static buffer_ptr<VectorBuffer> CreateConstantVector(TypeId type);
 
 protected:
 	unique_ptr<data_t[]> data;
+};
+
+class DecryptionPointerBuffer: public VectorBuffer {
+public:
+    DecryptionPointerBuffer(idx_t data_size) : VectorBuffer(data_size){}
+    ~DecryptionPointerBuffer();
+    static buffer_ptr<DecryptionPointerBuffer> CreateDecryptionVector();
 };
 
 //! The DictionaryBuffer holds a selection vector

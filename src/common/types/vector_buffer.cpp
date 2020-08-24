@@ -5,6 +5,7 @@
 #include "duckdb/common/assert.hpp"
 
 #include "duckdb/common/crypto.hpp"
+#include "duckdb/common/sgx.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -20,13 +21,19 @@ buffer_ptr<VectorBuffer> VectorBuffer::CreateStandardVector(TypeId type) {
 	return make_buffer<VectorBuffer>(STANDARD_VECTOR_SIZE * GetTypeIdSize(type) + sizeof(nullmask_t) +  NONCE_BYTES);
 }
 
-buffer_ptr<VectorBuffer> VectorBuffer::CreateDecryptionVector(){
-    return make_buffer<VectorBuffer>(sizeof(data_ptr_t)); // TODO alternatively we could just add this directly as a property of Vector
+buffer_ptr<DecryptionPointerBuffer> DecryptionPointerBuffer::CreateDecryptionVector(){
+    return make_buffer<DecryptionPointerBuffer>(sizeof(data_ptr_t)); // TODO alternatively we could just add this directly as a property of Vector
 }
 
 buffer_ptr<VectorBuffer> VectorBuffer::CreateConstantVector(TypeId type) {
 	return make_buffer<VectorBuffer>(GetTypeIdSize(type));
 }
+
+DecryptionPointerBuffer::~DecryptionPointerBuffer() {
+    if (data && data.get() && *(data_ptr_t*)data.get()) {
+        EnclaveExecutor::FreeSecureBuffer((data_ptr_t*)data.get());
+    }
+};
 
 VectorStringBuffer::VectorStringBuffer() : VectorBuffer(VectorBufferType::STRING_BUFFER) {
 }

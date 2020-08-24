@@ -12,6 +12,8 @@
 #include "duckdb/storage/storage_manager.hpp"
 #include "duckdb/common/counter.hpp"
 
+#include "duckdb/common/sgx.hpp"
+
 using namespace duckdb;
 using namespace std;
 using namespace chrono;

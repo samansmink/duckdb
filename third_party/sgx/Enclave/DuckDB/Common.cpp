@@ -9,6 +9,8 @@
 unsigned char key[16] = {'0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5'};
 unsigned char iv[16] = {'0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5'};
 
+int buffers_alloced = 0;
+
 void decrypt_buffer(data_ptr_t encrypted, data_ptr_t* decrypted, idx_t buf_size) {
 
     // For some reason the sgx_aes_ctr_decrypt call finds it necessary to modify the NONCE input
@@ -17,6 +19,7 @@ void decrypt_buffer(data_ptr_t encrypted, data_ptr_t* decrypted, idx_t buf_size)
 
     if(*decrypted == nullptr){
         *decrypted = new data_t[buf_size];
+        buffers_alloced++;
     }
     // TODO Decryption buffer exists already -> We should verify if the address is within secure memory to be secure (But for now its usefull for debugging)
 
@@ -38,4 +41,14 @@ void ecall_copy_secure_to_unsecure(void** secure, void* unsecure, uint64_t buf_s
     } else {
         print("copy secure to unsecure called with empty secure buffer");
     }
+}
+
+void ecall_print_alloced_buffers() {
+    print("Currently %d vector buffers still need to be freed\n", buffers_alloced);
+}
+
+void ecall_free_secure_buffer(void ** secure_buffer_ptr) {
+
+    delete *(data_ptr_t*)secure_buffer_ptr;
+    buffers_alloced--;
 }
