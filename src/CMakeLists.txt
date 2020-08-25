@@ -42,7 +42,9 @@ else()
   link_directories(${NACL_LIB_PATH})
   find_library(NACL_LIBRARY nacl HINTS ${NACL_LIB_PATH})
 
-  find_library(SGXURTS_LIB sgx_urts HINTS /usr/lib/x86_64-linux-gnu)
+  find_library(SGXURTS_LIB sgx_urts)
+  find_library(SGXSWITCHLESS_LIB NAMES libsgx_uswitchless.a)
+  find_library(SGXUAE_LIB NAMES libsgx_uae_service.a)
 
   set(DUCKENCLAVE_PATH ../third_party/sgx)
   find_library(DUCKENCLAVE_LIBRARY duck_enclave HINTS ${DUCKENCLAVE_PATH})
@@ -60,7 +62,11 @@ else()
       ${DUCKENCLAVE_LIBRARY}
       pthread
       ${NACL_LIBRARY}
-      ${SGXURTS_LIB})
+      ${SGXURTS_LIB}
+      ${SGXUAE_LIB}
+      "-Wl,--whole-archive"
+      ${SGXSWITCHLESS_LIB}
+      "-Wl,--no-whole-archive")
 
   add_library(duckdb SHARED ${ALL_OBJECT_FILES})
   target_link_libraries(duckdb ${DUCKDB_LINK_LIBS})

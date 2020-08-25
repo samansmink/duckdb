@@ -30,6 +30,9 @@ endif()
 
 add_executable(unittest unittest.cpp ${ALL_OBJECT_FILES})
 
+# Hacky solution to get it working with switchless enclave
+find_library(SGXSWITCHLESS_LIB NAMES libsgx_uswitchless.a)
+
 if(NOT WIN32 AND NOT SUN)
   target_link_libraries(unittest
                         duckdb
@@ -38,7 +41,10 @@ if(NOT WIN32 AND NOT SUN)
                         test_helpers
                         tpce
                         sqlite_transfer
-                        miniparquet)
+                        miniparquet
+          "-Wl,--whole-archive"
+          ${SGXSWITCHLESS_LIB}
+          "-Wl,--no-whole-archive")
 else()
   target_link_libraries(unittest duckdb_static test_helpers)
 endif()

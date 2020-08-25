@@ -1,7 +1,6 @@
 /* Libcxx.edl - EDL sample for trusted C++ library. */
 
 enclave {
-
     /*
      * A subset of the C++03 standard is supported.
      */
@@ -11,6 +10,6 @@ enclave {
 		public void ecall_decrypt_buffer([user_check]void* encrypted, [user_check]void** decrypted, uint64_t buf_size);
 		public void ecall_copy_secure_to_unsecure([user_check]void** secure, [user_check]void* unsecure, uint64_t buf_size);
 		public void ecall_print_alloced_buffers();
-		public void ecall_free_secure_buffer([user_check]void** secure_buffer_ptr);
+		public void ecall_free_secure_buffer([user_check]void** secure_buffer_ptr) transition_using_threads;
     };
 };

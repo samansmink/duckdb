@@ -37,7 +37,8 @@
 # include <pwd.h>
 # define MAX_PATH FILENAME_MAX
 
-#include "sgx_urts.h"
+#include <sgx_urts.h>
+#include <sgx_uswitchless.h>
 #include "App.h"
 #include "Enclave_u.h"
 
@@ -127,11 +128,6 @@ static sgx_errlist_t sgx_errlist[] = {
         "Can't open enclave file.",
         NULL
     },
-    {
-        SGX_ERROR_NDEBUG_ENCLAVE,
-        "The enclave is signed as product enclave, and can not be created as debuggable enclave.",
-        NULL
-    },
 };
 
 /* Check error conditions for loading enclave */
@@ -156,15 +152,37 @@ void print_error_message(sgx_status_t ret)
 /* Initialize the enclave:
  *   Call sgx_create_enclave to initialize an enclave instance
  */
-int initialize_enclave(void)
+int initialize_enclave_internal(const sgx_uswitchless_config_t* us_config)
 {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
-    
+
     /* Call sgx_create_enclave to initialize an enclave instance */
     /* Debug Support: set 2nd parameter to 1 */
-    ret = sgx_create_enclave(ENCLAVE_FILENAME, SGX_DEBUG_FLAG, NULL, NULL, &global_eid, NULL);
+
+    const void* enclave_ex_p[32] = { 0 };
+
+    enclave_ex_p[SGX_CREATE_ENCLAVE_EX_SWITCHLESS_BIT_IDX] = (const void*)us_config;
+
+    /* Call sgx_create_enclave to initialize an enclave instance */
+    /* Debug Support: set 2nd parameter to 1 */
+    ret = sgx_create_enclave_ex(ENCLAVE_FILENAME, SGX_DEBUG_FLAG, NULL, NULL, &global_eid, NULL, SGX_CREATE_ENCLAVE_EX_SWITCHLESS, enclave_ex_p);
     if (ret != SGX_SUCCESS) {
         print_error_message(ret);
+        return -1;
+    }
+
+    return 0;
+}
+
+int initialize_enclave(void)
+{
+    sgx_uswitchless_config_t us_config = SGX_USWITCHLESS_CONFIG_INITIALIZER;
+    us_config.num_uworkers = 2;
+    us_config.num_tworkers = 2;
+
+    /* Initialize the enclave */
+    if(initialize_enclave_internal(&us_config) < 0)
+    {
         return -1;
     }
 
@@ -201,8 +219,6 @@ int SGX_CDECL test_enclave()
     
     printf("Info: DuckEnclave successfully returned.\n");
 
-    //printf("Enter a character before exit ...\n");
-    //getchar();
     return 0;
 }
 

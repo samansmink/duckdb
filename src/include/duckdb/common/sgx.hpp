@@ -11,6 +11,7 @@
 #include "duckdb/common/enums/expression_type.hpp"
 #include "Unsecure/App.h"
 #include "Unsecure/Enclave_u.h"
+#include "duckdb/common/counter.hpp"
 
 extern "C" {
 #include "chacha.h"
@@ -40,6 +41,7 @@ struct EnclaveExecutor {
         result.vector_type = VectorType::SGX_VECTOR;
         data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
 
+        ecall_count++;
         if (typeid(T) == typeid(int)) {
             ecall_select_integer(global_eid, (void*)sel.data(), (void*)new_sel.data(), (void**)result_decrypted, (void*)encrypted_data, (uint8_t) expr_type, constant, (uint64_t*)&approved_tuple_count);
         } else if (typeid(T) == typeid(double)) {
@@ -58,6 +60,7 @@ struct EnclaveExecutor {
         result.vector_type = VectorType::SGX_VECTOR;
         data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
 
+        ecall_count++;
         if (typeid(T) == typeid(int)) {
             ecall_select_integer_between(global_eid, (void*)sel.data(), (void*)new_sel.data(), (void**)result_decrypted, (void*)encrypted_data, (uint8_t) expr_type_left, (uint8_t) expr_type_right, constant_left, constant_right, (uint64_t*)&approved_tuple_count);
         } else if (typeid(T) == typeid(double)) {

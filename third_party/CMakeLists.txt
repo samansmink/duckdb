@@ -16,7 +16,7 @@ if(NOT WIN32 AND NOT SUN)
   add_subdirectory(imdb)
   add_subdirectory(dbgen)
   add_subdirectory(dsdgen)
-  add_subdirectory(sqlsmith)
+#  add_subdirectory(sqlsmith) Disabled due to linking problem with SGX library
   add_subdirectory(sqlite)
   add_subdirectory(sgx)
   add_subdirectory(tpce-tool)

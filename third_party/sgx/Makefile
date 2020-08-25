@@ -268,7 +268,13 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 	@$(SGX_ENCLAVE_SIGNER) sign -key Enclave/Enclave_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
 	@echo "SIGN =>  $@"
 
+
+######## Test #######
+
+test:
+	g++ Test/Test.cpp -o test $(Lib_Name) -I$(SGX_SDK)/include -L/home/sam/Documents/linux-sgx/linux/installer/bin/sgxsdk/lib64 -Wl,--whole-archive  -lsgx_uswitchless -Wl,--no-whole-archive -lsgx_urts -lpthread -lsgx_uae_service
+
 .PHONY: clean
 
 clean:
-	@rm -f .config_* $(Lib_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) Unsecure/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
+	@rm -f .config_* $(Lib_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) Unsecure/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.* test

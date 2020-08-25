@@ -12,6 +12,9 @@ add_subdirectory(tpcds)
 add_subdirectory(imdb)
 add_subdirectory(expression_reordering)
 
+# Hacky solution to get it working with switchless enclave
+find_library(SGXSWITCHLESS_LIB NAMES libsgx_uswitchless.a)
+
 add_executable(benchmark_runner benchmark_runner.cpp ${BENCHMARK_OBJECT_FILES})
 target_link_libraries(benchmark_runner
                       duckdb
@@ -20,4 +23,7 @@ target_link_libraries(benchmark_runner
                       imdb
                       test_helpers
                       tpce
-                      sqlite_transfer)
+                      sqlite_transfer
+                    "-Wl,--whole-archive"
+                    ${SGXSWITCHLESS_LIB}
+                    "-Wl,--no-whole-archive")

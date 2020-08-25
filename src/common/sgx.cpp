@@ -7,6 +7,7 @@
 #include "duckdb/common/types/vector.hpp"
 #include "duckdb/common/crypto.hpp"
 #include "duckdb/common/enums/expression_type.hpp"
+#include "duckdb/common/counter.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -34,6 +35,7 @@ void EnclaveExecutor::DestroyEnclave(){
 void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
+    ecall_count++;
     ret = ecall_free_secure_buffer(global_eid, (void**)buffer_ptr);
 
     if (ret != SGX_SUCCESS) {
@@ -123,6 +125,7 @@ bool EnclaveExecutor::BinaryDoubleMultiplicationExecutor(Vector &left, Vector &r
 
     data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
 
+    ecall_count++;
     ret = ecall_binary_double_multiplication_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, l_sel, r_sel, count);
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
@@ -136,6 +139,7 @@ void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &res
 
     data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
 
+    ecall_count++;
     switch (type_id) {
     case TypeId::INT32: {
         ret = ecall_filter_fetch_base_data_int(global_eid, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
@@ -164,6 +168,7 @@ bool EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* s
     auto encrypted = SGXVector::GetEncryptedData(vector);
     data_ptr_t* decrypted = SGXVector::GetDecryptedData(vector);
 
+    ecall_count++;
     ret = ecall_aggregate_unary_double_update_executor(global_eid, (void*)encrypted, (void**)decrypted, state, count);
 
     if (ret != SGX_SUCCESS)
@@ -175,6 +180,7 @@ bool EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* s
 bool EnclaveExecutor::InitMinMax(){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
+    ecall_count++;
     ret = ecall_init_minmax(global_eid);
 
     if (ret != SGX_SUCCESS)
@@ -186,6 +192,7 @@ bool EnclaveExecutor::InitMinMax(){
 bool EnclaveExecutor::GetMinMax(){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
+    ecall_count++;
     ret = ecall_get_minmax(global_eid);
 
     if (ret != SGX_SUCCESS)
@@ -197,6 +204,7 @@ bool EnclaveExecutor::GetMinMax(){
 bool EnclaveExecutor::SetMinMax(){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
+    ecall_count++;
     ret = ecall_set_minmax(global_eid);
 
     if (ret != SGX_SUCCESS)
