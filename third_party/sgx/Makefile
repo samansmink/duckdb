@@ -99,7 +99,15 @@ else
 endif
 
 App_Cpp_Flags := $(App_C_Flags)
-App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread
+App_Link_Flags := -L$(SGX_LIBRARY_PATH) \
+                  -Wl,--whole-archive  -lsgx_uswitchless -Wl,--no-whole-archive \
+                  -l$(Urts_Library_Name) -lpthread
+
+ifneq ($(SGX_MODE), HW)
+	App_Link_Flags += -lsgx_uae_service_sim
+else
+	App_Link_Flags += -lsgx_uae_service
+endif
 
 App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
 
