@@ -12,6 +12,9 @@
 using namespace duckdb;
 using namespace std;
 
+long max_buffers_to_free = 100; // TODO this should depend on available mem instead of arbitrary value
+vector<void*>buffers_to_free;
+
 namespace duckdb {
 
 void EnclaveExecutor::InitializeEnclave(){
@@ -35,13 +38,30 @@ void EnclaveExecutor::DestroyEnclave(){
 void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    ecall_count++;
-    ret = ecall_free_secure_buffer(global_eid, (void**)buffer_ptr);
+    buffers_to_free.push_back((void*)*buffer_ptr);
 
-    if (ret != SGX_SUCCESS) {
-        throw Exception("SGX ECALL FAILED\n");
+    if (buffers_to_free.size() >= max_buffers_to_free) {
+        ecall_count++;
+        ret = ecall_free_secure_buffers(global_eid, (void**)&buffers_to_free[0], buffers_to_free.size());
+        buffers_to_free.clear();
+
+        if (ret != SGX_SUCCESS) {
+            throw Exception("SGX ECALL FAILED\n");
+        }
     }
 }
+
+// Ecall per free approach
+//void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
+//    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+//
+//    ecall_count++;
+//    ret = ecall_free_secure_buffer(global_eid, (void**)buffer_ptr);
+//
+//    if (ret != SGX_SUCCESS) {
+//        throw Exception("SGX ECALL FAILED\n");
+//    }
+//}
 
 void EnclaveExecutor::PrintAllocedBuffers() {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;

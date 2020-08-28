@@ -43,8 +43,8 @@ else()
   find_library(NACL_LIBRARY nacl HINTS ${NACL_LIB_PATH})
 
   find_library(SGXURTS_LIB sgx_urts)
-  find_library(SGXSWITCHLESS_LIB NAMES libsgx_uswitchless.a)
-  find_library(SGXUAE_LIB NAMES libsgx_uae_service.a)
+  find_library(SGXSWITCHLESS_LIB NAMES libsgx_uswitchless.a HINTS $ENV{SGX_SDK}/lib64)
+  find_library(SGXUAE_LIB NAMES libsgx_uae_service.so)
 
   set(DUCKENCLAVE_PATH ../third_party/sgx)
   find_library(DUCKENCLAVE_LIBRARY duck_enclave HINTS ${DUCKENCLAVE_PATH})

@@ -31,9 +31,43 @@ void decrypt_buffer(data_ptr_t encrypted, data_ptr_t* decrypted, idx_t buf_size)
                         *decrypted);
 }
 
+void encrypt_buffer(data_ptr_t encrypted, data_ptr_t decrypted, idx_t buf_size) {
+
+    // For some reason the sgx_aes_ctr_decrypt call finds it necessary to modify the NONCE input
+    uint8_t nonce_copy[NONCE_BYTES];
+    memcpy(nonce_copy, iv, NONCE_BYTES);
+
+    sgx_aes_ctr_encrypt(&key,
+                        decrypted,
+                        (uint32_t)buf_size,
+                        nonce_copy,
+                        NONCE_BYTES*8,
+                        encrypted);
+}
+
 void ecall_decrypt_buffer(void* encrypted, void** decrypted, uint64_t buf_size) {
     decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)decrypted, (idx_t)buf_size);
 }
+
+void ecall_encrypt_buffer(void* encrypted, void* decrypted, uint64_t buf_size) {
+    encrypt_buffer((data_ptr_t)encrypted, (data_ptr_t)decrypted, (idx_t)buf_size);
+}
+
+void ecall_benchmark_decryption(void* encrypted, uint64_t buf_size, uint64_t num_loops) {
+
+    data_ptr_t decryption_buffer = nullptr;
+
+    for (unsigned int i = 0; i < num_loops; ++i) {
+        decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decryption_buffer, (idx_t)buf_size);
+    }
+}
+
+void ecall_benchmark_decryption_nop(void* encrypted, uint64_t buf_size, uint64_t num_loops) {
+    (void)encrypted;
+    (void)buf_size;
+    (void)num_loops;
+}
+
 
 void ecall_copy_secure_to_unsecure(void** secure, void* unsecure, uint64_t buf_size) {
     if (*secure != nullptr) {
@@ -51,4 +85,14 @@ void ecall_free_secure_buffer(void ** secure_buffer_ptr) {
 
     delete *(data_ptr_t*)secure_buffer_ptr;
     buffers_alloced--;
+}
+
+// triple pointer for maximum fun
+void ecall_free_secure_buffers(void** buffers_to_free, uint64_t count) {
+
+    for (int i = 0; i < count; ++i) {
+        auto secure_buffer_ptr = buffers_to_free[i]; // TODO Bounds check ptr
+        delete (data_ptr_t)secure_buffer_ptr;
+        buffers_alloced--;
+    }
 }
