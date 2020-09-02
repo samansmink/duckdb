@@ -210,7 +210,6 @@ int SGX_CDECL test_enclave()
 
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    ret = ecall_init_minmax(global_eid);
     if (ret != SGX_SUCCESS)
         abort();
     

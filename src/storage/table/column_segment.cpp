@@ -26,8 +26,9 @@ static void set_min_max(data_t min_value_p[], data_t max_value_p[], data_ptr_t m
 }
 
 SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size, data_t stats_min[], data_t stats_max[])
-    : type(type), type_size(type_size) {
+    : type(type), type_size(type_size), minimum_secure(nullptr), maximum_secure(nullptr) {
 	Reset();
+
 	switch (type) {
 	case TypeId::INT8: {
 		set_min_max<int8_t>(stats_min, stats_max, minimum.get(), maximum.get());
@@ -39,6 +40,7 @@ SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size, data_t stats_
 	}
 	case TypeId::INT32: {
 		set_min_max<int32_t>(stats_min, stats_max, minimum.get(), maximum.get());
+//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::INT64: {
@@ -51,6 +53,7 @@ SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size, data_t stats_
 	}
 	case TypeId::DOUBLE: {
 		set_min_max<double>(stats_min, stats_max, minimum.get(), maximum.get());
+//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::VARCHAR: {
@@ -76,6 +79,7 @@ void SegmentStatistics::Reset() {
 	max_string_length = 0;
 	has_overflow_strings = false;
 	char padding = '\0';
+
 	switch (type) {
 	case TypeId::INT8:
 		initialize_max_min<int8_t>(minimum.get(), maximum.get());
@@ -85,6 +89,7 @@ void SegmentStatistics::Reset() {
 		break;
 	case TypeId::INT32:
 		initialize_max_min<int32_t>(minimum.get(), maximum.get());
+//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::INT64:
 		initialize_max_min<int64_t>(minimum.get(), maximum.get());
@@ -94,6 +99,7 @@ void SegmentStatistics::Reset() {
 		break;
 	case TypeId::DOUBLE:
 		initialize_max_min<double>(minimum.get(), maximum.get());
+//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::VARCHAR: {
 		//! This marks the min/max was not initialized

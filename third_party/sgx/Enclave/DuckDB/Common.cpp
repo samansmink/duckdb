@@ -90,7 +90,7 @@ void ecall_free_secure_buffer(void ** secure_buffer_ptr) {
 // triple pointer for maximum fun
 void ecall_free_secure_buffers(void** buffers_to_free, uint64_t count) {
 
-    for (int i = 0; i < count; ++i) {
+    for (unsigned  int i = 0; i < count; ++i) {
         auto secure_buffer_ptr = buffers_to_free[i]; // TODO Bounds check ptr
         delete (data_ptr_t)secure_buffer_ptr;
         buffers_alloced--;

@@ -234,6 +234,47 @@ void DataTable::Scan(Transaction &transaction, DataChunk &result, TableScanState
 	transaction.storage.Scan(state.local_state, state.column_ids, result, &table_filters);
 }
 
+//template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_filter, T constant) {
+//    //TODO ENTER SGX
+//
+////    return EnclaveExecutor::CheckZoneMap<T>(state.column_scans[table_filter.column_index].current->stats, constant, table_filter.comparison_type);
+//    T *min = (T *)state.column_scans[table_filter.column_index].current->stats.minimum.get();
+//    T *max = (T *)state.column_scans[table_filter.column_index].current->stats.maximum.get();
+//    switch (table_filter.comparison_type) {
+//    case ExpressionType::COMPARE_EQUAL:
+//        retval = constant >= *min && constant <= *max;
+//        if (typeid(T) == typeid(int))printf("%d => %d and %d <= %d\n", constant, *min, constant, *max);
+//        if (typeid(T) == typeid(double))printf("%lf => %lf and %lf <= %lf\n", constant, *min, constant, *max);
+//        break;
+//    case ExpressionType::COMPARE_GREATERTHANOREQUALTO:
+//        if (typeid(T) == typeid(int))printf("%d <= %d\n", constant, *max);
+//        if (typeid(T) == typeid(double))printf("%lf <= %lf\n", constant, *max);
+//        retval = constant <= *max;
+//        break;
+//    case ExpressionType::COMPARE_GREATERTHAN:
+//        if (typeid(T) == typeid(int))printf("%d < %d\n", constant, *max);
+//        if (typeid(T) == typeid(double))printf("%lf < %lf\n", constant, *max);
+//        retval = constant < *max;
+//        break;
+//    case ExpressionType::COMPARE_LESSTHANOREQUALTO:
+//        if (typeid(T) == typeid(int))printf("%d >= %d\n", constant, *min);
+//        if (typeid(T) == typeid(double))printf("%lf >= %lf\n", constant, *min);
+//        retval = constant >= *min;
+//        break;
+//    case ExpressionType::COMPARE_LESSTHAN:
+//        if (typeid(T) == typeid(int))printf("%d > %d\n", constant, *min);
+//        if (typeid(T) == typeid(double))printf("%lf > %lf\n", constant, *min);
+//        retval = constant > *min;
+//        break;
+//    default:
+//        throw NotImplementedException("Operation not implemented");
+//    }
+//
+//    printf("Zonemap check returns: %d\n", retval);
+//    return retval;
+//    //TODO EXIT SGX;
+//}
+
 template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_filter, T constant) {
     //TODO ENTER SGX
 
@@ -255,7 +296,7 @@ template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_f
 		throw NotImplementedException("Operation not implemented");
 	}
 
-	//TODO EXIT SGX;
+    //TODO EXIT SGX;
 }
 
 bool checkZonemapString(TableScanState &state, TableFilter &table_filter, const char *constant) {

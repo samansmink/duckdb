@@ -12,6 +12,7 @@
 #include "Unsecure/App.h"
 #include "Unsecure/Enclave_u.h"
 #include "duckdb/common/counter.hpp"
+#include "duckdb/storage/table/column_segment.hpp"
 
 extern "C" {
 #include "chacha.h"
@@ -23,15 +24,18 @@ struct EnclaveExecutor {
 
     static void InitializeEnclave();
     static void DestroyEnclave();
-    static bool Decrypt(Vector &vector);
+    static void Decrypt(Vector &vector);
     static void FreeSecureBuffer(data_ptr_t* buffer_ptr);
     static void PrintAllocedBuffers();
 
     // Binary Executors
-    static bool BinaryDoubleMultiplicationExecutor(Vector &left, Vector &right, Vector &result, idx_t count);
+    static void BinaryDoubleMultiplicationExecutor(Vector &left, Vector &right, Vector &result, idx_t count);
 
     // Aggregate Executors
-    static bool AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* state, idx_t count);
+    static void AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* state, idx_t count);
+    static data_ptr_t CreateSecureAggregateState();
+    static void FreeSecureAggregateState(data_ptr_t secure_aggregate_state);
+    static void DecryptAggregateState(data_ptr_t secure_aggregate_state, data_ptr_t unsecure_aggregate_state);
 
     // Select operators
     template<class T>
@@ -75,8 +79,23 @@ struct EnclaveExecutor {
     static void FilterFetchBaseData(data_ptr_t encrypted_data, Vector &result, SelectionVector &sel, idx_t &approved_tuple_count, TypeId type_id);
 
     // Zonemap handling
-    static bool InitMinMax();
-    static bool GetMinMax();
-    static bool SetMinMax();
+    template<class T>
+    static bool CheckZoneMap(SegmentStatistics &stats, T constant, ExpressionType expr_type) {
+        int retval;
+        ecall_count++;
+        if (typeid(T) == typeid(int)) {
+            ecall_check_zonemap_int(global_eid, &retval, (int*)stats.minimum_secure, (int*)stats.maximum_secure, constant, (uint8_t) expr_type);
+        } else if (typeid(T) == typeid(double)) {
+            ecall_check_zonemap_double(global_eid, &retval, (double*)stats.minimum_secure, (double*)stats.maximum_secure, constant, (uint8_t) expr_type);
+        } else {
+            throw Exception("Unimplemented type in SGX select operator\n");
+        }
+
+        printf("Zonemapcheck from encalve returned %d\n", retval);
+
+        return (bool)retval;
+    }
+    static bool GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value);
+    static bool SetMinMax(SegmentStatistics &stats, void* min_value, void* max_value);
 };
 }

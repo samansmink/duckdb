@@ -8,6 +8,7 @@
 #include "duckdb/common/crypto.hpp"
 #include "duckdb/common/enums/expression_type.hpp"
 #include "duckdb/common/counter.hpp"
+#include "duckdb/storage/table/column_segment.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -74,7 +75,7 @@ void EnclaveExecutor::PrintAllocedBuffers() {
 }
 
 // Function for debugging to easily print output
-bool EnclaveExecutor::Decrypt(Vector &vector){
+void EnclaveExecutor::Decrypt(Vector &vector){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     data_ptr_t encrypted = SGXVector::GetEncryptedData(vector);
@@ -102,12 +103,10 @@ bool EnclaveExecutor::Decrypt(Vector &vector){
     memcpy(nullmask, ((data_ptr_t)tmp_decryption_buf), sizeof(nullmask_t));
 
     free(tmp_decryption_buf);
-
-    return true;
 }
 
 // TODO Does not work when vectors left and right point to same data, ecall seems to compromise encrypted data?
-bool EnclaveExecutor::BinaryDoubleMultiplicationExecutor(Vector &left, Vector &right, Vector &result, idx_t count){
+void EnclaveExecutor::BinaryDoubleMultiplicationExecutor(Vector &left, Vector &right, Vector &result, idx_t count){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
     result.vector_type = VectorType::SGX_VECTOR;
 
@@ -149,8 +148,6 @@ bool EnclaveExecutor::BinaryDoubleMultiplicationExecutor(Vector &left, Vector &r
     ret = ecall_binary_double_multiplication_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, l_sel, r_sel, count);
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
-
-    return true;
 }
 
 void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &result, SelectionVector &sel, idx_t &approved_tuple_count, TypeId type_id) {
@@ -182,7 +179,7 @@ void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &res
     }
 }
 
-bool EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* state, idx_t count){
+void EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* state, idx_t count){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     auto encrypted = SGXVector::GetEncryptedData(vector);
@@ -193,15 +190,47 @@ bool EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* s
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
-
-    return true;
 }
 
-bool EnclaveExecutor::InitMinMax(){
+data_ptr_t EnclaveExecutor::CreateSecureAggregateState() {
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+
+    data_ptr_t secure_aggregate_state;
+
+    ecall_count++;
+    ret = ecall_create_secure_aggregate_state(global_eid, &secure_aggregate_state);
+
+    if (ret != SGX_SUCCESS)
+        throw Exception("SGX ECALL FAILED\n");
+
+    return secure_aggregate_state;
+}
+
+void EnclaveExecutor::FreeSecureAggregateState(data_ptr_t secure_aggregate_state) {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     ecall_count++;
-    ret = ecall_init_minmax(global_eid);
+    ret = ecall_free_secure_aggregate_state(global_eid, secure_aggregate_state);
+
+    if (ret != SGX_SUCCESS)
+        throw Exception("SGX ECALL FAILED\n");
+}
+
+void EnclaveExecutor::DecryptAggregateState(data_ptr_t secure_aggregate_state, data_ptr_t unsecure_aggregate_state) {
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+
+    ecall_count++;
+    ret = ecall_get_secure_aggregate_state(global_eid, secure_aggregate_state, unsecure_aggregate_state);
+
+    if (ret != SGX_SUCCESS)
+        throw Exception("SGX ECALL FAILED\n");
+}
+
+bool EnclaveExecutor::GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+
+    ecall_count++;
+    ret = ecall_get_minmax(global_eid, min_value, max_value, (void*)stats.minimum_secure, (void*)stats.maximum_secure, stats.type_size);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
@@ -209,11 +238,11 @@ bool EnclaveExecutor::InitMinMax(){
     return true;
 }
 
-bool EnclaveExecutor::GetMinMax(){
+bool EnclaveExecutor::SetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     ecall_count++;
-    ret = ecall_get_minmax(global_eid);
+    ret = ecall_set_minmax(global_eid, min_value, max_value, (void**)&(stats.minimum_secure), (void**)&(stats.maximum_secure), stats.type_size);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
@@ -221,15 +250,4 @@ bool EnclaveExecutor::GetMinMax(){
     return true;
 }
 
-bool EnclaveExecutor::SetMinMax(){
-    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
-
-    ecall_count++;
-    ret = ecall_set_minmax(global_eid);
-
-    if (ret != SGX_SUCCESS)
-        throw Exception("SGX ECALL FAILED\n");
-
-    return true;
-}
 } // namespace duckdb

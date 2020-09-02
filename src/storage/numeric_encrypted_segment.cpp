@@ -331,6 +331,55 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 	return tuple_count - initial_count;
 }
 
+//template <class T> static void update_min_max_secure(T value, T *__restrict min, T *__restrict max, SegmentStatistics &stats) {
+//    if (value < *min) {
+//        EnclaveExecutor::SetMinMax(stats, &value, max);
+//    }
+//    if (value > *max) {
+//        EnclaveExecutor::SetMinMax(stats, min, &value);
+//    }
+//}
+
+//template <class T>
+//static void append_loop_secure(SegmentStatistics &stats, data_ptr_t target, idx_t target_offset, Vector &source, idx_t offset,
+//                        idx_t count) {
+//    auto &nullmask = *((nullmask_t *)target);
+//
+//    T min;
+//    T max;
+//    EnclaveExecutor::GetMinMax(stats, &min, &max);
+//
+////    auto min = (T *)stats.minimum.get();
+////    auto max = (T *)stats.maximum.get();
+//
+//    VectorData adata;
+//    source.Orrify(count, adata);
+//
+//    auto sdata = (T *)adata.data;
+//    auto tdata = (T *)(target + sizeof(nullmask_t));
+//    if (adata.nullmask->any()) {
+//        for (idx_t i = 0; i < count; i++) {
+//            auto source_idx = adata.sel->get_index(offset + i);
+//            auto target_idx = target_offset + i;
+//            bool is_null = (*adata.nullmask)[source_idx];
+//            if (is_null) {
+//                nullmask[target_idx] = true;
+//                stats.has_null = true;
+//            } else {
+//                update_min_max_secure(sdata[source_idx], &min, &max, stats);
+//                tdata[target_idx] = sdata[source_idx];
+//            }
+//        }
+//    } else {
+//        for (idx_t i = 0; i < count; i++) {
+//            auto source_idx = adata.sel->get_index(offset + i);
+//            auto target_idx = target_offset + i;
+//            update_min_max_secure(sdata[source_idx], &min, &max, stats);
+//            tdata[target_idx] = sdata[source_idx];
+//        }
+//    }
+//}
+
 
 static NumericEncryptedSegment::append_function_t GetEncryptedAppendFunction(TypeId type) {
 	switch (type) {

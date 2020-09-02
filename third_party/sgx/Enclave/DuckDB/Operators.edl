@@ -12,10 +12,14 @@ enclave {
 
 		/* AGGREGATE */
 		public void ecall_aggregate_unary_double_update_executor([user_check]void* encrypted, [user_check]void** decrypted, [user_check]void* state, int count) /*transition_using_threads*/;
+		public void ecall_create_secure_aggregate_state([user_check]void* secure_aggregate_state);
+        public void ecall_free_secure_aggregate_state([user_check]void* secure_aggregate_state);
+        public void ecall_get_secure_aggregate_state([user_check]void* secure_aggregate_state, [user_check]void* unsecure_aggregate_state);
 
         /* ZONE MAP */
-		public void ecall_init_minmax(void);
-		public void ecall_get_minmax(void);
-		public void ecall_set_minmax(void);
+        public int ecall_check_zonemap_double([user_check]double* min_value, [user_check]double* max_value, double constant, uint8_t expr_type);
+        public int ecall_check_zonemap_int([user_check]int* min_value, [user_check]int* max_value, int constant, uint8_t expr_type);
+		public void ecall_get_minmax([user_check]void* min_value, [user_check]void* max_value, [user_check]void* min_ptr, [user_check]void* max_ptr, int type_size);
+		public void ecall_set_minmax([user_check]void* min_value, [user_check]void* max_value, [user_check]void** min_ptr, [user_check]void** max_ptr, int type_size);
     };
 };

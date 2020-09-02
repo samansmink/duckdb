@@ -17,6 +17,10 @@ struct sum_state_t {
     bool isset;
 };
 
+struct secure_sum_state_t {
+    sum_state_t* secure_state;
+};
+
 enum class ExpressionType : uint8_t {
     INVALID = 0,
 

@@ -89,6 +89,7 @@ void ecall_binary_double_multiplication_executor(void* l_encrypted, void** l_dec
 // TODO state should be in secure memory
 void ecall_aggregate_unary_double_update_executor(void* encrypted, void** decrypted, void* state, int count)
 {
+
     if (*decrypted == nullptr) {
         decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)decrypted, VECTOR_SIZE * sizeof(double) + sizeof(nullmask_t));
     }
@@ -96,20 +97,74 @@ void ecall_aggregate_unary_double_update_executor(void* encrypted, void** decryp
     double* decrypted_data = (double*)(((data_ptr_t)*decrypted) + sizeof(nullmask_t));
     nullmask_t &decrypted_nullmask = *((nullmask_t*)(*(data_ptr_t*)decrypted));
 
-    UnaryDoubleSummationUpdateLoop(decrypted_data, state, count, decrypted_nullmask);
+    auto secure_state = ((secure_sum_state_t*)state)->secure_state;
+
+    UnaryDoubleSummationUpdateLoop(decrypted_data, secure_state, count, decrypted_nullmask);
 }
 
-void ecall_init_minmax()
-{
-    print("This ecall will do the minmax initialization\n");
+void ecall_create_secure_aggregate_state(void* secure_aggregate_state) {
+
+    *(data_ptr_t*)secure_aggregate_state = (data_ptr_t)(new sum_state_t);
 }
 
-void ecall_get_minmax()
-{
-    print("This ecall will get minmax\n");
+void ecall_free_secure_aggregate_state(void* secure_aggregate_state) {
+    delete (data_ptr_t)secure_aggregate_state;
 }
 
-void ecall_set_minmax()
-{
-    print("This ecall will get minmax\n");
+void ecall_get_secure_aggregate_state(void* secure_aggregate_state, void* unsecure_aggregate_state) {
+    auto secure = (secure_sum_state_t*) secure_aggregate_state;
+    auto unsecure = (sum_state_t*) unsecure_aggregate_state;
+
+    // copy state from secure memory to unsecure memory
+    *unsecure = *(secure->secure_state);
+}
+
+template <class T>
+bool check_zonemap(T* min, T* max, T constant, ExpressionType expr_type) {
+    //TODO check min/max ptrs are secure memory
+
+    switch (expr_type) {
+        case ExpressionType::COMPARE_EQUAL:
+            return constant >= *min && constant <= *max;
+        case ExpressionType::COMPARE_GREATERTHANOREQUALTO:
+            return constant <= *max;
+        case ExpressionType::COMPARE_GREATERTHAN:
+            return constant < *max;
+        case ExpressionType::COMPARE_LESSTHANOREQUALTO:
+            return constant >= *min;
+        case ExpressionType::COMPARE_LESSTHAN:
+            return constant > *min;
+        default:
+            print("Enclave Zonemap check found incorrect expression type.\n");
+            return 0;
+    }
+}
+
+int ecall_check_zonemap_double(double* min_value, double* max_value, double constant, uint8_t expr_type) {
+    return check_zonemap<double>((double*) min_value, (double*) max_value, constant, (ExpressionType) expr_type);
+}
+
+int ecall_check_zonemap_int(int* min_value, int* max_value, int constant, uint8_t expr_type) {
+    return check_zonemap<int>((int*) min_value, (int*) max_value, constant, (ExpressionType) expr_type);
+}
+
+void ecall_get_minmax(void* min_value, void* max_value, void* min_ptr, void* max_ptr, int type_size) {
+
+    if (min_ptr) memcpy(min_value, min_ptr, type_size);
+    if (max_ptr) memcpy(max_value, max_ptr, type_size);
+}
+
+void ecall_set_minmax(void* min_value, void* max_value, void** min_ptr, void** max_ptr, int type_size) {
+    if (!*min_ptr) {
+        *min_ptr = new data_t[type_size]; // TODO memleak
+        buffers_alloced++;
+    }
+    if (!*max_ptr) {
+        *max_ptr = new data_t[type_size]; // TODO memleak
+        buffers_alloced++;
+    }
+
+    // Copy min_max into value
+    memcpy(*min_ptr, min_value, type_size);
+    memcpy(*max_ptr, max_value, type_size);
 }
