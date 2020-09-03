@@ -90,9 +90,6 @@ struct EnclaveExecutor {
         } else {
             throw Exception("Unimplemented type in SGX select operator\n");
         }
-
-        printf("Zonemapcheck from encalve returned %d\n", retval);
-
         return (bool)retval;
     }
     static bool GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value);

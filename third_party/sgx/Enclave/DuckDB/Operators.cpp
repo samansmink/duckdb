@@ -70,6 +70,9 @@ void ecall_binary_double_multiplication_executor(void* l_encrypted, void** l_dec
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
         *result_decrypted = new data_t[sizeof(double) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+
+        // Initialize nullmask to 0
+        memset(*result_decrypted, '\0', sizeof(nullmask_t));
         buffers_alloced++;
     }
     // TODO if Decryption buffer exists already -> We should verify if the address is within secure memory to be secure

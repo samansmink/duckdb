@@ -89,7 +89,7 @@ void SegmentStatistics::Reset() {
 		break;
 	case TypeId::INT32:
 		initialize_max_min<int32_t>(minimum.get(), maximum.get());
-//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::INT64:
 		initialize_max_min<int64_t>(minimum.get(), maximum.get());
@@ -99,7 +99,7 @@ void SegmentStatistics::Reset() {
 		break;
 	case TypeId::DOUBLE:
 		initialize_max_min<double>(minimum.get(), maximum.get());
-//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::VARCHAR: {
 		//! This marks the min/max was not initialized

@@ -36,8 +36,8 @@ public:
 	//! The maximum value of the segment
 	unique_ptr<data_t[]> maximum;
 
-//    data_ptr_t minimum_secure = nullptr; // todo remove
-//    data_ptr_t maximum_secure = nullptr; // todo remove
+    data_ptr_t minimum_secure = nullptr; // todo remove
+    data_ptr_t maximum_secure = nullptr; // todo remove
 
 	//! Whether or not the segment has NULL values
 	bool has_null;

@@ -14,7 +14,7 @@ using namespace duckdb;
 using namespace std;
 
 long max_buffers_to_free = 100; // TODO this should depend on available mem instead of arbitrary value
-vector<void*>buffers_to_free;
+vector<data_ptr_t>buffers_to_free;
 
 namespace duckdb {
 
@@ -39,7 +39,7 @@ void EnclaveExecutor::DestroyEnclave(){
 void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    buffers_to_free.push_back((void*)*buffer_ptr);
+    buffers_to_free.push_back(*buffer_ptr);
 
     if (buffers_to_free.size() >= max_buffers_to_free) {
         ecall_count++;
@@ -60,8 +60,10 @@ void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
 //    ret = ecall_free_secure_buffer(global_eid, (void**)buffer_ptr);
 //
 //    if (ret != SGX_SUCCESS) {
-//        throw Exception("SGX ECALL FAILED\n");
+//        throw Exception("SGX Free secure buffer ECALL FAILED\n");
 //    }
+//
+//    buffer_ptr = nullptr;
 //}
 
 void EnclaveExecutor::PrintAllocedBuffers() {
@@ -70,7 +72,7 @@ void EnclaveExecutor::PrintAllocedBuffers() {
     ret = ecall_print_alloced_buffers(global_eid);
 
     if (ret != SGX_SUCCESS) {
-        throw Exception("SGX ECALL FAILED\n");
+        throw Exception("SGX Free secure buffers ECALL FAILED\n");
     }
 }
 
@@ -85,7 +87,7 @@ void EnclaveExecutor::Decrypt(Vector &vector){
 
         ret = ecall_decrypt_buffer(global_eid, (void*)(encrypted), (void**) decrypted, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
         if (ret != SGX_SUCCESS)
-            throw Exception("SGX ECALL FAILED\n");
+            throw Exception("SGX decrypt ECALL FAILED\n");
     }
 
     // buffer to move the data outside the enclave
@@ -93,7 +95,7 @@ void EnclaveExecutor::Decrypt(Vector &vector){
 
     ret = ecall_copy_secure_to_unsecure(global_eid, (void**) decrypted, (void*) tmp_decryption_buf, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
     if (ret != SGX_SUCCESS)
-        throw Exception("SGX ECALL FAILED\n");
+        throw Exception("SGX decrypt copy ECALL FAILED\n");
 
     // Note that the variable encrypted will contain the decrypted data after this operation, so the name is confusing
     memcpy(encrypted, tmp_decryption_buf + sizeof(nullmask_t), GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE);
@@ -147,7 +149,7 @@ void EnclaveExecutor::BinaryDoubleMultiplicationExecutor(Vector &left, Vector &r
     ecall_count++;
     ret = ecall_binary_double_multiplication_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, l_sel, r_sel, count);
     if (ret != SGX_SUCCESS)
-        throw Exception("SGX ECALL FAILED\n");
+        throw Exception("SGX binary double multiplication ECALL FAILED\n");
 }
 
 void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &result, SelectionVector &sel, idx_t &approved_tuple_count, TypeId type_id) {
@@ -162,7 +164,7 @@ void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &res
         ret = ecall_filter_fetch_base_data_int(global_eid, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
 
         if (ret != SGX_SUCCESS)
-            throw Exception("SGX ECALL FAILED\n");
+            throw Exception("SGX filter fetch int ECALL FAILED\n");
 
         break;
     }
@@ -170,7 +172,7 @@ void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &res
         ret = ecall_filter_fetch_base_data_double(global_eid, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
 
         if (ret != SGX_SUCCESS)
-            throw Exception("SGX ECALL FAILED\n");
+            throw Exception("SGX filter fetch double ECALL FAILED\n");
 
         break;
     }
@@ -187,9 +189,8 @@ void EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* s
 
     ecall_count++;
     ret = ecall_aggregate_unary_double_update_executor(global_eid, (void*)encrypted, (void**)decrypted, state, count);
-
     if (ret != SGX_SUCCESS)
-        throw Exception("SGX ECALL FAILED\n");
+        throw Exception("SGX unary double update executor ECALL FAILED\n");
 }
 
 data_ptr_t EnclaveExecutor::CreateSecureAggregateState() {
@@ -201,7 +202,7 @@ data_ptr_t EnclaveExecutor::CreateSecureAggregateState() {
     ret = ecall_create_secure_aggregate_state(global_eid, &secure_aggregate_state);
 
     if (ret != SGX_SUCCESS)
-        throw Exception("SGX ECALL FAILED\n");
+        throw Exception("SGX create scure aggregate ECALL FAILED\n");
 
     return secure_aggregate_state;
 }
@@ -213,7 +214,7 @@ void EnclaveExecutor::FreeSecureAggregateState(data_ptr_t secure_aggregate_state
     ret = ecall_free_secure_aggregate_state(global_eid, secure_aggregate_state);
 
     if (ret != SGX_SUCCESS)
-        throw Exception("SGX ECALL FAILED\n");
+        throw Exception("SGX free secure aggregate state ECALL FAILED\n");
 }
 
 void EnclaveExecutor::DecryptAggregateState(data_ptr_t secure_aggregate_state, data_ptr_t unsecure_aggregate_state) {
@@ -223,7 +224,7 @@ void EnclaveExecutor::DecryptAggregateState(data_ptr_t secure_aggregate_state, d
     ret = ecall_get_secure_aggregate_state(global_eid, secure_aggregate_state, unsecure_aggregate_state);
 
     if (ret != SGX_SUCCESS)
-        throw Exception("SGX ECALL FAILED\n");
+        throw Exception("SGX decrypt aggregate state ECALL FAILED\n");
 }
 
 bool EnclaveExecutor::GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
