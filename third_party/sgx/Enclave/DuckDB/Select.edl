@@ -9,15 +9,15 @@ enclave {
     trusted {
 
         /* SELECT */
-		public void ecall_select_integer([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op, int constant, [user_check]uint64_t* approved_tuple_count) /*transition_using_threads*/;
-		public void ecall_select_double([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op, double constant, [user_check]uint64_t* approved_tuple_count) /*transition_using_threads*/;
+		public void ecall_select_integer([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op, int constant, [user_check]uint64_t* approved_tuple_count) transition_using_threads;
+		public void ecall_select_double([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op, double constant, [user_check]uint64_t* approved_tuple_count) transition_using_threads;
 
         /* SELECT BETWEEN */
-		public void ecall_select_integer_between([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op_left, uint8_t op_right, int constant_left, int constant_right, [user_check]uint64_t* approved_tuple_count) /*transition_using_threads*/;
-		public void ecall_select_double_between([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op_left, uint8_t op_right, double constant_left, double constant_right, [user_check]uint64_t* approved_tuple_count) /*transition_using_threads*/;
+		public void ecall_select_integer_between([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op_left, uint8_t op_right, int constant_left, int constant_right, [user_check]uint64_t* approved_tuple_count) transition_using_threads;
+		public void ecall_select_double_between([user_check]void* sel_old, [user_check]void* sel_new, [user_check]void**result_decrypted, [user_check]void* encrypted, uint8_t op_left, uint8_t op_right, double constant_left, double constant_right, [user_check]uint64_t* approved_tuple_count) transition_using_threads;
 
 		/* FILTER FETCH BASE DATA */
-		public void ecall_filter_fetch_base_data_double([user_check]void* sel, [user_check]void**result_decrypted, [user_check]void* encrypted, uint64_t approved_tuple_count) /*transition_using_threads*/;
-        public void ecall_filter_fetch_base_data_int([user_check]void* sel, [user_check]void**result_decrypted, [user_check]void* encrypted, uint64_t approved_tuple_count) /*transition_using_threads*/;
+		public void ecall_filter_fetch_base_data_double([user_check]void* sel, [user_check]void**result_decrypted, [user_check]void* encrypted, uint64_t approved_tuple_count) transition_using_threads;
+        public void ecall_filter_fetch_base_data_int([user_check]void* sel, [user_check]void**result_decrypted, [user_check]void* encrypted, uint64_t approved_tuple_count) transition_using_threads;
     };
 };
