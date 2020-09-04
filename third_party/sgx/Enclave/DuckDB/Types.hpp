@@ -3,7 +3,7 @@
 
 #define TEST_KEY (const unsigned char*) "0123456789012345678901234567890"
 #define TEST_NONCE (const unsigned char*)"0123456789012345678901234567890"
-#define VECTOR_SIZE 1024
+#define VECTOR_SIZE 8192
 #define NONCE_BYTES 16
 
 typedef uint8_t data_t;
