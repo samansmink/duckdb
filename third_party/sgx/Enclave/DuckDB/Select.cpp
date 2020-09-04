@@ -75,15 +75,21 @@ void SelectEncrypted(sel_t* sel, sel_t* new_sel, data_ptr_t result_data, data_pt
 
 template <class T>
 void filter_fetch_base_data(void* sel, void**result_decrypted, void* encrypted, uint64_t approved_tuple_count) {
-    data_t decrypted[VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t)];
+    assert_buffer_outside_enclave(result_decrypted, sizeof(void*));
+    assert_buffer_outside_enclave(sel, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(encrypted, get_encryption_buffer_size<T>());
+
+    data_t decrypted[get_decryption_buffer_size<T>()];
     data_ptr_t decrypted_ptr = decrypted;
 
-    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
+    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, get_decryption_buffer_size<T>());
 
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
-        *result_decrypted = new data_t[sizeof(T) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+        *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>()); // TODO memleak
         buffers_alloced++;
+    } else {
+        assert_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>());
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
@@ -98,15 +104,23 @@ void filter_fetch_base_data(void* sel, void**result_decrypted, void* encrypted, 
 
 template<class T>
 void select(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, T constant, uint64_t* approved_tuple_count) {
-    data_t decrypted[VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t)];
+    assert_buffer_outside_enclave(result_decrypted, sizeof(void*));
+    assert_buffer_outside_enclave(sel_old, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(sel_new, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(approved_tuple_count, sizeof(uint64_t));
+    assert_buffer_outside_enclave(encrypted, get_encryption_buffer_size<T>());
+
+    data_t decrypted[get_decryption_buffer_size<T>()];
     data_ptr_t decrypted_ptr = decrypted;
 
-    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
+    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, get_decryption_buffer_size<T>());
 
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
-        *result_decrypted = new data_t[sizeof(T) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+        *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>()); // TODO memleak
         buffers_alloced++;
+    } else {
+        assert_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>());
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
@@ -139,21 +153,28 @@ void select(void* sel_old, void* sel_new, void**result_decrypted, void* encrypte
     }
     default:
         print("INVALID OPERATION IN ENCLAVE\n");
-
     }
 }
 
 template<class T>
 void select_between(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op_left, uint8_t op_right, T constant_left, T constant_right, uint64_t* approved_tuple_count) {
-    data_t decrypted[VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t)];
+    assert_buffer_outside_enclave(result_decrypted, sizeof(void*));
+    assert_buffer_outside_enclave(sel_old, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(sel_new, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(approved_tuple_count, sizeof(uint64_t));
+    assert_buffer_outside_enclave(encrypted, get_encryption_buffer_size<T>());
+
+    data_t decrypted[get_decryption_buffer_size<T>()];
     data_ptr_t decrypted_ptr = decrypted;
 
-    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t));
+    decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, get_decryption_buffer_size<T>());
 
     // Allocate secure buffer for result if necessary
     if (*result_decrypted == nullptr) {
-        *result_decrypted = new data_t[sizeof(T) * VECTOR_SIZE + sizeof(nullmask_t)]; // TODO memleak
+        *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>());
         buffers_alloced++;
+    } else {
+        assert_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>());
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);

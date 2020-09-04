@@ -16,6 +16,15 @@ using namespace std;
 long max_buffers_to_free = 100; // TODO this should depend on available mem instead of arbitrary value
 vector<data_ptr_t>buffers_to_free;
 
+// Todo deduplicate with definition in sum.cpp
+struct sum_state_t {
+    double value;
+    bool isset;
+};
+struct secure_sum_state_t {
+    data_ptr_t secure_state;
+};
+
 namespace duckdb {
 
 void EnclaveExecutor::InitializeEnclave(){
@@ -188,7 +197,7 @@ void EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* s
     data_ptr_t* decrypted = SGXVector::GetDecryptedData(vector);
 
     ecall_count++;
-    ret = ecall_aggregate_unary_double_update_executor(global_eid, (void*)encrypted, (void**)decrypted, state, count);
+    ret = ecall_aggregate_unary_double_update_executor(global_eid, (void*)encrypted, (void**)decrypted, (void*)((secure_sum_state_t*)state)->secure_state, count);
     if (ret != SGX_SUCCESS)
         throw Exception("SGX unary double update executor ECALL FAILED\n");
 }

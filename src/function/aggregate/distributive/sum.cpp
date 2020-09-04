@@ -97,6 +97,8 @@ struct SecureSumOperation : SumOperation {
             }
             target[idx] = state_tmp.value;
         }
+
+        EnclaveExecutor::FreeSecureAggregateState((data_ptr_t)state);
     }
 
     template <class STATE, class OP> static void Combine(STATE source, STATE *target) {
