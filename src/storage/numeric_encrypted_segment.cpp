@@ -388,15 +388,15 @@ static NumericEncryptedSegment::append_function_t GetEncryptedAppendFunction(Typ
 	case TypeId::INT16:
 		return append_loop<int16_t>;
 	case TypeId::INT32:
-//		return append_loop_secure<int32_t>;
-		return append_loop<int32_t>;
+		return append_loop_secure<int32_t>;
+//		return append_loop<int32_t>;
 	case TypeId::INT64:
 		return append_loop<int64_t>;
 	case TypeId::FLOAT:
 		return append_loop<float>;
 	case TypeId::DOUBLE:
-		return append_loop<double>;
-//		return append_loop_secure<double>;
+//		return append_loop<double>;
+		return append_loop_secure<double>;
 	default:
 		throw NotImplementedException("Unimplemented type for encrypted segment");
 	}
