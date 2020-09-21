@@ -7,6 +7,7 @@ using namespace duckdb;
 using namespace std;
 
 #define SF 1
+#define DISABLE_ANSWERCHECK 0
 
 #define TPCH_QUERY_BODY(QNR)                                                                                           \
 	virtual void Load(DuckDBBenchmarkState *state) {                                                                   \
@@ -22,6 +23,7 @@ using namespace std;
 		if (!result->success) {                                                                                        \
 			return result->error;                                                                                      \
 		}                                                                                                              \
+		if (DISABLE_ANSWERCHECK) return "";                                                                          \
 		return compare_csv(*result, tpch::get_answer(SF, QNR), true);                                                  \
 	}                                                                                                                  \
 	virtual string BenchmarkInfo() {                                                                                   \
