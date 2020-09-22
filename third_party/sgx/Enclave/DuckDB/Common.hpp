@@ -15,9 +15,9 @@ void free_enclave_buffer(void* ptr);
 
 
 template<class T> constexpr size_t get_decryption_buffer_size() {
-    return VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t);
+    return STANDARD_VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t);
 }
 
 template<class T> constexpr size_t get_encryption_buffer_size() {
-    return VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t) + NONCE_BYTES;
+    return STANDARD_VECTOR_SIZE * sizeof(T) + sizeof(nullmask_t) + NONCE_BYTES;
 }

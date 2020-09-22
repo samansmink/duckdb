@@ -88,8 +88,8 @@ void ecall_binary_double_multiplication_executor(void* l_encrypted, void** l_dec
     assert_buffer_outside_enclave(l_decrypted, sizeof(void*));
     assert_buffer_outside_enclave(r_decrypted, sizeof(void*));
     assert_buffer_outside_enclave(result_decrypted, sizeof(void*));
-    assert_buffer_outside_enclave(l_sel, sizeof(sel_t) * VECTOR_SIZE);
-    assert_buffer_outside_enclave(r_sel, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(l_sel, sizeof(sel_t) * STANDARD_VECTOR_SIZE);
+    assert_buffer_outside_enclave(r_sel, sizeof(sel_t) * STANDARD_VECTOR_SIZE);
 
     if (*l_decrypted == nullptr) {
         decrypt_buffer((data_ptr_t)l_encrypted, (data_ptr_t*)l_decrypted, get_decryption_buffer_size<double>());

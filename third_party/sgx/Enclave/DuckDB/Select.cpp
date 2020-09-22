@@ -76,7 +76,7 @@ void SelectEncrypted(sel_t* sel, sel_t* new_sel, data_ptr_t result_data, data_pt
 template <class T>
 void filter_fetch_base_data(void* sel, void**result_decrypted, void* encrypted, uint64_t approved_tuple_count) {
     assert_buffer_outside_enclave(result_decrypted, sizeof(void*));
-    assert_buffer_outside_enclave(sel, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(sel, sizeof(sel_t) * STANDARD_VECTOR_SIZE);
     assert_buffer_outside_enclave(encrypted, get_encryption_buffer_size<T>());
 
     data_t decrypted[get_decryption_buffer_size<T>()];
@@ -105,8 +105,8 @@ void filter_fetch_base_data(void* sel, void**result_decrypted, void* encrypted, 
 template<class T>
 void select(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, T constant, uint64_t* approved_tuple_count) {
     assert_buffer_outside_enclave(result_decrypted, sizeof(void*));
-    assert_buffer_outside_enclave(sel_old, sizeof(sel_t) * VECTOR_SIZE);
-    assert_buffer_outside_enclave(sel_new, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(sel_old, sizeof(sel_t) * STANDARD_VECTOR_SIZE);
+    assert_buffer_outside_enclave(sel_new, sizeof(sel_t) * STANDARD_VECTOR_SIZE);
     assert_buffer_outside_enclave(approved_tuple_count, sizeof(uint64_t));
     assert_buffer_outside_enclave(encrypted, get_encryption_buffer_size<T>());
 
@@ -159,8 +159,8 @@ void select(void* sel_old, void* sel_new, void**result_decrypted, void* encrypte
 template<class T>
 void select_between(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op_left, uint8_t op_right, T constant_left, T constant_right, uint64_t* approved_tuple_count) {
     assert_buffer_outside_enclave(result_decrypted, sizeof(void*));
-    assert_buffer_outside_enclave(sel_old, sizeof(sel_t) * VECTOR_SIZE);
-    assert_buffer_outside_enclave(sel_new, sizeof(sel_t) * VECTOR_SIZE);
+    assert_buffer_outside_enclave(sel_old, sizeof(sel_t) * STANDARD_VECTOR_SIZE);
+    assert_buffer_outside_enclave(sel_new, sizeof(sel_t) * STANDARD_VECTOR_SIZE);
     assert_buffer_outside_enclave(approved_tuple_count, sizeof(uint64_t));
     assert_buffer_outside_enclave(encrypted, get_encryption_buffer_size<T>());
 

@@ -3,12 +3,12 @@
 
 #define TEST_KEY (const unsigned char*) "0123456789012345678901234567890"
 #define TEST_NONCE (const unsigned char*)"0123456789012345678901234567890"
-#define VECTOR_SIZE 1024
+#define STANDARD_VECTOR_SIZE 1024
 #define NONCE_BYTES 16
 
 typedef uint8_t data_t;
 typedef data_t *data_ptr_t;
-typedef std::bitset<1024> nullmask_t;
+typedef std::bitset<STANDARD_VECTOR_SIZE> nullmask_t;
 typedef uint64_t idx_t;
 typedef uint16_t sel_t;
 
