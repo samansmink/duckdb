@@ -108,7 +108,7 @@ struct ParquetScanFunction : public TableFunction {
 			}
 			data.position = 0;
 		}
-		idx_t this_count = std::min((idx_t)STANDARD_STANDARD_VECTOR_SIZE, data.rc.nrows - data.position);
+		idx_t this_count = std::min((idx_t)STANDARD_VECTOR_SIZE, data.rc.nrows - data.position);
 		assert(this_count > 0);
 		output.SetCardinality(this_count);
 
