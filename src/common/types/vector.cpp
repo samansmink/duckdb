@@ -824,7 +824,7 @@ bool ListVector::HasEntry(const Vector &vector) {
 
 data_ptr_t* SGXVector::GetDecryptedData(Vector &vector) {
     assert(vector.vector_type == VectorType::SGX_VECTOR);
-    if (vector.auxiliary == nullptr) {
+    if (vector.auxiliary == nullptr || vector.auxiliary->GetData() == nullptr) {
         vector.auxiliary = DecryptionPointerBuffer::CreateDecryptionVector();
         data_ptr_t* decr_buf_ptr = (data_ptr_t*)(vector.auxiliary->GetData());
         *decr_buf_ptr = (data_ptr_t)nullptr;

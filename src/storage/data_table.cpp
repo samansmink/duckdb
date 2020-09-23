@@ -236,7 +236,6 @@ void DataTable::Scan(Transaction &transaction, DataChunk &result, TableScanState
 
 // Disabled due to impact on benchmark load time
 template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_filter, T constant) {
-    bool retval;
     return EnclaveExecutor::CheckZoneMap<T>(state.column_scans[table_filter.column_index].current->stats, constant, table_filter.comparison_type);
 }
 
