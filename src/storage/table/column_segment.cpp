@@ -32,10 +32,12 @@ SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size, data_t stats_
 	switch (type) {
 	case TypeId::INT8: {
 		set_min_max<int8_t>(stats_min, stats_max, minimum.get(), maximum.get());
+//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::INT16: {
 		set_min_max<int16_t>(stats_min, stats_max, minimum.get(), maximum.get());
+//        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::INT32: {
