@@ -12,11 +12,19 @@ static void templated_assignment(sel_t* sel, data_ptr_t source, data_ptr_t resul
             if (source_nullmask[sel[i]]) {
                 result_nullmask.set(i, true);
             } else {
+//                if (typeid(T) == typeid(double))
+//                    print("filterfetch %lf \n",  ((T *)source)[sel[i]]);
+//                else
+//                    print("filterfetch %ld \n",  ((T *)source)[sel[i]]);
                 ((T *)result)[i] = ((T *)source)[sel[i]];
             }
         }
     } else {
         for (size_t i = 0; i < approved_tuple_count; i++) {
+//            if (typeid(T) == typeid(double))
+//                print("filterfetch %lf \n",  ((T *)source)[sel[i]]);
+//            else
+//                print("filterfetch %ld \n",  ((T *)source)[sel[i]]);
             ((T *)result)[i] = ((T *)source)[sel[i]];
         }
     }
@@ -31,6 +39,12 @@ void SelectEncryptedBetween(sel_t* sel, sel_t* new_sel, data_ptr_t result_data, 
             idx_t src_idx = sel[i];
             if (!(source_nullmask)[src_idx] && OPL::Operation(((T *)source)[src_idx], constantLeft) &&
                 OPR::Operation(((T *)source)[src_idx], constantRight)) {
+
+//                if (typeid(T) == typeid(double))
+//                    print("selectbetween %lf \n",  ((T *)source)[src_idx]);
+//                else
+//                    print("selectbetween %ld \n",  ((T *)source)[src_idx]);
+
                 ((T *)result_data)[src_idx] = ((T *)source)[src_idx];
                 new_sel[result_count++] = (sel_t)src_idx;
             }
@@ -40,6 +54,11 @@ void SelectEncryptedBetween(sel_t* sel, sel_t* new_sel, data_ptr_t result_data, 
             idx_t src_idx = sel[i];
             if (OPL::Operation(((T *)source)[src_idx], constantLeft) &&
                 OPR::Operation(((T *)source)[src_idx], constantRight)) {
+
+//                if (typeid(T) == typeid(double))
+//                    print("selectbetween %lf \n",  ((T *)source)[src_idx]);
+//                else
+//                    print("selectbetween %ld \n",  ((T *)source)[src_idx]);
                 ((T *)result_data)[src_idx] = ((T *)source)[src_idx];
                 new_sel[result_count++] = (sel_t)src_idx;
             }
@@ -56,6 +75,10 @@ void SelectEncrypted(sel_t* sel, sel_t* new_sel, data_ptr_t result_data, data_pt
         for (idx_t i = 0; i < *approved_tuple_count; i++) {
             idx_t src_idx = sel[i];
             if (!(source_nullmask)[src_idx] && OP::Operation(((T *)source)[src_idx], constant)) {
+//                if (typeid(T) == typeid(double))
+//                    print("select %lf \n",  ((T *)source)[src_idx]);
+//                else
+//                    print("select %ld \n",  ((T *)source)[src_idx]);
                 ((T *)result_data)[src_idx] = ((T *)source)[src_idx];
                 new_sel[result_count++] = (sel_t)src_idx;
             }
@@ -64,6 +87,10 @@ void SelectEncrypted(sel_t* sel, sel_t* new_sel, data_ptr_t result_data, data_pt
         for (idx_t i = 0; i < *approved_tuple_count; i++) {
             idx_t src_idx = sel[i];
             if (OP::Operation(((T *)source)[src_idx], constant)) {
+//                if (typeid(T) == typeid(double))
+//                    print("select %lf \n",  ((T *)source)[src_idx]);
+//                else
+//                    print("select %ld \n",  ((T *)source)[src_idx]);
                 ((T *)result_data)[src_idx] = ((T *)source)[src_idx];
                 new_sel[result_count++] = (sel_t)src_idx;
             } else {
@@ -85,11 +112,9 @@ void filter_fetch_base_data(void* sel, void**result_decrypted, void* encrypted, 
     decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, get_decryption_buffer_size<T>());
 
     // Allocate secure buffer for result if necessary
-    if (*result_decrypted == nullptr) {
-        *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>()); // TODO memleak
+    if (*result_decrypted == nullptr || !is_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>())) {
+        *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>());
         buffers_alloced++;
-    } else {
-        assert_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>());
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
@@ -116,11 +141,9 @@ void select(void* sel_old, void* sel_new, void**result_decrypted, void* encrypte
     decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, get_decryption_buffer_size<T>());
 
     // Allocate secure buffer for result if necessary
-    if (*result_decrypted == nullptr) {
-        *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>()); // TODO memleak
+    if (*result_decrypted == nullptr || !is_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>())) {
+        *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>());
         buffers_alloced++;
-    } else {
-        assert_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>());
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
@@ -170,11 +193,9 @@ void select_between(void* sel_old, void* sel_new, void**result_decrypted, void* 
     decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)&decrypted_ptr, get_decryption_buffer_size<T>());
 
     // Allocate secure buffer for result if necessary
-    if (*result_decrypted == nullptr) {
+    if (*result_decrypted == nullptr || !is_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>())) {
         *result_decrypted = allocate_buffer(get_decryption_buffer_size<T>());
         buffers_alloced++;
-    } else {
-        assert_valid_enclave_buffer(*result_decrypted, get_decryption_buffer_size<T>());
     }
 
     data_ptr_t decrypted_data = (decrypted) + sizeof(nullmask_t);
@@ -198,14 +219,35 @@ void select_between(void* sel_old, void* sel_new, void**result_decrypted, void* 
     }
 }
 
+void ecall_select_tinyinteger(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, int8_t constant, uint64_t* approved_tuple_count)
+{
+    select<uint8_t>(sel_old, sel_new, result_decrypted, encrypted, op, constant, approved_tuple_count);
+}
+
+void ecall_select_smallinteger(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, int16_t constant, uint64_t* approved_tuple_count)
+{
+    select<int16_t>(sel_old, sel_new, result_decrypted, encrypted, op, constant, approved_tuple_count);
+}
+
 void ecall_select_integer(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, int constant, uint64_t* approved_tuple_count)
 {
     select<int>(sel_old, sel_new, result_decrypted, encrypted, op, constant, approved_tuple_count);
 }
 
+
 void ecall_select_double(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op, double constant, uint64_t* approved_tuple_count)
 {
     select<double>(sel_old, sel_new, result_decrypted, encrypted, op, constant, approved_tuple_count);
+}
+
+void ecall_select_tinyinteger_between(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op_left, uint8_t op_right, int8_t constant_left, int8_t constant_right, uint64_t* approved_tuple_count)
+{
+    select_between<int8_t>(sel_old, sel_new, result_decrypted, encrypted, op_left, op_right, constant_left, constant_right, approved_tuple_count);
+}
+
+void ecall_select_smallinteger_between(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op_left, uint8_t op_right, int16_t constant_left, int16_t constant_right, uint64_t* approved_tuple_count)
+{
+    select_between<int16_t>(sel_old, sel_new, result_decrypted, encrypted, op_left, op_right, constant_left, constant_right, approved_tuple_count);
 }
 
 void ecall_select_integer_between(void* sel_old, void* sel_new, void**result_decrypted, void* encrypted, uint8_t op_left, uint8_t op_right, int constant_left, int constant_right, uint64_t* approved_tuple_count)

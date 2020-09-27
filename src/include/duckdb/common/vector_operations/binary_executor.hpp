@@ -211,13 +211,13 @@ private:
 			ExecuteFlat<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL, false, false>(
 			    left, right, result, count, fun);
 		} else if (left.vector_type == VectorType::SGX_VECTOR && right.vector_type == VectorType::SGX_VECTOR) {
-            EnclaveExecutor::BinaryDoubleMultiplicationExecutor(left, right, result, count);
+            EnclaveExecutor::BinaryMultiplicationExecutor<RESULT_TYPE>(left, right, result, count);
         } else if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR && right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-            EnclaveExecutor::BinaryDoubleMultiplicationExecutor(left, right, result, count);
+            EnclaveExecutor::BinaryMultiplicationExecutor<RESULT_TYPE>(left, right, result, count);
         } else if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR && right.vector_type == VectorType::SGX_VECTOR) {
-            EnclaveExecutor::BinaryDoubleMultiplicationExecutor(left, right, result, count);
+            EnclaveExecutor::BinaryMultiplicationExecutor<RESULT_TYPE>(left, right, result, count);
         } else if (left.vector_type == VectorType::SGX_VECTOR && right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-            EnclaveExecutor::BinaryDoubleMultiplicationExecutor(left, right, result, count);
+            EnclaveExecutor::BinaryMultiplicationExecutor<RESULT_TYPE>(left, right, result, count);
         } else {
 			ExecuteGeneric<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, OPWRAPPER, OP, FUNC, IGNORE_NULL>(left, right, result,
 			                                                                                     count, fun);

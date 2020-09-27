@@ -116,51 +116,6 @@ void EnclaveExecutor::Decrypt(Vector &vector){
     free(tmp_decryption_buf);
 }
 
-// TODO Does not work when vectors left and right point to same data, ecall seems to compromise encrypted data?
-void EnclaveExecutor::BinaryDoubleMultiplicationExecutor(Vector &left, Vector &right, Vector &result, idx_t count){
-    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
-    result.vector_type = VectorType::SGX_VECTOR;
-
-    // TODO implement for Dict vectors
-
-    data_ptr_t l_encrypted;
-    data_ptr_t *l_decrypted;
-    sel_t* l_sel;
-    if (left.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-        auto l_sel_vec = DictionaryVector::SelVector(left);
-        l_sel = l_sel_vec.data();
-        auto &child = DictionaryVector::Child(left);
-        l_encrypted = SGXVector::GetEncryptedData(child);
-        l_decrypted = SGXVector::GetDecryptedData(child);
-    } else {
-        l_sel = (sel_t*)FlatVector::incremental_vector;
-        l_encrypted = SGXVector::GetEncryptedData(left);
-        l_decrypted = SGXVector::GetDecryptedData(left);
-    }
-
-    data_ptr_t r_encrypted;
-    data_ptr_t* r_decrypted;
-    sel_t* r_sel;
-    if (right.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-        auto r_sel_vec = DictionaryVector::SelVector(right);
-        r_sel = r_sel_vec.data();
-        auto &child = DictionaryVector::Child(right);
-        r_encrypted = SGXVector::GetEncryptedData(child);
-        r_decrypted = SGXVector::GetDecryptedData(child);
-    } else {
-        r_sel = (sel_t*)FlatVector::incremental_vector;
-        r_encrypted = SGXVector::GetEncryptedData(right);
-        r_decrypted = SGXVector::GetDecryptedData(right);
-    }
-
-    data_ptr_t* result_decrypted = SGXVector::GetDecryptedData(result);
-
-    ecall_count++;
-    ret = ecall_binary_double_multiplication_executor(global_eid, (void*)l_encrypted, (void**)l_decrypted, (void*)r_encrypted, (void**)r_decrypted, (void**)result_decrypted, l_sel, r_sel, count);
-    if (ret != SGX_SUCCESS)
-        throw Exception("SGX binary double multiplication ECALL FAILED\n");
-}
-
 void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &result, SelectionVector &sel, idx_t &approved_tuple_count, TypeId type_id) {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
     result.vector_type = VectorType::SGX_VECTOR;
@@ -197,7 +152,21 @@ void EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* s
     data_ptr_t* decrypted = SGXVector::GetDecryptedData(vector);
 
     ecall_count++;
-    ret = ecall_aggregate_unary_double_update_executor(global_eid, (void*)encrypted, (void**)decrypted, (void*)((secure_sum_state_t*)state)->secure_state, count);
+    switch (vector.type) {
+    case TypeId::DOUBLE: {
+		ret = ecall_aggregate_unary_double_update_executor(global_eid, (void *)encrypted, (void **)decrypted,
+		                                                   (void *)((secure_sum_state_t *)state)->secure_state, count);
+		break;
+	}
+    case TypeId::INT64: {
+        ret = ecall_aggregate_unary_long_update_executor(global_eid, (void *)encrypted, (void **)decrypted,
+                                                           (void *)((secure_sum_state_t *)state)->secure_state, count);
+        break;
+    }
+    default:
+        throw InvalidTypeException(vector.type, "Invalid type for unary update");
+    }
+
     if (ret != SGX_SUCCESS)
         throw Exception("SGX unary double update executor ECALL FAILED\n");
 }
@@ -238,8 +207,7 @@ void EnclaveExecutor::DecryptAggregateState(data_ptr_t secure_aggregate_state, d
 
 bool EnclaveExecutor::GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
-
-    ecall_count++;
+//    ecall_count++; don't count here, only count when used for zonemap, were interested in zonemap check ecalls only
     ret = ecall_get_minmax(global_eid, min_value, max_value, (void*)stats.minimum_secure, (void*)stats.maximum_secure, stats.type_size);
 
     if (ret != SGX_SUCCESS)
@@ -251,7 +219,7 @@ bool EnclaveExecutor::GetMinMax(SegmentStatistics &stats, void* min_value, void*
 bool EnclaveExecutor::SetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    ecall_count++;
+//    ecall_count++; writing ecalls should not be counted
     ret = ecall_set_minmax(global_eid, min_value, max_value, (void**)&(stats.minimum_secure), (void**)&(stats.maximum_secure), stats.type_size);
 
     if (ret != SGX_SUCCESS)

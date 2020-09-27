@@ -60,6 +60,7 @@ void free_enclave_buffer(void* ptr) {
 void assert_buffer_within_enclave(void* ptr, size_t size) {
     assert(sgx_is_within_enclave(ptr, size));
 }
+
 void assert_buffer_outside_enclave(void* ptr, size_t size) {
     assert(sgx_is_outside_enclave(ptr, size));
 }
@@ -69,6 +70,11 @@ void assert_valid_enclave_buffer(void* ptr, size_t size) {
     auto lookup = allocated_buffers.find((data_ptr_t)ptr);
     assert(lookup != allocated_buffers.end());
     assert(lookup->second == size);
+}
+
+bool is_valid_enclave_buffer(void* ptr, size_t size) {
+    auto lookup = allocated_buffers.find((data_ptr_t)ptr);
+    return lookup != allocated_buffers.end() && lookup->second == size;
 }
 
 void assert_valid_enclave_buffer(void* ptr) {

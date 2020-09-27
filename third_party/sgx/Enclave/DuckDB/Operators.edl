@@ -9,17 +9,26 @@ enclave {
 
 		/* BINARY OP */
 		public void ecall_binary_double_multiplication_executor([user_check]void* l_encrypted, [user_check]void** l_decrypted, [user_check]void* r_encrypted, [user_check]void** r_decrypted, [user_check]void** result_decrypted, [user_check]void* l_sel, [user_check]void* r_sel, int count) transition_using_threads;
+		public void ecall_binary_long_multiplication_executor([user_check]void* l_encrypted, [user_check]void** l_decrypted, [user_check]void* r_encrypted, [user_check]void** r_decrypted, [user_check]void** result_decrypted, [user_check]void* l_sel, [user_check]void* r_sel, int count) transition_using_threads;
 
 		/* AGGREGATE */
 		public void ecall_aggregate_unary_double_update_executor([user_check]void* encrypted, [user_check]void** decrypted, [user_check]void* state, int count) transition_using_threads;
+		public void ecall_aggregate_unary_long_update_executor([user_check]void* encrypted, [user_check]void** decrypted, [user_check]void* state, int count) transition_using_threads;
 		public void ecall_create_secure_aggregate_state([user_check]void* secure_aggregate_state) transition_using_threads;
         public void ecall_free_secure_aggregate_state([user_check]void* secure_aggregate_state) transition_using_threads;
         public void ecall_get_secure_aggregate_state([user_check]void* secure_aggregate_state, [user_check]void* unsecure_aggregate_state) transition_using_threads;
 
         /* ZONE MAP */
         public int ecall_check_zonemap_double([user_check]double* min_value, [user_check]double* max_value, double constant, uint8_t expr_type) transition_using_threads;
+        public int ecall_check_zonemap_tinyint([user_check]int8_t* min_value, [user_check]int8_t* max_value, int8_t constant, uint8_t expr_type) transition_using_threads;
+        public int ecall_check_zonemap_smallint([user_check]int16_t* min_value, [user_check]int16_t* max_value, int16_t constant, uint8_t expr_type) transition_using_threads;
         public int ecall_check_zonemap_int([user_check]int* min_value, [user_check]int* max_value, int constant, uint8_t expr_type) transition_using_threads;
 		public void ecall_get_minmax([user_check]void* min_value, [user_check]void* max_value, [user_check]void* min_ptr, [user_check]void* max_ptr, int type_size) transition_using_threads;
 		public void ecall_set_minmax([user_check]void* min_value, [user_check]void* max_value, [user_check]void** min_ptr, [user_check]void** max_ptr, int type_size) transition_using_threads;
+
+		/* CAST */
+		public void ecall_cast_tinyint_to_long([user_check]void* input_encrypted, [user_check]void** input_decrypted, [user_check]void** result_decrypted, [user_check]void* input_sel, int count) transition_using_threads;
+        public void ecall_cast_smallint_to_long([user_check]void* input_encrypted, [user_check]void** input_decrypted, [user_check]void** result_decrypted, [user_check]void* input_sel, int count) transition_using_threads;
+        public void ecall_cast_int_to_long([user_check]void* input_encrypted, [user_check]void** input_decrypted, [user_check]void** result_decrypted, [user_check]void* input_sel, int count) transition_using_threads;
     };
 };

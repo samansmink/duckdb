@@ -180,16 +180,24 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 
 	if (tableFilter.size() == 1) {
 
-	    if (state.current->type == TypeId::INT32)
+        if (state.current->type == TypeId::INT8)
+            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.tinyint);
+        else if (state.current->type == TypeId::INT16)
+            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.smallint);
+        else if (state.current->type == TypeId::INT32)
             EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.integer);
-	    else if (state.current->type == TypeId::DOUBLE)
+        else if (state.current->type == TypeId::DOUBLE)
             EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.double_);
         else
             throw Exception("Unimplemented type for select on encrypted segment");
 
 	} else {
 
-        if (state.current->type == TypeId::INT32)
+        if (state.current->type == TypeId::INT8)
+            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.tinyint, tableFilter[1].constant.value_.tinyint);
+        else if (state.current->type == TypeId::INT16)
+            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.smallint, tableFilter[1].constant.value_.smallint);
+        else if (state.current->type == TypeId::INT32)
             EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.integer, tableFilter[1].constant.value_.integer);
         else if (state.current->type == TypeId::DOUBLE)
             EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.double_, tableFilter[1].constant.value_.double_);
@@ -321,6 +329,9 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 		// Now perform the actual append
 		append_function(stats, encryption_buffer, current_tuple_count, data, offset, append_count);
 
+//        if (stats.minimum_secure == nullptr || stats.maximum_secure == nullptr)
+//            throw new Exception("min/max value is nullptr in append");
+
 		// Encrypt appended values and set nonces
         Encrypt(encrypted_header->nullmask, encryption_buffer, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
@@ -384,13 +395,15 @@ static NumericEncryptedSegment::append_function_t GetEncryptedAppendFunction(Typ
 	switch (type) {
 	case TypeId::BOOL:
 	case TypeId::INT8:
-		return append_loop<int8_t>;
+//		return append_loop<int8_t>;
+        return append_loop_secure<int8_t>;
 	case TypeId::INT16:
-		return append_loop<int16_t>;
+//		return append_loop<int16_t>;
+        return append_loop_secure<int16_t>;
 	case TypeId::INT32:
-		return append_loop_secure<int32_t>;
 //		return append_loop<int32_t>;
-	case TypeId::INT64:
+        return append_loop_secure<int32_t>;
+    case TypeId::INT64:
 		return append_loop<int64_t>;
 	case TypeId::FLOAT:
 		return append_loop<float>;

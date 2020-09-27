@@ -35,6 +35,7 @@ static void null_cast(Vector &source, Vector &result, SQLType source_type, SQLTy
 	}
 }
 
+// TODO IMPLEMENT IN SGX
 template <class SRC>
 static void numeric_cast_switch(Vector &source, Vector &result, SQLType source_type, SQLType target_type, idx_t count) {
 	// now switch on the result type
@@ -57,7 +58,8 @@ static void numeric_cast_switch(Vector &source, Vector &result, SQLType source_t
 		break;
 	case SQLTypeId::BIGINT:
 		assert(result.type == TypeId::INT64);
-		UnaryExecutor::Execute<SRC, int64_t, duckdb::Cast, true>(source, result, count);
+//		UnaryExecutor::Execute<SRC, int64_t, duckdb::Cast, true>(source, result, count);
+		EnclaveExecutor::CastToLong<SRC>(source, result, count);
 		break;
 	case SQLTypeId::FLOAT:
 		assert(result.type == TypeId::FLOAT);

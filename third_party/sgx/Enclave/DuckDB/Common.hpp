@@ -11,6 +11,7 @@ void assert_buffer_outside_enclave(void* ptr, size_t size);
 data_ptr_t allocate_buffer(size_t size);
 void assert_valid_enclave_buffer(void* ptr, size_t size);
 void assert_valid_enclave_buffer(void* ptr);
+bool is_valid_enclave_buffer(void* ptr, size_t size);
 void free_enclave_buffer(void* ptr);
 
 
