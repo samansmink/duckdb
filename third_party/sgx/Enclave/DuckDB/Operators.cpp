@@ -274,8 +274,8 @@ int ecall_check_zonemap_int(int* min_value, int* max_value, int constant, uint8_
 // Test function, unsecure
 void ecall_get_minmax(void* min_value, void* max_value, void* min_ptr, void* max_ptr, int type_size) {
 
-    if (min_ptr) memcpy(min_value, min_ptr, type_size);
-    if (max_ptr) memcpy(max_value, max_ptr, type_size);
+    memcpy(min_value, min_ptr, type_size);
+    memcpy(max_value, max_ptr, type_size);
 }
 
 // Test function unsecure

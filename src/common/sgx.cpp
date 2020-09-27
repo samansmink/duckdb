@@ -207,8 +207,7 @@ void EnclaveExecutor::DecryptAggregateState(data_ptr_t secure_aggregate_state, d
 
 bool EnclaveExecutor::GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
-
-    ecall_count++;
+//    ecall_count++; don't count here, only count when used for zonemap, were interested in zonemap check ecalls only
     ret = ecall_get_minmax(global_eid, min_value, max_value, (void*)stats.minimum_secure, (void*)stats.maximum_secure, stats.type_size);
 
     if (ret != SGX_SUCCESS)

@@ -235,28 +235,28 @@ void DataTable::Scan(Transaction &transaction, DataChunk &result, TableScanState
 }
 
 // Disabled due to impact on benchmark load time
-//template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_filter, T constant) {
-//    return EnclaveExecutor::CheckZoneMap<T>(state.column_scans[table_filter.column_index].current->stats, constant, table_filter.comparison_type);
-//}
-
 template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_filter, T constant) {
-	T *min = (T *)state.column_scans[table_filter.column_index].current->stats.minimum.get();
-	T *max = (T *)state.column_scans[table_filter.column_index].current->stats.maximum.get();
-	switch (table_filter.comparison_type) {
-	case ExpressionType::COMPARE_EQUAL:
-		return constant >= *min && constant <= *max;
-	case ExpressionType::COMPARE_GREATERTHANOREQUALTO:
-		return constant <= *max;
-	case ExpressionType::COMPARE_GREATERTHAN:
-		return constant < *max;
-	case ExpressionType::COMPARE_LESSTHANOREQUALTO:
-		return constant >= *min;
-	case ExpressionType::COMPARE_LESSTHAN:
-		return constant > *min;
-	default:
-		throw NotImplementedException("Operation not implemented");
-	}
+    return EnclaveExecutor::CheckZoneMap<T>(state.column_scans[table_filter.column_index].current->stats, constant, table_filter.comparison_type);
 }
+
+//template <class T> bool checkZonemap(TableScanState &state, TableFilter &table_filter, T constant) {
+//	T *min = (T *)state.column_scans[table_filter.column_index].current->stats.minimum.get();
+//	T *max = (T *)state.column_scans[table_filter.column_index].current->stats.maximum.get();
+//	switch (table_filter.comparison_type) {
+//	case ExpressionType::COMPARE_EQUAL:
+//		return constant >= *min && constant <= *max;
+//	case ExpressionType::COMPARE_GREATERTHANOREQUALTO:
+//		return constant <= *max;
+//	case ExpressionType::COMPARE_GREATERTHAN:
+//		return constant < *max;
+//	case ExpressionType::COMPARE_LESSTHANOREQUALTO:
+//		return constant >= *min;
+//	case ExpressionType::COMPARE_LESSTHAN:
+//		return constant > *min;
+//	default:
+//		throw NotImplementedException("Operation not implemented");
+//	}
+//}
 
 bool checkZonemapString(TableScanState &state, TableFilter &table_filter, const char *constant) {
 	char *min = (char *)state.column_scans[table_filter.column_index].current->stats.minimum.get();
