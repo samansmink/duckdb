@@ -173,11 +173,11 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 	LogLine(string(benchmark->name.size() + 6, '-'));
 	auto state = benchmark->Initialize();
 	auto nruns = benchmark->NRuns();
-	for (size_t i = 0; i < nruns + 1; i++) {
-		struct sgx_stats stats_before, stats_after;
-		bool hotrun = i > 0;
+	auto coldruns = benchmark->NColdRuns();
+	for (size_t i = 0; i < nruns + coldruns; i++) {
+		bool hotrun = i >= coldruns;
 		if (hotrun) {
-			Log(StringUtil::Format("%d/%d...", i, nruns));
+			Log(StringUtil::Format("%d/%d...", i-coldruns+1, nruns));
 		} else {
 			Log("Cold run...");
 		}
