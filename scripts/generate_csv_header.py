@@ -70,7 +70,7 @@ def create_tpch_header(tpch_dir):
 
 #pragma once
 
-const int TPCH_QUERIES_COUNT = 25;
+const int TPCH_QUERIES_COUNT = 33;
 """
 	# write the queries
 	result += write_dir(tpch_queries, "TPCH_QUERIES")
