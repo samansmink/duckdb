@@ -41,6 +41,12 @@ public:
 	//! The benchmark group this benchmark belongs to
 	string group;
 
+	// Disables inmemory mode and reloading of benchmark data allowing much faster (re)running of benchmark, especially when db is larger than available memory
+	// NOTE: requires a valid duckdb_benchmark_db.db to be generated beforehand
+	bool fast_mode = false;
+
+	bool fast_mode_load = false;
+
 	Benchmark(bool register_benchmark, string name, string group);
 
 	//! Initialize the benchmark state
