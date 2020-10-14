@@ -167,6 +167,8 @@ void BenchmarkRunner::LogOutput(string message) {
 }
 
 void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
+	printf("Fast mode: %d\n", (int) benchmark->fast_mode);
+	printf("Fast mode load : %d\n", (int) benchmark->fast_mode_load);
 	Profiler profiler;
 	LogLine(string(benchmark->name.size() + 6, '-'));
 	LogLine("|| " + benchmark->name + " ||");
@@ -253,6 +255,8 @@ enum class BenchmarkMetaType { NONE, INFO, GROUP, QUERY };
 
 struct BenchmarkConfiguration {
 	std::string name_pattern{};
+	bool fast_mode = false;
+	bool fast_mode_load = false;
 	BenchmarkMetaType meta = BenchmarkMetaType::NONE;
 };
 
@@ -282,6 +286,12 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 		} else if (arg == "--group") {
 			// write group of benchmark
 			configuration.meta = BenchmarkMetaType::GROUP;
+		} else if (arg == "--fast-mode") {
+			// write group of benchmark
+			configuration.fast_mode = true;
+		} else if (arg == "--fast-mode-load") {
+			// write group of benchmark
+			configuration.fast_mode_load = true;
 		} else if (arg == "--query") {
 			// write group of benchmark
 			configuration.meta = BenchmarkMetaType::QUERY;
@@ -351,6 +361,8 @@ ConfigurationError run_benchmarks(const BenchmarkConfiguration &configuration) {
 			}
 		} else {
 			for (const auto &benchmark_index : benchmark_indices) {
+				benchmarks[benchmark_index]->fast_mode = configuration.fast_mode;
+				benchmarks[benchmark_index]->fast_mode_load = configuration.fast_mode_load;
 				instance.RunBenchmark(benchmarks[benchmark_index]);
 			}
 		}
