@@ -167,8 +167,12 @@ void BenchmarkRunner::LogOutput(string message) {
 }
 
 void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
-	printf("Fast mode: %d\n", (int) benchmark->fast_mode);
-	printf("Fast mode load : %d\n", (int) benchmark->fast_mode_load);
+	if (benchmark->fast_mode) {
+		printf("Running benchmark fast mode (Using stored DB instead of loading into in-memory DB from CSV)\n");
+	}
+	if (benchmark->fast_mode_load) {
+		printf("Running benchmark fast load mode (Generates a DB to allow later runs to use fast_mode)\n");
+	}
 	Profiler profiler;
 	LogLine(string(benchmark->name.size() + 6, '-'));
 	LogLine("|| " + benchmark->name + " ||");
