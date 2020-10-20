@@ -34,6 +34,7 @@ struct DuckDBBenchmarkState : public BenchmarkState {
 //! new benchmarks
 class DuckDBBenchmark : public Benchmark {
 public:
+
 	DuckDBBenchmark(bool register_benchmark, string name, string group) : Benchmark(register_benchmark, name, group) {
 	}
 	virtual ~DuckDBBenchmark() {
@@ -54,13 +55,15 @@ public:
 	virtual string VerifyResult(QueryResult *result) = 0;
 	//! Whether or not the benchmark is performed on an in-memory database
 	virtual bool InMemory() {
-		return true;
+		return fast_mode || fast_mode_load ? false : true;
 	}
 
 	string GetDatabasePath() {
 		if (!InMemory()) {
 			string path = "duckdb_benchmark_db.db";
-			DeleteDatabase(path);
+			if (!(fast_mode)){
+				DeleteDatabase(path);
+			}
 			return path;
 		} else {
 			return string();
