@@ -11,10 +11,13 @@ enclave {
 		public void ecall_encrypt_buffer([user_check]void* encrypted, [user_check]void* decrypted, uint64_t buf_size);
 		public void ecall_copy_secure_to_unsecure([user_check]void** secure, [user_check]void* unsecure, uint64_t buf_size);
 		public void ecall_print_alloced_buffers();
+		public void ecall_allocate_secure_buffer([user_check]void** secure_buffer_ptr, uint64_t buf_size);
 		public void ecall_free_secure_buffer([user_check]void** secure_buffer_ptr) /*transition_using_threads*/;
 		public void ecall_free_secure_buffers([user_check]void** buffers_to_free, uint64_t count) /*transition_using_threads*/;
 
         public void ecall_benchmark_decryption([user_check]void* encrypted, uint64_t buf_size, uint64_t num_loops);
 		public void ecall_benchmark_decryption_nop([user_check]void* encrypted, uint64_t buf_size, uint64_t num_loops);
+		public void ecall_get_secure_buffer([user_check]void* unsecure_encrypted_buffer, [user_check]void** secure_buffer_ptr, uint64_t buf_size);
+		public void ecall_set_secure_buffer([user_check]void** secure_buffer_ptr, [user_check]void* unsecure_encrypted_buffer, uint64_t buf_size);
     };
 };

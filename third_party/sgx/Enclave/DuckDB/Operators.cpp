@@ -96,8 +96,10 @@ void CastNumericToLongExecutor(T *__restrict input_data,
 
 template <class T>
 bool check_zonemap(T* min, T* max, T constant, ExpressionType expr_type) {
-    assert_valid_enclave_buffer(min, sizeof(T));
-    assert_valid_enclave_buffer(max, sizeof(T));
+
+    // Zonemap buffers are always 8 currently
+    assert_valid_enclave_buffer(min, 8);
+    assert_valid_enclave_buffer(max, 8);
 
     switch (expr_type) {
     case ExpressionType::COMPARE_EQUAL:
@@ -278,8 +280,40 @@ void ecall_get_minmax(void* min_value, void* max_value, void* min_ptr, void* max
     memcpy(max_value, max_ptr, type_size);
 }
 
+void ecall_set_minmax_from_secure_buffer(void** min_ptr, void** max_ptr, void* min_value_encrypted, void* max_value_encrypted, uint64_t type_size) {
+    // TODO check bounds
+    assert_buffer_outside_enclave(min_ptr, sizeof(void*));
+    assert_buffer_outside_enclave(max_ptr, sizeof(void*));
+
+    // Currently we just assume the maximum size for all type sizes
+    type_size = 8;
+
+    assert_buffer_outside_enclave(min_value_encrypted, type_size + NONCE_BYTES);
+    assert_buffer_outside_enclave(max_value_encrypted, type_size + NONCE_BYTES);
+
+    if (!*min_ptr) {
+        *min_ptr = allocate_buffer(type_size); // TODO memleak
+        buffers_alloced++;
+    } else {
+        assert_valid_enclave_buffer(*min_ptr, type_size + NONCE_BYTES);
+    }
+    if (!*max_ptr) {
+        *max_ptr = allocate_buffer(type_size); // TODO memleak
+        buffers_alloced++;
+    } else {
+        assert_valid_enclave_buffer(*max_ptr, type_size + NONCE_BYTES);
+    }
+
+    decrypt_buffer((data_ptr_t) min_value_encrypted, (data_ptr_t*) min_ptr, type_size);
+    decrypt_buffer((data_ptr_t) max_value_encrypted, (data_ptr_t*) max_ptr, type_size);
+}
+
 // Test function unsecure
 void ecall_set_minmax(void* min_value, void* max_value, void** min_ptr, void** max_ptr, int type_size) {
+
+    // Currently we just assume the maximum size for all type sizes
+    type_size = 8;
+
     if (!*min_ptr) {
         *min_ptr = allocate_buffer(type_size); // TODO memleak
         buffers_alloced++;

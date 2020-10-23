@@ -194,5 +194,8 @@ struct EnclaveExecutor {
 
     static bool GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value);
     static bool SetMinMax(SegmentStatistics &stats, void* min_value, void* max_value);
+    static void SetSecureBuffer(data_ptr_t* secure_buffer, data_ptr_t unsecure_encrypted_buffer, size_t buf_size);
+    static void SetMinMaxFromSecureBuffer(SegmentStatistics &stats, void* min_value_encrypted, void* max_value_encrypted);
+    static void GetSecureBuffer(data_ptr_t unsecure_encrypted_buffer, data_ptr_t* secure_buffer, size_t buf_size);
 };
 }

@@ -11,6 +11,7 @@
 
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/client_context.hpp"
+#include "duckdb/common/crypto.hpp"
 
 using namespace duckdb;
 using namespace std;
@@ -33,21 +34,21 @@ void TableDataReader::ReadTableData() {
 		idx_t data_pointer_count = reader.Read<idx_t>();
 		for (idx_t data_ptr = 0; data_ptr < data_pointer_count; data_ptr++) {
 			// read the data pointer
-			DataPointer data_pointer;
+            DataPointer data_pointer;
 			data_pointer.min = reader.Read<double>();
 			data_pointer.max = reader.Read<double>();
 			data_pointer.row_start = reader.Read<idx_t>();
 			data_pointer.tuple_count = reader.Read<idx_t>();
 			data_pointer.block_id = reader.Read<block_id_t>();
 			data_pointer.offset = reader.Read<uint32_t>();
-			reader.ReadData(data_pointer.min_stats, 8);
-			reader.ReadData(data_pointer.max_stats, 8);
+            reader.ReadData(data_pointer.min_stats_encrypted, 8 + NONCE_BYTES);
+            reader.ReadData(data_pointer.max_stats_encrypted, 8 + NONCE_BYTES);
 
-			column_count += data_pointer.tuple_count;
+            column_count += data_pointer.tuple_count;
 			// create a persistent segment
 			auto segment = make_unique<PersistentSegment>(
 			    manager.buffer_manager, data_pointer.block_id, data_pointer.offset, GetInternalType(column.type),
-			    data_pointer.row_start, data_pointer.tuple_count, data_pointer.min_stats, data_pointer.max_stats);
+			    data_pointer.row_start, data_pointer.tuple_count, data_pointer.min_stats_encrypted, data_pointer.max_stats_encrypted);
 			info.data[col].push_back(move(segment));
 		}
 		if (col == 0) {

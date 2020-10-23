@@ -82,6 +82,11 @@ void assert_valid_enclave_buffer(void* ptr) {
     assert(lookup != allocated_buffers.end());
 }
 
+void ecall_allocate_secure_buffer(void** secure_buffer_ptr, uint64_t buf_size) {
+    assert_buffer_outside_enclave(secure_buffer_ptr, sizeof(void*));
+    *secure_buffer_ptr = (void*)allocate_buffer(buf_size);
+}
+
 // Test function, unsecure
 void ecall_decrypt_buffer(void* encrypted, void** decrypted, uint64_t buf_size) {
     decrypt_buffer((data_ptr_t)encrypted, (data_ptr_t*)decrypted, (idx_t)buf_size);
@@ -126,6 +131,23 @@ void ecall_free_secure_buffer(void ** secure_buffer_ptr) {
     assert_valid_enclave_buffer(*secure_buffer_ptr);
     free_enclave_buffer(*secure_buffer_ptr);
     buffers_alloced--;
+}
+
+void ecall_get_secure_buffer(void* unsecure_encrypted_buffer, void** secure_buffer_ptr, uint64_t buf_size) {
+    assert_buffer_outside_enclave(unsecure_encrypted_buffer, buf_size + NONCE_BYTES);
+    assert_buffer_outside_enclave(secure_buffer_ptr, sizeof(void*));
+    assert_valid_enclave_buffer(*secure_buffer_ptr);
+
+    memcpy(unsecure_encrypted_buffer, iv, NONCE_BYTES);
+    encrypt_buffer((data_ptr_t)unsecure_encrypted_buffer + NONCE_BYTES, (data_ptr_t)*secure_buffer_ptr, buf_size);
+}
+
+void ecall_set_secure_buffer(void** secure_buffer_ptr, void* unsecure_encrypted_buffer, uint64_t buf_size) {
+    assert_buffer_outside_enclave(unsecure_encrypted_buffer, buf_size + NONCE_BYTES);
+    assert_valid_enclave_buffer(secure_buffer_ptr, sizeof(void*));
+    assert_valid_enclave_buffer(*secure_buffer_ptr);
+
+    decrypt_buffer((data_ptr_t)unsecure_encrypted_buffer + NONCE_BYTES, (data_ptr_t*)secure_buffer_ptr, buf_size);
 }
 
 void ecall_free_secure_buffers(void** buffers_to_free, uint64_t count) {

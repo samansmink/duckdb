@@ -1,4 +1,5 @@
 #include "duckdb/storage/table/column_segment.hpp"
+#include "duckdb/common/sgx.hpp"
 #include <cstring>
 
 using namespace duckdb;
@@ -9,10 +10,13 @@ ColumnSegment::ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t 
       stats(type, type_size) {
 }
 
-ColumnSegment::ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t start, idx_t count, data_t stats_min[],
-                             data_t stats_max[])
+ColumnSegment::ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t start, idx_t count, data_t stats_min_encrypted[],
+                             data_t stats_max_encrypted[])
     : SegmentBase(start, count), type(type), type_size(GetTypeIdSize(type)), segment_type(segment_type),
-      stats(type, type_size, stats_min, stats_max) {
+      stats(type, type_size) {
+
+    // Todo create separate SegmentStatisticsContructor, that saves ecalls
+    EnclaveExecutor::SetMinMaxFromSecureBuffer(*this, (void*)stats_min_encrypted, (void*)stats_max_encrypted);
 }
 
 SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size) : type(type), type_size(type_size) {

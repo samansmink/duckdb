@@ -55,8 +55,8 @@ public:
 	//! Initialize an empty column segment of the specified type
 	ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t start, idx_t count = 0);
 
-	ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t start, idx_t count, data_t stats_min[],
-	              data_t stats_max[]);
+	ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t start, idx_t count, data_t stats_min_encrypted[],
+	              data_t stats_max_encrypted[]);
 
 	virtual ~ColumnSegment() = default;
 

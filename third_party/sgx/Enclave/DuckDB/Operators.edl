@@ -25,6 +25,7 @@ enclave {
         public int ecall_check_zonemap_int([user_check]int* min_value, [user_check]int* max_value, int constant, uint8_t expr_type) /*transition_using_threads*/;
 		public void ecall_get_minmax([user_check]void* min_value, [user_check]void* max_value, [user_check]void* min_ptr, [user_check]void* max_ptr, int type_size) /*transition_using_threads*/;
 		public void ecall_set_minmax([user_check]void* min_value, [user_check]void* max_value, [user_check]void** min_ptr, [user_check]void** max_ptr, int type_size) /*transition_using_threads*/;
+		public void ecall_set_minmax_from_secure_buffer([user_check]void** min_ptr, [user_check]void** max_ptr, [user_check]void* min_value_encrypted, [user_check]void* max_value_encrypted, uint64_t type_size) /*transition_using_threads*/;
 
 		/* CAST */
 		public void ecall_cast_tinyint_to_long([user_check]void* input_encrypted, [user_check]void** input_decrypted, [user_check]void** result_decrypted, [user_check]void* input_sel, int count) /*transition_using_threads*/;

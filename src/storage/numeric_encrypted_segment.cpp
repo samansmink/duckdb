@@ -269,6 +269,8 @@ void NumericEncryptedSegment::FetchRow(ColumnFetchState &state, Transaction &tra
 	auto encrypted_header = (encrypted_vector_header_t*)data;
 //    auto encrypted_data = data + sizeof(encrypted_vector_header_t);
 
+    // TODO THIS FUNCTION IS NOT TO BE USED IN BECNHMARK AS IT decrypts outside SGX
+
     // Decrypt the vector to a decryption buffer;
     // TODO we know where in the vector we need to decrypt here so we should be able to optimize this.
     auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
@@ -302,6 +304,8 @@ void NumericEncryptedSegment::RollbackUpdate(UpdateInfo *info) {
 idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, idx_t offset, idx_t count) {
 	assert(data.type == type);
 	auto handle = manager.Pin(block_id);
+
+    EnclaveExecutor::Decrypt(data);
 
     auto encryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
