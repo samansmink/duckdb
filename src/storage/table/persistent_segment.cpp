@@ -13,8 +13,8 @@ using namespace duckdb;
 using namespace std;
 
 PersistentSegment::PersistentSegment(BufferManager &manager, block_id_t id, idx_t offset, TypeId type, idx_t start,
-                                     idx_t count, data_t stats_min[], data_t stats_max[])
-    : ColumnSegment(type, ColumnSegmentType::PERSISTENT, start, count, stats_min, stats_max), manager(manager),
+                                     idx_t count, data_t stats_min_encrypted[], data_t stats_max_encrypted[])
+    : ColumnSegment(type, ColumnSegmentType::PERSISTENT, start, count, stats_min_encrypted, stats_max_encrypted), manager(manager),
       block_id(id), offset(offset) {
 	assert(offset == 0);
 	if (type == TypeId::VARCHAR) {

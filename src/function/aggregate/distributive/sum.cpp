@@ -69,7 +69,7 @@ struct SumOperation {
 
 struct SecureSumOperation : SumOperation {
     template <class STATE> static void Initialize(STATE *state) {
-        state->secure_state = EnclaveExecutor::CreateSecureAggregateState();
+        state->secure_state = enclave_global->CreateSecureAggregateState();
     }
 
     template <class INPUT_TYPE, class STATE, class OP>
@@ -86,7 +86,7 @@ struct SecureSumOperation : SumOperation {
     static void Finalize(Vector &result, STATE *state, T *target, nullmask_t &nullmask, idx_t idx) {
         sum_state_t state_tmp;
 
-        EnclaveExecutor::DecryptAggregateState((data_ptr_t)state, (data_ptr_t)&state_tmp);
+        enclave_global->DecryptAggregateState((data_ptr_t)state, (data_ptr_t)&state_tmp);
 
         if (!state_tmp.isset) {
             nullmask[idx] = true;
@@ -98,7 +98,7 @@ struct SecureSumOperation : SumOperation {
             target[idx] = state_tmp.value;
         }
 
-        EnclaveExecutor::FreeSecureAggregateState((data_ptr_t)state);
+        enclave_global->FreeSecureAggregateState((data_ptr_t)state);
     }
 
     template <class STATE, class OP> static void Combine(STATE source, STATE *target) {

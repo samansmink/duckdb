@@ -1,4 +1,5 @@
 #include "duckdb/storage/table/column_segment.hpp"
+#include "duckdb/common/sgx.hpp"
 #include <cstring>
 
 using namespace duckdb;
@@ -9,10 +10,13 @@ ColumnSegment::ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t 
       stats(type, type_size) {
 }
 
-ColumnSegment::ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t start, idx_t count, data_t stats_min[],
-                             data_t stats_max[])
+ColumnSegment::ColumnSegment(TypeId type, ColumnSegmentType segment_type, idx_t start, idx_t count, data_t stats_min_encrypted[],
+                             data_t stats_max_encrypted[])
     : SegmentBase(start, count), type(type), type_size(GetTypeIdSize(type)), segment_type(segment_type),
-      stats(type, type_size, stats_min, stats_max) {
+      stats(type, type_size) {
+
+    // Todo create separate SegmentStatisticsContructor, that saves ecalls
+    enclave_global->SetMinMaxFromSecureBuffer(stats, (void*)stats_min_encrypted, (void*)stats_max_encrypted);
 }
 
 SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size) : type(type), type_size(type_size) {
@@ -32,22 +36,22 @@ SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size, data_t stats_
 	switch (type) {
 	case TypeId::INT8: {
 		set_min_max<int8_t>(stats_min, stats_max, minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::INT16: {
 		set_min_max<int16_t>(stats_min, stats_max, minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::INT32: {
 		set_min_max<int32_t>(stats_min, stats_max, minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::INT64: {
 		set_min_max<int64_t>(stats_min, stats_max, minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::FLOAT: {
@@ -56,7 +60,7 @@ SegmentStatistics::SegmentStatistics(TypeId type, idx_t type_size, data_t stats_
 	}
 	case TypeId::DOUBLE: {
 		set_min_max<double>(stats_min, stats_max, minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	}
 	case TypeId::VARCHAR: {
@@ -91,26 +95,26 @@ void SegmentStatistics::Reset() {
 	switch (type) {
 	case TypeId::INT8:
 		initialize_max_min<int8_t>(minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::INT16:
 		initialize_max_min<int16_t>(minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::INT32:
 		initialize_max_min<int32_t>(minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::INT64:
 		initialize_max_min<int64_t>(minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::FLOAT:
 		initialize_max_min<float>(minimum.get(), maximum.get());
 		break;
 	case TypeId::DOUBLE:
 		initialize_max_min<double>(minimum.get(), maximum.get());
-        EnclaveExecutor::SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
+        enclave_global->SetMinMax(*this, (void*)minimum.get(), (void*)maximum.get());
 		break;
 	case TypeId::VARCHAR: {
 		//! This marks the min/max was not initialized

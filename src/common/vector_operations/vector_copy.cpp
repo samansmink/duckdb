@@ -53,7 +53,7 @@ void VectorOperations::Copy(Vector &source, Vector &target, const SelectionVecto
 	case VectorType::FLAT_VECTOR:
 		break;
 	case VectorType::SGX_VECTOR:
-        EnclaveExecutor::Decrypt(source);
+        enclave_global->Decrypt(source);
         fprintf(stderr, "Note: unhandled SGX Vector in copy operation.\n");
 	    break;
 	default:

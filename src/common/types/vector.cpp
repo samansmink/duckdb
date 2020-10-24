@@ -873,7 +873,6 @@ void SGXVector::Orrify(Vector &vector, idx_t count, VectorData &data) {
 //    data_ptr_t decrypted_data;
 //
 //    if (vector.vector_type == VectorType::SGX_DICTIONARY_VECTOR) {
-//
 //        auto &sel = DictionaryVector::SelVector(vector);
 //        auto &child = DictionaryVector::Child(vector);
 //        assert(child.vector_type == VectorType::SGX_VECTOR);
@@ -889,15 +888,7 @@ void SGXVector::Orrify(Vector &vector, idx_t count, VectorData &data) {
 //        data.sel = &sel;
 //    } else if (vector.vector_type == VectorType::SGX_VECTOR) {
 //
-//        decrypted_data = SGXVector::GetDecryptedData(vector);
-//        if (decrypted_data == nullptr) {
-//            decrypted_data = SGXVector::InitializeDecryptedData(vector);
-//            auto encrypted_data = SGXVector::GetEncryptedData(vector);
-//            auto encrypted_header = (encrypted_vector_header_t*)encrypted_data;
-//            duckdb::Decrypt(decrypted_data, encrypted_header->nullmask, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t), encrypted_header->nonce);
-//        }
 //
-//        data.sel = &FlatVector::IncrementalSelectionVector;
 //
 //    } else {
 //        throw NotImplementedException("Unimplemented Vector Type for SGXVector::Orrify!");
