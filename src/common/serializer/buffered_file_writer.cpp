@@ -12,7 +12,7 @@ BufferedFileWriter::BufferedFileWriter(FileSystem &fs, const char *path, bool ap
 	if (append) {
 		flags |= FileFlags::APPEND;
 	}
-	handle = fs.OpenFile(path, flags, FileLockType::WRITE_LOCK);
+	handle = fs.OpenFile(path, flags, FileLockType::NO_LOCK/*Locking not supported in graphene*/);
 }
 
 int64_t BufferedFileWriter::GetFileSize() {
