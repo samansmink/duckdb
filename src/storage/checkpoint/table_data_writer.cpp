@@ -141,8 +141,18 @@ void TableDataWriter::FlushSegment(Transaction &transaction, idx_t col_idx) {
 	}
 	data_pointer.tuple_count = tuple_count;
 	idx_t type_size = stats[col_idx]->type == TypeId::VARCHAR ? 8 : stats[col_idx]->type_size;
-	memcpy(&data_pointer.min_stats, stats[col_idx]->minimum.get(), type_size);
-	memcpy(&data_pointer.max_stats, stats[col_idx]->maximum.get(), type_size);
+
+	// encrypt min/max
+	data_t min_encrypted[8 + NONCE_BYTES];
+    data_t max_encrypted[8 + NONCE_BYTES];
+    data_ptr_t min_encrypted_ptr = min_encrypted;
+    data_ptr_t max_encrypted_ptr = max_encrypted;
+    Encrypt(min_encrypted_ptr + NONCE_BYTES, stats[col_idx]->minimum.get(), 8, min_encrypted_ptr);
+    Encrypt(max_encrypted_ptr + NONCE_BYTES, stats[col_idx]->maximum.get(), 8, max_encrypted_ptr);
+
+	memcpy(&data_pointer.min_stats_encrypted, min_encrypted_ptr, 8 + NONCE_BYTES);
+	memcpy(&data_pointer.max_stats_encrypted, max_encrypted_ptr, 8 + NONCE_BYTES);
+
 	data_pointers[col_idx].push_back(move(data_pointer));
 	// write the block to disk
 	manager.block_manager.Write(*handle->node, block_id);
@@ -189,8 +199,8 @@ void TableDataWriter::WriteDataPointers() {
 			manager.tabledata_writer->Write<idx_t>(data_pointer.tuple_count);
 			manager.tabledata_writer->Write<block_id_t>(data_pointer.block_id);
 			manager.tabledata_writer->Write<uint32_t>(data_pointer.offset);
-			manager.tabledata_writer->WriteData(data_pointer.min_stats, 8);
-			manager.tabledata_writer->WriteData(data_pointer.max_stats, 8);
+			manager.tabledata_writer->WriteData(data_pointer.min_stats_encrypted, 8 + NONCE_BYTES);
+			manager.tabledata_writer->WriteData(data_pointer.max_stats_encrypted, 8 + NONCE_BYTES);
 		}
 	}
 }

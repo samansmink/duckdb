@@ -12,6 +12,8 @@
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/client_context.hpp"
 
+#include "duckdb/common/crypto.hpp"
+
 using namespace duckdb;
 using namespace std;
 
@@ -40,14 +42,25 @@ void TableDataReader::ReadTableData() {
 			data_pointer.tuple_count = reader.Read<idx_t>();
 			data_pointer.block_id = reader.Read<block_id_t>();
 			data_pointer.offset = reader.Read<uint32_t>();
-			reader.ReadData(data_pointer.min_stats, 8);
-			reader.ReadData(data_pointer.max_stats, 8);
-
+			reader.ReadData(data_pointer.min_stats_encrypted, 8 + NONCE_BYTES);
+			reader.ReadData(data_pointer.max_stats_encrypted, 8 + NONCE_BYTES);
 			column_count += data_pointer.tuple_count;
-			// create a persistent segment
+
+//			 decrypt min/max values
+            data_t min_decrypted[8];
+            data_t max_decrypted[8];
+            data_ptr_t min_decrypted_ptr = min_decrypted;
+            data_ptr_t max_decrypted_ptr = max_decrypted;
+            data_ptr_t min_encrypted_ptr = data_pointer.min_stats_encrypted;
+            data_ptr_t max_encrypted_ptr = data_pointer.max_stats_encrypted;
+
+            Decrypt(min_decrypted_ptr, min_encrypted_ptr + NONCE_BYTES, 8, min_encrypted_ptr);
+            Decrypt(max_decrypted_ptr, max_encrypted_ptr + NONCE_BYTES, 8, max_encrypted_ptr);
+
+            // create a persistent segment
 			auto segment = make_unique<PersistentSegment>(
 			    manager.buffer_manager, data_pointer.block_id, data_pointer.offset, GetInternalType(column.type),
-			    data_pointer.row_start, data_pointer.tuple_count, data_pointer.min_stats, data_pointer.max_stats);
+			    data_pointer.row_start, data_pointer.tuple_count, data_pointer.min_stats_encrypted, data_pointer.max_stats_encrypted);
 			info.data[col].push_back(move(segment));
 		}
 		if (col == 0) {
