@@ -152,7 +152,7 @@ void print_error_message(sgx_status_t ret)
 /* Initialize the enclave:
  *   Call sgx_create_enclave to initialize an enclave instance
  */
-int initialize_enclave_internal(const sgx_uswitchless_config_t* us_config)
+int initialize_enclave_internal(const sgx_uswitchless_config_t* us_config, sgx_enclave_id_t* enclave_id)
 {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
@@ -163,9 +163,17 @@ int initialize_enclave_internal(const sgx_uswitchless_config_t* us_config)
 
     enclave_ex_p[SGX_CREATE_ENCLAVE_EX_SWITCHLESS_BIT_IDX] = (const void*)us_config;
 
+    sgx_enclave_id_t* enclave_id_out;
+
+    if (enclave_id != nullptr) {
+        enclave_id_out = enclave_id;
+    } else {
+        enclave_id_out = &global_eid;
+    };
+
     /* Call sgx_create_enclave to initialize an enclave instance */
     /* Debug Support: set 2nd parameter to 1 */
-    ret = sgx_create_enclave_ex(ENCLAVE_FILENAME, SGX_DEBUG_FLAG, NULL, NULL, &global_eid, NULL, SGX_CREATE_ENCLAVE_EX_SWITCHLESS, enclave_ex_p);
+    ret = sgx_create_enclave_ex(ENCLAVE_FILENAME, SGX_DEBUG_FLAG, NULL, NULL, enclave_id_out, NULL, SGX_CREATE_ENCLAVE_EX_SWITCHLESS, enclave_ex_p);
     if (ret != SGX_SUCCESS) {
         print_error_message(ret);
         return -1;
@@ -174,14 +182,14 @@ int initialize_enclave_internal(const sgx_uswitchless_config_t* us_config)
     return 0;
 }
 
-int initialize_enclave(void)
+int initialize_enclave(sgx_enclave_id_t* enclave_id)
 {
     sgx_uswitchless_config_t us_config = SGX_USWITCHLESS_CONFIG_INITIALIZER;
     us_config.num_uworkers = 2;
     us_config.num_tworkers = 2;
 
     /* Initialize the enclave */
-    if(initialize_enclave_internal(&us_config) < 0)
+    if(initialize_enclave_internal(&us_config, enclave_id) < 0)
     {
         return -1;
     }
@@ -202,7 +210,7 @@ void ocall_print_string(const char *str)
 int SGX_CDECL test_enclave()
 {
     /* Initialize the enclave */
-    if(initialize_enclave() < 0){
+    if(initialize_enclave(nullptr) < 0){
         printf("Enter a character before exit ...\n");
         getchar();
         return -1;

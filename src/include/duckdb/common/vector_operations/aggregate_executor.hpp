@@ -194,7 +194,7 @@ public:
 //            auto nullmask = *((nullmask_t*)decrypted_data);
 //            UnaryUpdateLoop<STATE_TYPE, INPUT_TYPE, OP, false>((INPUT_TYPE *)idata, (STATE_TYPE *)state, count, nullmask, nullptr);
 
-            EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(input, (void*)state, count);
+            enclave_global->AggregateUnaryDoubleUpdateExecutor(input, (void*)state, count);
 
             //TODO EXIT SGX
             break;

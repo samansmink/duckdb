@@ -13,9 +13,6 @@
 using namespace duckdb;
 using namespace std;
 
-unsigned long max_buffers_to_free = 100; // TODO this should depend on available mem instead of arbitrary value
-vector<data_ptr_t>buffers_to_free;
-
 // Todo deduplicate with definition in sum.cpp
 struct sum_state_t {
     double value;
@@ -26,23 +23,39 @@ struct secure_sum_state_t {
 };
 
 namespace duckdb {
+EnclaveExecutor* enclave_global = nullptr;
+EnclaveExecutor* enclave_old = nullptr;
 
-// TODO ENCLAVE IS INCORRECT BECAUSE ITS SHARED BETWEEN DuckDB instances currently
+void EnclaveExecutor::CreateEnclave() {
+    // hacky solution to support running multiple instances of duckdb() proper approach would be to actually use
+    if (enclave_global != nullptr)
+        enclave_old = enclave_global;
 
-void EnclaveExecutor::InitializeEnclave(){
+    enclave_global = new EnclaveExecutor();
+}
+void EnclaveExecutor::DeleteEnclave() {
+    delete enclave_global;
+
+    // hacky solution to support running multiple instances of duckdb() proper approach would be to actually use
+    if (enclave_global != nullptr)
+        enclave_old = move(enclave_global);
+}
+
+EnclaveExecutor::EnclaveExecutor(){
     Printer::Print("Initializing SGX Enclave");
     /* Initialize the enclave */
-    if(initialize_enclave() < 0){
+    if(initialize_enclave(&enclave_id) < 0){
         throw Exception("Something went horribly wrong trying to initialize the SGX Enclave");
     }
 }
 
-void EnclaveExecutor::DestroyEnclave(){
+EnclaveExecutor::~EnclaveExecutor(){
     Printer::Print("Deleting SGX Enclave");
-
     PrintAllocedBuffers();
+    sgx_destroy_enclave(enclave_id);
 
-    sgx_destroy_enclave(global_eid);
+    if (enclave_old != nullptr)
+        enclave_global = move(enclave_old);
 }
 
 void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
@@ -52,7 +65,7 @@ void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
 
     if (buffers_to_free.size() >= max_buffers_to_free) {
         ecall_count++;
-        ret = ecall_free_secure_buffers(global_eid, (void**)&buffers_to_free[0], buffers_to_free.size());
+        ret = ecall_free_secure_buffers(enclave_id, (void**)&buffers_to_free[0], buffers_to_free.size());
         buffers_to_free.clear();
 
         if (ret != SGX_SUCCESS) {
@@ -66,7 +79,7 @@ void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
 //    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 //
 //    ecall_count++;
-//    ret = ecall_free_secure_buffer(global_eid, (void**)buffer_ptr);
+//    ret = ecall_free_secure_buffer(enclave_id, (void**)buffer_ptr);
 //
 //    if (ret != SGX_SUCCESS) {
 //        throw Exception("SGX Free secure buffer ECALL FAILED\n");
@@ -78,7 +91,7 @@ void EnclaveExecutor::FreeSecureBuffer(data_ptr_t* buffer_ptr) {
 void EnclaveExecutor::PrintAllocedBuffers() {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    ret = ecall_print_alloced_buffers(global_eid);
+    ret = ecall_print_alloced_buffers(enclave_id);
 
     if (ret != SGX_SUCCESS) {
         throw Exception("SGX Free secure buffers ECALL FAILED\n");
@@ -96,10 +109,10 @@ void EnclaveExecutor::Decrypt(Vector &vector){
 
 		if (*decrypted == nullptr) {
 
-            ret = ecall_allocate_secure_buffer(global_eid, (void**) decrypted, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
+            ret = ecall_allocate_secure_buffer(enclave_id, (void**) decrypted, GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
 
             ret = SGX_ERROR_UNEXPECTED;
-			ret = ecall_decrypt_buffer(global_eid, (void *)(encrypted), (void **)decrypted,
+			ret = ecall_decrypt_buffer(enclave_id, (void *)(encrypted), (void **)decrypted,
 			                           GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
 			if (ret != SGX_SUCCESS)
 				throw Exception("SGX decrypt ECALL FAILED\n");
@@ -110,7 +123,7 @@ void EnclaveExecutor::Decrypt(Vector &vector){
 		    (data_ptr_t)malloc(STANDARD_VECTOR_SIZE * GetTypeIdSize(vector.type) + sizeof(nullmask_t));
 
         ret = SGX_ERROR_UNEXPECTED;
-		ret = ecall_copy_secure_to_unsecure(global_eid, (void **)decrypted, (void *)tmp_decryption_buf,
+		ret = ecall_copy_secure_to_unsecure(enclave_id, (void **)decrypted, (void *)tmp_decryption_buf,
 		                                    GetTypeIdSize(vector.type) * STANDARD_VECTOR_SIZE + sizeof(nullmask_t));
 		if (ret != SGX_SUCCESS)
 			throw Exception("SGX decrypt copy ECALL FAILED\n");
@@ -137,7 +150,7 @@ void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &res
     ecall_count++;
     switch (type_id) {
     case TypeId::INT32: {
-        ret = ecall_filter_fetch_base_data_int(global_eid, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
+        ret = ecall_filter_fetch_base_data_int(enclave_id, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
 
         if (ret != SGX_SUCCESS)
             throw Exception("SGX filter fetch int ECALL FAILED\n");
@@ -145,7 +158,7 @@ void EnclaveExecutor::FilterFetchBaseData(data_ptr_t encrypted_data, Vector &res
         break;
     }
     case TypeId::DOUBLE: {
-        ret = ecall_filter_fetch_base_data_double(global_eid, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
+        ret = ecall_filter_fetch_base_data_double(enclave_id, (void*)sel.data(), (void**)result_decrypted, (void*)encrypted_data, approved_tuple_count);
 
         if (ret != SGX_SUCCESS)
             throw Exception("SGX filter fetch double ECALL FAILED\n");
@@ -166,12 +179,12 @@ void EnclaveExecutor::AggregateUnaryDoubleUpdateExecutor(Vector &vector, void* s
     ecall_count++;
     switch (vector.type) {
     case TypeId::DOUBLE: {
-		ret = ecall_aggregate_unary_double_update_executor(global_eid, (void *)encrypted, (void **)decrypted,
+		ret = ecall_aggregate_unary_double_update_executor(enclave_id, (void *)encrypted, (void **)decrypted,
 		                                                   (void *)((secure_sum_state_t *)state)->secure_state, count);
 		break;
 	}
     case TypeId::INT64: {
-        ret = ecall_aggregate_unary_long_update_executor(global_eid, (void *)encrypted, (void **)decrypted,
+        ret = ecall_aggregate_unary_long_update_executor(enclave_id, (void *)encrypted, (void **)decrypted,
                                                            (void *)((secure_sum_state_t *)state)->secure_state, count);
         break;
     }
@@ -189,7 +202,7 @@ data_ptr_t EnclaveExecutor::CreateSecureAggregateState() {
     data_ptr_t secure_aggregate_state;
 
     ecall_count++;
-    ret = ecall_create_secure_aggregate_state(global_eid, &secure_aggregate_state);
+    ret = ecall_create_secure_aggregate_state(enclave_id, &secure_aggregate_state);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX create scure aggregate ECALL FAILED\n");
@@ -201,7 +214,7 @@ void EnclaveExecutor::FreeSecureAggregateState(data_ptr_t secure_aggregate_state
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     ecall_count++;
-    ret = ecall_free_secure_aggregate_state(global_eid, secure_aggregate_state);
+    ret = ecall_free_secure_aggregate_state(enclave_id, secure_aggregate_state);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX free secure aggregate state ECALL FAILED\n");
@@ -213,7 +226,7 @@ void EnclaveExecutor::GetSecureBuffer(data_ptr_t unsecure_encrypted_buffer, data
     //TODO should this be counted?
     ecall_count++;
 
-    ret = ecall_get_secure_buffer(global_eid, (void*)unsecure_encrypted_buffer, (void**)secure_buffer, buf_size);
+    ret = ecall_get_secure_buffer(enclave_id, (void*)unsecure_encrypted_buffer, (void**)secure_buffer, buf_size);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX decrypt aggregate state ECALL FAILED\n");
@@ -226,7 +239,7 @@ void EnclaveExecutor::SetSecureBuffer(data_ptr_t* secure_buffer, data_ptr_t unse
     //TODO should this be counted?
     ecall_count++;
 
-    ret = ecall_set_secure_buffer(global_eid, (void**)secure_buffer,  (void*)unsecure_encrypted_buffer, buf_size);
+    ret = ecall_set_secure_buffer(enclave_id, (void**)secure_buffer,  (void*)unsecure_encrypted_buffer, buf_size);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX decrypt aggregate state ECALL FAILED\n");
@@ -236,7 +249,7 @@ void EnclaveExecutor::DecryptAggregateState(data_ptr_t secure_aggregate_state, d
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     ecall_count++;
-    ret = ecall_get_secure_aggregate_state(global_eid, secure_aggregate_state, unsecure_aggregate_state);
+    ret = ecall_get_secure_aggregate_state(enclave_id, secure_aggregate_state, unsecure_aggregate_state);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX decrypt aggregate state ECALL FAILED\n");
@@ -246,7 +259,7 @@ void EnclaveExecutor::SetMinMaxFromSecureBuffer(SegmentStatistics &stats, void* 
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
     ecall_count++;
-    ret = ecall_set_minmax_from_secure_buffer(global_eid, (void**)&stats.minimum_secure, (void**)&stats.maximum_secure, (void*) min_value_encrypted, (void*) max_value_encrypted, stats.type_size);
+    ret = ecall_set_minmax_from_secure_buffer(enclave_id, (void**)&stats.minimum_secure, (void**)&stats.maximum_secure, (void*) min_value_encrypted, (void*) max_value_encrypted, stats.type_size);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX decrypt aggregate state ECALL FAILED\n");
@@ -255,7 +268,7 @@ void EnclaveExecutor::SetMinMaxFromSecureBuffer(SegmentStatistics &stats, void* 
 bool EnclaveExecutor::GetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 //    ecall_count++; don't count here, only count when used for zonemap, were interested in zonemap check ecalls only
-    ret = ecall_get_minmax(global_eid, min_value, max_value, (void*)stats.minimum_secure, (void*)stats.maximum_secure, stats.type_size);
+    ret = ecall_get_minmax(enclave_id, min_value, max_value, (void*)stats.minimum_secure, (void*)stats.maximum_secure, stats.type_size);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");
@@ -267,7 +280,7 @@ bool EnclaveExecutor::SetMinMax(SegmentStatistics &stats, void* min_value, void*
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
 //    ecall_count++; writing ecalls should not be counted
-    ret = ecall_set_minmax(global_eid, min_value, max_value, (void**)&(stats.minimum_secure), (void**)&(stats.maximum_secure), stats.type_size);
+    ret = ecall_set_minmax(enclave_id, min_value, max_value, (void**)&(stats.minimum_secure), (void**)&(stats.maximum_secure), stats.type_size);
 
     if (ret != SGX_SUCCESS)
         throw Exception("SGX ECALL FAILED\n");

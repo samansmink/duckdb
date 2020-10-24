@@ -15,7 +15,6 @@ DBConfig::~DBConfig() {
 }
 
 DuckDB::DuckDB(const char *path, DBConfig *config) {
-    EnclaveExecutor::InitializeEnclave();
 
 	if (config) {
 		// user-supplied configuration
@@ -43,7 +42,8 @@ DuckDB::DuckDB(const char *path, DBConfig *config) {
 	catalog = make_unique<Catalog>(*storage);
 	transaction_manager = make_unique<TransactionManager>(*storage);
 	connection_manager = make_unique<ConnectionManager>();
-	// initialize the database
+    EnclaveExecutor::CreateEnclave();
+        // initialize the database
 	storage->Initialize();
 }
 
@@ -51,8 +51,8 @@ DuckDB::DuckDB(const string &path, DBConfig *config) : DuckDB(path.c_str(), conf
 }
 
 DuckDB::~DuckDB() {
+    EnclaveExecutor::DeleteEnclave();
     printf("Total ecall count: %d\n", (int)ecall_count);
-    EnclaveExecutor::DestroyEnclave();
 }
 
 void DuckDB::Configure(DBConfig &config) {

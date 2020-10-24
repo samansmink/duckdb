@@ -146,8 +146,8 @@ void TableDataWriter::FlushSegment(Transaction &transaction, idx_t col_idx) {
 	if (segments[col_idx]->type != TypeId::VARCHAR) {
 		data_ptr_t min_ptr = (data_ptr_t)&data_pointer.min_stats_encrypted;
 		data_ptr_t max_ptr = (data_ptr_t)&data_pointer.max_stats_encrypted;
-		EnclaveExecutor::GetSecureBuffer(min_ptr, (data_ptr_t *)&(stats[col_idx]->minimum_secure), 8);
-		EnclaveExecutor::GetSecureBuffer(max_ptr, (data_ptr_t *)&(stats[col_idx]->maximum_secure), 8);
+        enclave_global->GetSecureBuffer(min_ptr, (data_ptr_t *)&(stats[col_idx]->minimum_secure), 8);
+        enclave_global->GetSecureBuffer(max_ptr, (data_ptr_t *)&(stats[col_idx]->maximum_secure), 8);
 	}
 
 	data_pointers[col_idx].push_back(move(data_pointer));

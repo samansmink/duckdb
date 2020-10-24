@@ -295,13 +295,13 @@ void ecall_set_minmax_from_secure_buffer(void** min_ptr, void** max_ptr, void* m
         *min_ptr = allocate_buffer(type_size); // TODO memleak
         buffers_alloced++;
     } else {
-        assert_valid_enclave_buffer(*min_ptr, type_size + NONCE_BYTES);
+        assert_valid_enclave_buffer(*min_ptr, type_size);
     }
     if (!*max_ptr) {
         *max_ptr = allocate_buffer(type_size); // TODO memleak
         buffers_alloced++;
     } else {
-        assert_valid_enclave_buffer(*max_ptr, type_size + NONCE_BYTES);
+        assert_valid_enclave_buffer(*max_ptr, type_size);
     }
 
     decrypt_buffer((data_ptr_t) min_value_encrypted, (data_ptr_t*) min_ptr, type_size);

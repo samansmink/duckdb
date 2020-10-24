@@ -59,7 +59,7 @@ static void numeric_cast_switch(Vector &source, Vector &result, SQLType source_t
 	case SQLTypeId::BIGINT:
 		assert(result.type == TypeId::INT64);
 //		UnaryExecutor::Execute<SRC, int64_t, duckdb::Cast, true>(source, result, count);
-		EnclaveExecutor::CastToLong<SRC>(source, result, count);
+        enclave_global->CastToLong<SRC>(source, result, count);
 		break;
 	case SQLTypeId::FLOAT:
 		assert(result.type == TypeId::FLOAT);

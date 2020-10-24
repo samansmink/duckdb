@@ -11,6 +11,7 @@
 #include "duckdb/common/common.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/main/extension.hpp"
+#include "duckdb/common/sgx.hpp"
 
 namespace duckdb {
 class StorageManager;

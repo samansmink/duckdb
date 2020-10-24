@@ -181,26 +181,26 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 	if (tableFilter.size() == 1) {
 
         if (state.current->type == TypeId::INT8)
-            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.tinyint);
+            enclave_global->Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.tinyint);
         else if (state.current->type == TypeId::INT16)
-            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.smallint);
+            enclave_global->Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.smallint);
         else if (state.current->type == TypeId::INT32)
-            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.integer);
+            enclave_global->Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.integer);
         else if (state.current->type == TypeId::DOUBLE)
-            EnclaveExecutor::Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.double_);
+            enclave_global->Select(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[0].constant.value_.double_);
         else
             throw Exception("Unimplemented type for select on encrypted segment");
 
 	} else {
 
         if (state.current->type == TypeId::INT8)
-            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.tinyint, tableFilter[1].constant.value_.tinyint);
+            enclave_global->SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.tinyint, tableFilter[1].constant.value_.tinyint);
         else if (state.current->type == TypeId::INT16)
-            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.smallint, tableFilter[1].constant.value_.smallint);
+            enclave_global->SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.smallint, tableFilter[1].constant.value_.smallint);
         else if (state.current->type == TypeId::INT32)
-            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.integer, tableFilter[1].constant.value_.integer);
+            enclave_global->SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.integer, tableFilter[1].constant.value_.integer);
         else if (state.current->type == TypeId::DOUBLE)
-            EnclaveExecutor::SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.double_, tableFilter[1].constant.value_.double_);
+            enclave_global->SelectBetween(encrypted_data, result, sel, approved_tuple_count, tableFilter[0].comparison_type, tableFilter[1].comparison_type, tableFilter[0].constant.value_.double_, tableFilter[1].constant.value_.double_);
         else
             throw Exception("Unimplemented type for select on encrypted segment");
 	}
@@ -247,7 +247,7 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 
     auto encrypted_data = (data_ptr_t)(data + offset);
 
-    EnclaveExecutor::FilterFetchBaseData(encrypted_data, result, sel, approved_tuple_count, type);
+    enclave_global->FilterFetchBaseData(encrypted_data, result, sel, approved_tuple_count, type);
 }
 
 //===--------------------------------------------------------------------===//
@@ -305,7 +305,7 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 	assert(data.type == type);
 	auto handle = manager.Pin(block_id);
 
-    EnclaveExecutor::Decrypt(data);
+    enclave_global->Decrypt(data);
 
     auto encryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
@@ -348,10 +348,10 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 
 template <class T> static void update_min_max_secure(T value, T *__restrict min, T *__restrict max, SegmentStatistics &stats) {
     if (value < *min) {
-        EnclaveExecutor::SetMinMax(stats, &value, max);
+        enclave_global->SetMinMax(stats, &value, max);
     }
     if (value > *max) {
-        EnclaveExecutor::SetMinMax(stats, min, &value);
+        enclave_global->SetMinMax(stats, min, &value);
     }
 }
 
@@ -362,7 +362,7 @@ static void append_loop_secure(SegmentStatistics &stats, data_ptr_t target, idx_
 
     T min;
     T max;
-    EnclaveExecutor::GetMinMax(stats, &min, &max);
+    enclave_global->GetMinMax(stats, &min, &max);
 
 //    auto min = (T *)stats.minimum.get();
 //    auto max = (T *)stats.maximum.get();

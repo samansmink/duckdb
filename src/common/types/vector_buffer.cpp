@@ -31,7 +31,7 @@ buffer_ptr<VectorBuffer> VectorBuffer::CreateConstantVector(TypeId type) {
 
 DecryptionPointerBuffer::~DecryptionPointerBuffer() {
     if (data && data.get() && *(data_ptr_t*)data.get()) {
-        EnclaveExecutor::FreeSecureBuffer((data_ptr_t*)data.get());
+        enclave_global->FreeSecureBuffer((data_ptr_t*)data.get());
     }
 };
 

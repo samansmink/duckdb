@@ -64,7 +64,7 @@ void ecall_libcxx_functions(void);
 
 // Actual library functions to be called from Duckdb
 int test_enclave();
-int initialize_enclave(void);
+int initialize_enclave(sgx_enclave_id_t* enclave_id);
 
 
 #if defined(__cplusplus)
