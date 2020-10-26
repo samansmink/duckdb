@@ -71,7 +71,11 @@ public:
 	}
 
 	virtual unique_ptr<DuckDBBenchmarkState> CreateBenchmarkState() {
-		return make_unique<DuckDBBenchmarkState>(GetDatabasePath());
+        auto config = make_unique<DBConfig>();
+        if (fast_mode){
+        	config->access_mode = AccessMode::READ_ONLY
+        }
+		return make_unique<DuckDBBenchmarkState>(GetDatabasePath(), config.get());
 	}
 
 	unique_ptr<BenchmarkState> Initialize() override {
