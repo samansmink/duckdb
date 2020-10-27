@@ -73,7 +73,7 @@ public:
 	virtual unique_ptr<DuckDBBenchmarkState> CreateBenchmarkState() {
         auto config = make_unique<DBConfig>();
         if (fast_mode){
-        	config->access_mode = AccessMode::READ_ONLY
+        	config->access_mode = AccessMode::READ_ONLY;
         }
 		return make_unique<DuckDBBenchmarkState>(GetDatabasePath(), config.get());
 	}
