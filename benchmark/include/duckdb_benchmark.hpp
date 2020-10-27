@@ -79,7 +79,7 @@ public:
         config->custom_malloc = malloc_with_counter;
         config->custom_free = free_with_counter;
         if (fast_mode){
-        	config->access_mode = AccessMode::READ_ONLY
+        	config->access_mode = AccessMode::READ_ONLY;
         }
 		return make_unique<DuckDBBenchmarkState>(GetDatabasePath(), config.get());
 	}
