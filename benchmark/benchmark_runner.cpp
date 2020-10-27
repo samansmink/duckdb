@@ -311,6 +311,22 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 				fprintf(stderr, "Could not open file %s for writing\n", splits[1].c_str());
 				exit(1);
 			}
+		} else if (StringUtil::StartsWith(arg, "--queryfile=")) {
+			auto splits = StringUtil::Split(arg, '=');
+			if (splits.size() != 2) {
+				print_help();
+				exit(1);
+			}
+			auto &file = instance.query_file;
+			file.open(splits[1]);
+			if (!file.good()) {
+				fprintf(stderr, "Could not open file %s for reading\n", splits[1].c_str());
+				exit(1);
+			}
+			std::stringstream buffer;
+			buffer << instance.query_file.rdbuf();
+			instance.custom_query = buffer.str();
+			printf("Custom Query:\n %s\n\n", instance.custom_query.c_str());
 		} else {
 			if (!configuration.name_pattern.empty()) {
 				fprintf(stderr, "Only one benchmark can be specified.\n");
