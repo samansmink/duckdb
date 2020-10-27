@@ -26,6 +26,9 @@ struct DuckDBBenchmarkState : public BenchmarkState {
 	DuckDBBenchmarkState(string path) : db(path.empty() ? nullptr : path.c_str()), conn(db) {
 		conn.EnableProfiling();
 	}
+	DuckDBBenchmarkState(string path, DBConfig* config) : db(path.empty() ? nullptr : path.c_str(), config), conn(db) {
+        conn.EnableProfiling();
+    }
 	virtual ~DuckDBBenchmarkState() {
 	}
 };
