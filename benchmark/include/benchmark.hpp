@@ -44,8 +44,8 @@ public:
 	// Disables inmemory mode and reloading of benchmark data allowing much faster (re)running of benchmark, especially when db is larger than available memory
 	// NOTE: requires a valid duckdb_benchmark_db.db to be generated beforehand
 	bool fast_mode = false;
-
 	bool fast_mode_load = false;
+	bool read_only = false;
 
 	Benchmark(bool register_benchmark, string name, string group);
 

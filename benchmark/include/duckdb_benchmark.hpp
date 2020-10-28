@@ -77,9 +77,9 @@ public:
 
 	virtual unique_ptr<DuckDBBenchmarkState> CreateBenchmarkState() {
         auto config = make_unique<DBConfig>();
-        config->custom_malloc = malloc_with_counter;
-        config->custom_free = free_with_counter;
-        if (fast_mode){
+		if (read_only){
+        	config->custom_malloc = malloc_with_counter;
+        	config->custom_free = free_with_counter;
         	config->access_mode = AccessMode::READ_ONLY;
         }
 		return make_unique<DuckDBBenchmarkState>(GetDatabasePath(), config.get());
