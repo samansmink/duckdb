@@ -12,6 +12,7 @@
 #include "duckdb/common/types/chunk_collection.hpp"
 #include "duckdb/storage/storage_manager.hpp"
 #include "duckdb/storage/meta_block_writer.hpp"
+#include "duckdb/common/crypto.hpp"
 
 namespace duckdb {
 class ClientContext;
@@ -31,9 +32,9 @@ public:
 	block_id_t block_id;
 	uint32_t offset;
 	//! The minimum value of the segment
-	data_t min_stats[8];
+	data_t min_stats_encrypted[8 + NONCE_BYTES];
 	//! The maximum value of the segment
-	data_t max_stats[8];
+	data_t max_stats_encrypted[8 + NONCE_BYTES];
 };
 
 //! CheckpointManager is responsible for checkpointing the database
