@@ -13,8 +13,11 @@ using namespace std;
 	void Load(DuckDBBenchmarkState *state) override {                                                                  \
 		DeleteDatabase(db_path);                                                                                       \
 		{                                                                                                              \
-			DuckDB db(db_path);                                                                                        \
-			tpch::dbgen(SF, db);                                                                                       \
+			printf("Fast mode in delete: %d\n", this->fast_mode);\
+			if (!this->fast_mode){\
+				DuckDB db(db_path);                                                                                        \
+				tpch::dbgen(SF, db);                                                                                       \
+			}\
 		}                                                                                                              \
 		{                                                                                                              \
 			auto config = GetConfig();                                                                                 \
