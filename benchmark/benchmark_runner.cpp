@@ -141,6 +141,12 @@ void BenchmarkRunner::LogOutput(string message) {
 }
 
 void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
+	if (benchmark->fast_mode) {
+		printf("Running benchmark fast mode (Using stored DB instead of loading into in-memory DB from CSV)\n");
+	}
+	if (benchmark->fast_mode_load) {
+		printf("Running benchmark fast load mode (Generates a DB to allow later runs to use fast_mode)\n");
+	}
 	Profiler profiler;
 	LogLine(string(benchmark->name.size() + 6, '-'));
 	LogLine("|| " + benchmark->name + " ||");
@@ -218,6 +224,9 @@ enum class BenchmarkMetaType { NONE, INFO, GROUP, QUERY };
 
 struct BenchmarkConfiguration {
 	std::string name_pattern{};
+	bool fast_mode = false;
+	bool fast_mode_load = false;
+	bool read_only = false;
 	BenchmarkMetaType meta = BenchmarkMetaType::NONE;
 };
 
@@ -247,6 +256,15 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 		} else if (arg == "--group") {
 			// write group of benchmark
 			configuration.meta = BenchmarkMetaType::GROUP;
+		} else if (arg == "--fast-mode") {
+			// write group of benchmark
+			configuration.fast_mode = true;
+		} else if (arg == "--fast-mode-load") {
+			// write group of benchmark
+			configuration.fast_mode_load = true;
+		} else if (arg == "--read-only") {
+			// write group of benchmark
+			configuration.read_only = true;
 		} else if (arg == "--query") {
 			// write group of benchmark
 			configuration.meta = BenchmarkMetaType::QUERY;
@@ -262,6 +280,22 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 				fprintf(stderr, "Could not open file %s for writing\n", splits[1].c_str());
 				exit(1);
 			}
+		} else if (StringUtil::StartsWith(arg, "--queryfile=")) {
+			auto splits = StringUtil::Split(arg, '=');
+			if (splits.size() != 2) {
+				print_help();
+				exit(1);
+			}
+			auto &file = instance.query_file;
+			file.open(splits[1]);
+			if (!file.good()) {
+				fprintf(stderr, "Could not open file %s for reading\n", splits[1].c_str());
+				exit(1);
+			}
+			std::stringstream buffer;
+			buffer << instance.query_file.rdbuf();
+			instance.custom_query = buffer.str();
+			printf("Custom Query:\n %s\n\n", instance.custom_query.c_str());
 		} else {
 			if (!configuration.name_pattern.empty()) {
 				fprintf(stderr, "Only one benchmark can be specified.\n");
@@ -316,6 +350,9 @@ ConfigurationError run_benchmarks(const BenchmarkConfiguration &configuration) {
 			}
 		} else {
 			for (const auto &benchmark_index : benchmark_indices) {
+				benchmarks[benchmark_index]->fast_mode = configuration.fast_mode;
+				benchmarks[benchmark_index]->fast_mode_load = configuration.fast_mode_load;
+				benchmarks[benchmark_index]->read_only = configuration.read_only;
 				instance.RunBenchmark(benchmarks[benchmark_index]);
 			}
 		}
