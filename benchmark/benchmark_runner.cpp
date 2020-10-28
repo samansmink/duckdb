@@ -226,6 +226,7 @@ struct BenchmarkConfiguration {
 	std::string name_pattern{};
 	bool fast_mode = false;
 	bool fast_mode_load = false;
+	bool read_only = false;
 	BenchmarkMetaType meta = BenchmarkMetaType::NONE;
 };
 
@@ -261,6 +262,9 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 		} else if (arg == "--fast-mode-load") {
 			// write group of benchmark
 			configuration.fast_mode_load = true;
+		} else if (arg == "--read_only") {
+			// write group of benchmark
+			configuration.read_only = true;
 		} else if (arg == "--query") {
 			// write group of benchmark
 			configuration.meta = BenchmarkMetaType::QUERY;
@@ -348,6 +352,7 @@ ConfigurationError run_benchmarks(const BenchmarkConfiguration &configuration) {
 			for (const auto &benchmark_index : benchmark_indices) {
 				benchmarks[benchmark_index]->fast_mode = configuration.fast_mode;
 				benchmarks[benchmark_index]->fast_mode_load = configuration.fast_mode_load;
+				benchmarks[benchmark_index]->read_only = configuration.read_only;
 				instance.RunBenchmark(benchmarks[benchmark_index]);
 			}
 		}
