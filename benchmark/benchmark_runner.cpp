@@ -262,7 +262,7 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 		} else if (arg == "--fast-mode-load") {
 			// write group of benchmark
 			configuration.fast_mode_load = true;
-		} else if (arg == "--read_only") {
+		} else if (arg == "--read-only") {
 			// write group of benchmark
 			configuration.read_only = true;
 		} else if (arg == "--query") {
