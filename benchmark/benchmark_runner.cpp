@@ -200,8 +200,6 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		benchmark->Run(state.get());
 		profiler.End();
 		sgx_stats_read(&stats_after);
-
-		// fprintf(stderr, "Paging: Paged in:%ld Paged out: %ld\n", stats_after.pageins - stats_before.pageins, stats_after.pageouts - stats_before.pageouts);
 		// fprintf(stderr,"Max malloced custom malloc:%ld\n", duckdb::malloced_max);
 		// fprintf(stderr,"Max malloced regular malloc:\n");
 		// malloc_stats();
@@ -231,6 +229,7 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		} else {
 			LogLine("DONE");
 		}
+        fprintf(stderr, "Paging: Paged in:%ld Paged out: %ld\n", stats_after.pageins - stats_before.pageins, stats_after.pageouts - stats_before.pageouts);
 	}
 
 	benchmark->Finalize();
