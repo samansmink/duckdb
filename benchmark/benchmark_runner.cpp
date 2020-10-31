@@ -261,6 +261,7 @@ struct BenchmarkConfiguration {
 	bool fast_mode = false;
 	bool fast_mode_load = false;
 	bool read_only = false;
+	int scale_factor = 1;
 	BenchmarkMetaType meta = BenchmarkMetaType::NONE;
 };
 
@@ -330,6 +331,14 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 			buffer << instance.query_file.rdbuf();
 			instance.custom_query = buffer.str();
 			printf("Custom Query:\n %s\n\n", instance.custom_query.c_str());
+		} else if (StringUtil::StartsWith(arg, "--scale-factor=")) {
+			auto splits = StringUtil::Split(arg, '=');
+			if (splits.size() != 2) {
+				print_help();
+				exit(1);
+			}
+			configuration.scale_factor = std::stoi(splits[1]);
+			printf("Scale factor set to %d\n", configuration.scale_factor);
 		} else {
 			if (!configuration.name_pattern.empty()) {
 				fprintf(stderr, "Only one benchmark can be specified.\n");
@@ -387,6 +396,7 @@ ConfigurationError run_benchmarks(const BenchmarkConfiguration &configuration) {
 				benchmarks[benchmark_index]->fast_mode = configuration.fast_mode;
 				benchmarks[benchmark_index]->fast_mode_load = configuration.fast_mode_load;
 				benchmarks[benchmark_index]->read_only = configuration.read_only;
+				benchmarks[benchmark_index]->scale_factor = configuration.scale_factor;
 				instance.RunBenchmark(benchmarks[benchmark_index]);
 			}
 		}
