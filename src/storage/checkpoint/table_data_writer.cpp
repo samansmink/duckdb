@@ -125,7 +125,7 @@ void TableDataWriter::FlushSegment(Transaction &transaction, idx_t col_idx) {
 	}
 
 	// get the buffer of the segment and pin it
-	auto handle = manager.buffer_manager.Pin(segments[col_idx]->block_id);
+	auto handle = manager.buffer_manager.Pin(segments[col_idx]->block_id, true);
 
 	// get a free block id to write to
 	auto block_id = manager.block_manager.GetFreeBlockId();

@@ -29,12 +29,12 @@ public:
 	~BufferManager();
 
 	//! Pin a block id, returning a block handle holding a pointer to the block
-	unique_ptr<BufferHandle> Pin(block_id_t block, bool can_destroy = false);
+	unique_ptr<BufferHandle> Pin(block_id_t block, bool can_destroy = false, bool unsecure = false);
 
 	//! Allocate a buffer of arbitrary size, as long as it is >= BLOCK_SIZE. can_destroy signifies whether or not the
 	//! buffer can be destroyed when unpinned, or whether or not it needs to be written to a temporary file so it can be
 	//! reloaded.
-	unique_ptr<BufferHandle> Allocate(idx_t alloc_size, bool can_destroy = false);
+	unique_ptr<BufferHandle> Allocate(idx_t alloc_size, bool can_destroy = false, bool unsecure = false);
 	//! Destroy the managed buffer with the specified buffer_id, freeing its memory
 	void DestroyBuffer(block_id_t buffer_id, bool can_destroy = false);
 
@@ -45,7 +45,7 @@ public:
 	static BufferManager &GetBufferManager(ClientContext &context);
 
 private:
-	unique_ptr<BufferHandle> PinBlock(block_id_t block_id);
+	unique_ptr<BufferHandle> PinBlock(block_id_t block_id, bool unsecure = false);
 	unique_ptr<BufferHandle> PinBuffer(block_id_t block_id, bool can_destroy = false);
 
 	//! Unpin a block id, decreasing its reference count and potentially allowing it to be freed.

@@ -22,7 +22,7 @@ public:
 	//! FileSystemConstants::FILE_BUFFER_BLOCK_SIZE. The content in this buffer can be written to FileHandles that have
 	//! been opened with DIRECT_IO on all operating systems, however, the entire buffer must be written to the file.
 	//! Note that the returned size is 8 bytes less than the allocation size to account for the checksum.
-	FileBuffer(FileBufferType type, uint64_t bufsiz);
+	FileBuffer(FileBufferType type, uint64_t bufsiz, bool unsecure = false);
 	virtual ~FileBuffer();
 
 	//! The type of the buffer
@@ -31,6 +31,9 @@ public:
 	data_ptr_t buffer;
 	//! The size of the portion that users can write to, this is equivalent to internal_size - BLOCK_HEADER_SIZE
 	uint64_t size;
+
+	//! Marks that this buffer can be located in unsecure memory so all its private contents should be encrypted
+	bool unsecure;
 
 public:
 	//! Read into the FileBuffer from the specified location. Automatically verifies the checksum, and throws an

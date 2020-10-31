@@ -11,7 +11,7 @@
 using namespace duckdb;
 using namespace std;
 
-FileBuffer::FileBuffer(FileBufferType type, uint64_t bufsiz) : type(type) {
+FileBuffer::FileBuffer(FileBufferType type, uint64_t bufsiz, bool unsecure) : type(type), unsecure(unsecure) {
 	const int SECTOR_SIZE = Storage::SECTOR_SIZE;
 	// round up to the nearest SECTOR_SIZE, thi sis only really necessary if the file buffer will be used for Direct IO
 	if (bufsiz % SECTOR_SIZE != 0) {
@@ -20,7 +20,11 @@ FileBuffer::FileBuffer(FileBufferType type, uint64_t bufsiz) : type(type) {
 	assert(bufsiz % SECTOR_SIZE == 0);
 	assert(bufsiz >= SECTOR_SIZE);
 	// we add (SECTOR_SIZE - 1) to ensure that we can align the buffer to SECTOR_SIZE
-	malloced_buffer = (data_ptr_t)custom_malloc(bufsiz + (SECTOR_SIZE - 1));
+	if (unsecure) {
+        malloced_buffer = (data_ptr_t)custom_malloc(bufsiz + (SECTOR_SIZE - 1));
+    } else {
+        malloced_buffer = (data_ptr_t)malloc(bufsiz + (SECTOR_SIZE - 1));
+	}
 	if (!malloced_buffer) {
 		throw std::bad_alloc();
 	}
@@ -41,7 +45,11 @@ FileBuffer::FileBuffer(FileBufferType type, uint64_t bufsiz) : type(type) {
 }
 
 FileBuffer::~FileBuffer() {
-    custom_free(malloced_buffer);
+    if (unsecure) {
+        custom_free(malloced_buffer);
+    } else {
+        free(malloced_buffer);
+    }
 }
 
 void FileBuffer::Read(FileHandle &handle, uint64_t location, const char * key) {
@@ -59,6 +67,8 @@ void FileBuffer::Read(FileHandle &handle, uint64_t location, const char * key) {
             throw IOException("Could not read database file: decryption failed, either key is wrong or file is corrupt");
         }
     } else {
+        // FS is unsecure so should only be read into unsecure buffer
+        assert(unsecure);
         // read the buffer from disk
         handle.Read(internal_buffer, internal_size, location);
         // compute the checksum
@@ -91,6 +101,8 @@ void FileBuffer::Write(FileHandle &handle, uint64_t location, const char * key) 
 
         handle.Write(nonce_stored, internal_size, location);
     } else {
+        // FS is unsecure so should only be read into unsecure buffer
+        assert(unsecure);
         // compute the checksum and write it to the start of the buffer
         uint64_t checksum = Checksum(buffer, size);
         *((uint64_t *)internal_buffer) = checksum;

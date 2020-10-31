@@ -19,17 +19,17 @@ BufferManager::~BufferManager() {
 	}
 }
 
-unique_ptr<BufferHandle> BufferManager::Pin(block_id_t block_id, bool can_destroy) {
+unique_ptr<BufferHandle> BufferManager::Pin(block_id_t block_id, bool can_destroy, bool unsecure) {
 	// first obtain a lock on the set of blocks
 	lock_guard<mutex> lock(block_lock);
 	if (block_id < MAXIMUM_BLOCK) {
-		return PinBlock(block_id);
+		return PinBlock(block_id, unsecure);
 	} else {
 		return PinBuffer(block_id, can_destroy);
 	}
 }
 
-unique_ptr<BufferHandle> BufferManager::PinBlock(block_id_t block_id) {
+unique_ptr<BufferHandle> BufferManager::PinBlock(block_id_t block_id, bool unsecure) {
 	// this method should only be used to pin blocks that exist in the file
 	assert(block_id < MAXIMUM_BLOCK);
 
@@ -46,14 +46,17 @@ unique_ptr<BufferHandle> BufferManager::PinBlock(block_id_t block_id) {
 			if (!block) {
 				// evicted a managed buffer: no block returned
 				// create a new block
-				block = make_unique<Block>(block_id);
+				block = make_unique<Block>(block_id, unsecure);
 			} else {
 				// take over the evicted block and use it to hold this block
 				block->id = block_id;
+				if (unsecure == true && block->unsecure == false) {
+				    throw new Exception("Reusing secure block while unsecure block should have been used!");
+				}
 			}
 		} else {
 			// enough memory to create a new block: allocate it
-			block = make_unique<Block>(block_id);
+			block = make_unique<Block>(block_id, unsecure);
 		}
 		manager.Read(*block);
 		result_block = block.get();
@@ -143,7 +146,7 @@ unique_ptr<Block> BufferManager::EvictBlock() {
 	}
 }
 
-unique_ptr<BufferHandle> BufferManager::Allocate(idx_t alloc_size, bool can_destroy) {
+unique_ptr<BufferHandle> BufferManager::Allocate(idx_t alloc_size, bool can_destroy, bool unsecure) {
 	assert(alloc_size >= Storage::BLOCK_ALLOC_SIZE);
 
 	lock_guard<mutex> lock(block_lock);
@@ -153,7 +156,7 @@ unique_ptr<BufferHandle> BufferManager::Allocate(idx_t alloc_size, bool can_dest
 	}
 	// now allocate the buffer with a new temporary id
 	auto temp_id = ++temporary_id;
-	auto buffer = make_unique<ManagedBuffer>(*this, alloc_size, can_destroy, temp_id);
+	auto buffer = make_unique<ManagedBuffer>(*this, alloc_size, can_destroy, temp_id, unsecure);
 	auto managed_buffer = buffer.get();
 	current_memory += buffer->AllocSize();
 	// create a new entry and append it to the used list

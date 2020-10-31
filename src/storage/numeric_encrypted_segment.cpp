@@ -29,7 +29,7 @@ NumericEncryptedSegment::NumericEncryptedSegment(BufferManager &manager, TypeId 
 
     if (block_id == INVALID_BLOCK) {
         // no block id specified: allocate a buffer for the encrypted segment
-        auto handle = manager.Allocate(Storage::BLOCK_ALLOC_SIZE);
+        auto handle = manager.Allocate(Storage::BLOCK_ALLOC_SIZE, true);
         this->block_id = handle->block_id;
     }
 }
@@ -41,7 +41,7 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 	assert(vector_index * STANDARD_VECTOR_SIZE <= tuple_count);
 
 	// pin the buffer for this segment
-	auto handle = manager.Pin(block_id);
+	auto handle = manager.Pin(block_id, false, true);
 	auto data = handle->node->buffer;
 	auto offset = vector_index * vector_size;
 
@@ -124,7 +124,7 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
 	assert(vector_index * STANDARD_VECTOR_SIZE <= tuple_count);
 
 	// pin the buffer for this segment
-	auto handle = manager.Pin(block_id);
+	auto handle = manager.Pin(block_id, false, true);
 	auto data = handle->node->buffer;
 
 	auto offset = vector_index * vector_size;
@@ -158,7 +158,7 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	assert(vector_index * STANDARD_VECTOR_SIZE <= tuple_count);
 
 	// pin the buffer for this segment
-	auto handle = manager.Pin(block_id);
+	auto handle = manager.Pin(block_id, false, true);
 	auto data = handle->node->buffer;
 	auto offset = vector_index * vector_size;
 
@@ -222,7 +222,7 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 void NumericEncryptedSegment::FetchRow(ColumnFetchState &state, Transaction &transaction, row_t row_id, Vector &result,
                               idx_t result_idx) {
 	auto read_lock = lock.GetSharedLock();
-	auto handle = manager.Pin(block_id);
+	auto handle = manager.Pin(block_id, false, true);
 
 	// get the vector index
 	idx_t vector_index = row_id / STANDARD_VECTOR_SIZE;
@@ -267,7 +267,7 @@ void NumericEncryptedSegment::RollbackUpdate(UpdateInfo *info) {
 //===--------------------------------------------------------------------===//
 idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, idx_t offset, idx_t count) {
 	assert(data.type == type);
-	auto handle = manager.Pin(block_id);
+	auto handle = manager.Pin(block_id, false, true);
 
     auto encryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 

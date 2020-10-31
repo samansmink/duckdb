@@ -200,9 +200,9 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		benchmark->Run(state.get());
 		profiler.End();
 		sgx_stats_read(&stats_after);
-		// fprintf(stderr,"Max malloced custom malloc:%ld\n", duckdb::malloced_max);
-		// fprintf(stderr,"Max malloced regular malloc:\n");
-		// malloc_stats();
+//		 fprintf(stderr,"Max malloced custom malloc:%ld\n", duckdb::malloced_max);
+//		 fprintf(stderr,"Max malloced regular malloc:\n");
+//		 malloc_stats();
 
 		benchmark->Cleanup(state.get());
 
