@@ -6,29 +6,38 @@
 using namespace duckdb;
 using namespace std;
 
-#define SF 1
 #define DISABLE_ANSWERCHECK 1
 
 #define TPCH_QUERY_BODY(QNR)                                                                                           \
 	virtual void Load(DuckDBBenchmarkState *state) {                                                                   \
+		if (!this->fast_mode) { 																					   \
 		if (!BenchmarkRunner::TryLoadDatabase(state->db, "tpch")) {                                                    \
-			tpch::dbgen(SF, state->db);                                                                                \
+			tpch::dbgen(this->scale_factor, state->db);                                                                \
 			BenchmarkRunner::SaveDatabase(state->db, "tpch");                                                          \
 		}                                                                                                              \
 	}                                                                                                                  \
+	}                                                                                                                  \
 	virtual string GetQuery() {                                                                                        \
-		return tpch::get_query(QNR);                                                                                   \
+		if (QNR == -1){													                                               \
+			return BenchmarkRunner::GetInstance().custom_query;		                                                   \
+		} else {																									   \
+			return tpch::get_query(QNR);                                                                               \
+		}																											   \
 	}                                                                                                                  \
 	virtual string VerifyResult(QueryResult *result) {                                                                 \
 		if (!result->success) {                                                                                        \
 			return result->error;                                                                                      \
 		}                                                                                                              \
-		if (DISABLE_ANSWERCHECK) return "";                                                                          \
-		return compare_csv(*result, tpch::get_answer(SF, QNR), true);                                                  \
+		if (DISABLE_ANSWERCHECK) return "";                                                                            \
+		return compare_csv(*result, tpch::get_answer(this->scale_factor, QNR), true);                                  \
 	}                                                                                                                  \
 	virtual string BenchmarkInfo() {                                                                                   \
-		return StringUtil::Format("TPC-H Q%d SF%d: %s", QNR, SF, tpch::get_query(QNR).c_str());                        \
+		return StringUtil::Format("TPC-H Q%d SF%d: %s", QNR, this->scale_factor, tpch::get_query(QNR).c_str());        \
 	}
+
+DUCKDB_BENCHMARK(Q_CUSTOM, "[tpch-sf1]")
+TPCH_QUERY_BODY(-1);
+FINISH_BENCHMARK(Q_CUSTOM)
 
 DUCKDB_BENCHMARK(Q01, "[tpch-sf1]")
 TPCH_QUERY_BODY(1);
