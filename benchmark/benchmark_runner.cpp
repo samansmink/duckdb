@@ -227,7 +227,7 @@ struct BenchmarkConfiguration {
 	bool fast_mode = false;
 	bool fast_mode_load = false;
 	bool read_only = false;
-	int scale_factor = 1;
+	float scale_factor = 1;
 	BenchmarkMetaType meta = BenchmarkMetaType::NONE;
 };
 
@@ -303,7 +303,7 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 				print_help();
 				exit(1);
 			}
-			configuration.scale_factor = std::stoi(splits[1]);
+			configuration.scale_factor = std::stof(splits[1]);
 			printf("Scale factor set to %d\n", configuration.scale_factor);
 		} else {
 			if (!configuration.name_pattern.empty()) {
