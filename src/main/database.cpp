@@ -52,7 +52,11 @@ DuckDB::DuckDB(const string &path, DBConfig *config) : DuckDB(path.c_str(), conf
 
 DuckDB::~DuckDB() {
     EnclaveExecutor::DeleteEnclave();
-    printf("Total ecall count: %d\n", (int)ecall_count);
+    printf("Total ecall count: %ld\n", ecall_count);
+}
+
+long DuckDB::GetEcallCount() {
+    return ecall_count;
 }
 
 void DuckDB::Configure(DBConfig &config) {
