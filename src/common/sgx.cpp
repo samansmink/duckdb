@@ -100,6 +100,7 @@ void EnclaveExecutor::PrintAllocedBuffers() {
 
 // Function for debugging to easily print output
 void EnclaveExecutor::Decrypt(Vector &vector){
+    // TODO CONFIRM IT IS NOT USED!
     if (vector.vector_type == VectorType::SGX_VECTOR) {
 
 		sgx_status_t ret = SGX_ERROR_UNEXPECTED;
@@ -223,7 +224,6 @@ void EnclaveExecutor::FreeSecureAggregateState(data_ptr_t secure_aggregate_state
 void EnclaveExecutor::GetSecureBuffer(data_ptr_t unsecure_encrypted_buffer, data_ptr_t* secure_buffer, size_t buf_size) {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    //TODO should this be counted?
     ecall_count++;
 
     ret = ecall_get_secure_buffer(enclave_id, (void*)unsecure_encrypted_buffer, (void**)secure_buffer, buf_size);
@@ -236,7 +236,6 @@ void EnclaveExecutor::GetSecureBuffer(data_ptr_t unsecure_encrypted_buffer, data
 void EnclaveExecutor::SetSecureBuffer(data_ptr_t* secure_buffer, data_ptr_t unsecure_encrypted_buffer, size_t buf_size) {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-    //TODO should this be counted?
     ecall_count++;
 
     ret = ecall_set_secure_buffer(enclave_id, (void**)secure_buffer,  (void*)unsecure_encrypted_buffer, buf_size);
@@ -279,7 +278,7 @@ bool EnclaveExecutor::GetMinMax(SegmentStatistics &stats, void* min_value, void*
 bool EnclaveExecutor::SetMinMax(SegmentStatistics &stats, void* min_value, void* max_value){
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
-//    ecall_count++; writing ecalls should not be counted
+    ecall_count++;
     ret = ecall_set_minmax(enclave_id, min_value, max_value, (void**)&(stats.minimum_secure), (void**)&(stats.maximum_secure), stats.type_size);
 
     if (ret != SGX_SUCCESS)

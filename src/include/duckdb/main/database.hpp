@@ -80,6 +80,8 @@ public:
 	string temporary_directory;
 	string collation;
 
+	long GetEcallCount();
+
 public:
 	template <class T> void LoadExtension() {
 		T extension;

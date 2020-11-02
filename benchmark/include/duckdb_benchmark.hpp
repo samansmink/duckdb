@@ -61,6 +61,10 @@ public:
 		return fast_mode || fast_mode_load ? false : true;
 	}
 
+    virtual long GetEcallCount(BenchmarkState* state) {
+        return ((DuckDBBenchmarkState*)state)->db.GetEcallCount();
+    }
+
 	string GetDatabasePath() {
 		if (!InMemory()) {
 			string path = "duckdb_benchmark_db.db";

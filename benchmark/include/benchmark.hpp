@@ -63,6 +63,9 @@ public:
 	//! Finalize the benchmark runner
 	virtual void Finalize() {
 	}
+    virtual long GetEcallCount(BenchmarkState* state) {
+	    return (long)0;
+	}
 	//! Interrupt the benchmark because of a timeout
 	virtual void Interrupt(BenchmarkState *state) = 0;
 	//! Returns information about the benchmark

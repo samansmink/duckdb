@@ -154,6 +154,8 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 	auto state = benchmark->Initialize();
 	auto nruns = benchmark->NRuns();
 	auto coldruns = benchmark->NColdRuns();
+	long ecall_before = 0;
+	long ecall_after = 0;
 	for (size_t i = 0; i < nruns + coldruns; i++) {
 		bool hotrun = i >= coldruns;
 		if (hotrun) {
@@ -168,9 +170,11 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 		timeout = false;
 		thread interrupt_thread(sleep_thread, benchmark, state.get(), benchmark->Timeout());
 
+        ecall_before = benchmark->GetEcallCount(state.get());
 		profiler.Start();
 		benchmark->Run(state.get());
 		profiler.End();
+        ecall_after = benchmark->GetEcallCount(state.get());
 
 		benchmark->Cleanup(state.get());
 
@@ -194,6 +198,7 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
 					LogResult(to_string(profiler.Elapsed()));
 				}
 			}
+			printf("ECALLS: %ld\n", ecall_after - ecall_before);
 		} else {
 			LogLine("DONE");
 		}
