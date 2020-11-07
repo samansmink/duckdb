@@ -55,8 +55,6 @@ public:
 
 private:
 	append_function_t append_function;
-
-	unique_ptr<unsigned char[]> decryption_buffer; // Buffer to encrypt/decrypt to
 };
 
 } // namespace duckdb

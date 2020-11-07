@@ -24,6 +24,8 @@ extern "C" {
 
 namespace duckdb {
 
+extern unsigned char* decryption_buffer;
+
 //#define NONCE_BYTES crypto_stream_NONCEBYTES // For all NACL functions
 #define NONCE_BYTES 16 // For OPENSSL AES CTR
 

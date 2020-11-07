@@ -67,8 +67,6 @@ void FileBuffer::Read(FileHandle &handle, uint64_t location, const char * key) {
             throw IOException("Could not read database file: decryption failed, either key is wrong or file is corrupt");
         }
     } else {
-        // FS is unsecure so should only be read into unsecure buffer
-        assert(unsecure);
         // read the buffer from disk
         handle.Read(internal_buffer, internal_size, location);
         // compute the checksum
@@ -101,8 +99,6 @@ void FileBuffer::Write(FileHandle &handle, uint64_t location, const char * key) 
 
         handle.Write(nonce_stored, internal_size, location);
     } else {
-        // FS is unsecure so should only be read into unsecure buffer
-        assert(unsecure);
         // compute the checksum and write it to the start of the buffer
         uint64_t checksum = Checksum(buffer, size);
         *((uint64_t *)internal_buffer) = checksum;

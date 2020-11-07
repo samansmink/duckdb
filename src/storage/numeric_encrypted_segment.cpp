@@ -25,7 +25,10 @@ NumericEncryptedSegment::NumericEncryptedSegment(BufferManager &manager, TypeId 
     this->max_vector_count = Storage::BLOCK_SIZE / vector_size;
 
     this->block_id = block;
-    this->decryption_buffer = unique_ptr<unsigned char[]>(new unsigned char[this->vector_size]);
+
+    if (decryption_buffer == nullptr) {
+        decryption_buffer = (unsigned char*) malloc(sizeof(encrypted_vector_header_t) + 8 * STANDARD_VECTOR_SIZE);
+    }
 
     if (block_id == INVALID_BLOCK) {
         // no block id specified: allocate a buffer for the encrypted segment
@@ -49,7 +52,6 @@ void NumericEncryptedSegment::Select(ColumnScanState &state, Vector &result, Sel
 //    auto encrypted_data = (unsigned char*)encrypted_header + sizeof(encrypted_vector_header_t);
 
     // Decrypt the vector to a decryption buffer;
-    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
     auto source_nullmask = (nullmask_t *)(decryption_buffer);
@@ -135,8 +137,6 @@ void NumericEncryptedSegment::FetchBaseData(ColumnScanState &state, idx_t vector
     auto nonce = (unsigned char*)(data + offset);
 
     // Decrypt the vector to a decryption buffer;
-    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
-
     Decrypt(decryption_buffer, encrypted_header->nullmask, this->vector_size - NONCE_BYTES, nonce);
 
     // fetch the nullmask and copy the data from the base table
@@ -163,9 +163,6 @@ void NumericEncryptedSegment::FilterFetchBaseData(ColumnScanState &state, Vector
 	auto offset = vector_index * vector_size;
 
     auto encrypted_header = (encrypted_vector_header_t*)(data + offset);
-
-    // Decrypt the vector to a decryption buffer;
-    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
 
     Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
@@ -237,7 +234,6 @@ void NumericEncryptedSegment::FetchRow(ColumnFetchState &state, Transaction &tra
 
     // Decrypt the vector to a decryption buffer;
     // TODO we know where in the vector we need to decrypt here so we should be able to optimize this.
-    auto decryption_buffer = (data_ptr_t) this->decryption_buffer.get();
     Decrypt(decryption_buffer, encrypted_header->nullmask, vector_size - NONCE_BYTES, encrypted_header->nonce);
 
 	auto &nullmask = *((nullmask_t *)(decryption_buffer));
@@ -269,7 +265,7 @@ idx_t NumericEncryptedSegment::Append(SegmentStatistics &stats, Vector &data, id
 	assert(data.type == type);
 	auto handle = manager.Pin(block_id, false, true);
 
-    auto encryption_buffer = (data_ptr_t) this->decryption_buffer.get();
+    auto encryption_buffer = (data_ptr_t) decryption_buffer;
 
 	idx_t initial_count = tuple_count;
 	while (count > 0) {

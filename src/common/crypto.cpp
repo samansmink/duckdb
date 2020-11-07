@@ -7,6 +7,8 @@ using namespace std;
 
 namespace duckdb {
 
+unsigned char* decryption_buffer = nullptr;
+
 int aes_ctr_128_encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key, unsigned char *iv, unsigned char *ciphertext)
 {
     EVP_CIPHER_CTX *ctx;

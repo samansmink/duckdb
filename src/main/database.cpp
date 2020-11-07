@@ -7,6 +7,8 @@
 #include "duckdb/transaction/transaction_manager.hpp"
 
 #include "duckdb/common/malloc.hpp"
+#include "duckdb/common/crypto.hpp"
+#include "duckdb/storage/numeric_encrypted_segment.hpp"
 
 using namespace duckdb;
 using namespace std;
