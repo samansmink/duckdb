@@ -36,7 +36,7 @@ public:
 	//! Whether or not to use Direct IO, bypassing operating system buffers
 	bool use_direct_io = false;
 	//! Whether or not to encrypt all data written to disk
-	bool encrypted_storage = false;
+	bool encrypted_storage = true;
 	//! The FileSystem to use, can be overwritten to allow for injecting custom file systems for testing purposes (e.g.
 	//! RamFS or something similar)
 	unique_ptr<FileSystem> file_system;

@@ -113,11 +113,11 @@ TEST_CASE("Test file buffers for reading/writing to file", "[file_system]") {
 	REQUIRE_NOTHROW(handle = fs.OpenFile(fname, FileFlags::WRITE | FileFlags::CREATE | FileFlags::DIRECT_IO,
 	                                     FileLockType::WRITE_LOCK));
 	// write the buffer
-	REQUIRE_NOTHROW(buf->Write(*handle, 0, nullptr));
+	REQUIRE_NOTHROW(buf->Write(*handle, 0));
 	// clear the buffer
 	buf->Clear();
 	// now read data back into the buffer
-	REQUIRE_NOTHROW(buf->Read(*handle, 0, nullptr));
+	REQUIRE_NOTHROW(buf->Read(*handle, 0));
 	for (size_t i = 0; i < 10; i++) {
 		REQUIRE(ptr[i] == i);
 	}

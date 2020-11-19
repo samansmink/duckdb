@@ -232,7 +232,7 @@ void BufferManager::WriteTemporaryBuffer(ManagedBuffer &buffer) {
 	// create the file and write the size followed by the buffer contents
 	auto handle = fs.OpenFile(path, FileFlags::WRITE | FileFlags::CREATE);
 	handle->Write(&buffer.size, sizeof(idx_t), 0);
-	buffer.Write(*handle, sizeof(idx_t), nullptr); // TODO encrypt temporary buffer?
+	buffer.Write(*handle, sizeof(idx_t));
 }
 
 unique_ptr<BufferHandle> BufferManager::ReadTemporaryBuffer(block_id_t id) {
@@ -251,7 +251,7 @@ unique_ptr<BufferHandle> BufferManager::ReadTemporaryBuffer(block_id_t id) {
 	}
 	// now allocate a buffer of this size and read the data into that buffer
 	auto buffer = make_unique<ManagedBuffer>(*this, alloc_size + Storage::BLOCK_HEADER_SIZE, false, id);
-	buffer->Read(*handle, sizeof(idx_t), nullptr); // TODO add encryption?
+	buffer->Read(*handle, sizeof(idx_t));
 
 	auto managed_buffer = buffer.get();
 	current_memory += buffer->AllocSize();
