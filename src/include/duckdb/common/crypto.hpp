@@ -104,5 +104,4 @@ inline void DecryptAtOffset(unsigned char *plaintext, unsigned char *ciphertext,
 //    chacha8avx_decrypt_offset(ciphertext, length, (unsigned char *)TEST_KEY, nonce, plaintext, offset_blocks);
     memcpy(plaintext, ciphertext, length);
 } // namespace duckdb
-
 }
