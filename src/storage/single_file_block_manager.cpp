@@ -51,10 +51,19 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 		header->meta_block = INVALID_BLOCK;
 		header->free_list = INVALID_BLOCK;
 		header->block_count = 0;
-		header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE);
+        if (encrypted_storage) {
+			header_buffer.WriteEncrypted(*handle, Storage::FILE_HEADER_SIZE);
+		} else {
+            header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE);
+        }
 		// header 2
 		header->iteration = 1;
-		header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE * 2);
+        if (encrypted_storage) {
+            header_buffer.WriteEncrypted(*handle, Storage::FILE_HEADER_SIZE * 2);
+        } else {
+            header_buffer.Write(*handle, Storage::FILE_HEADER_SIZE * 2);
+        }
+
 		// ensure that writing to disk is completed before returning
 		handle->Sync();
 		// we start with h2 as active_header, this way our initial write will be in h1
@@ -73,9 +82,18 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 		}
 		// read the database headers from disk
 		DatabaseHeader h1, h2;
-		header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE);
+		if (encrypted_storage) {
+            header_buffer.ReadEncrypted(*handle, Storage::FILE_HEADER_SIZE);
+		} else {
+            header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE);
+		}
 		h1 = *((DatabaseHeader *)header_buffer.buffer);
-		header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE * 2);
+
+		if (encrypted_storage) {
+            header_buffer.ReadEncrypted(*handle, Storage::FILE_HEADER_SIZE * 2);
+		} else {
+            header_buffer.Read(*handle, Storage::FILE_HEADER_SIZE * 2);
+        }
 		h2 = *((DatabaseHeader *)header_buffer.buffer);
 		// check the header with the highest iteration count
 		if (h1.iteration > h2.iteration) {
@@ -153,11 +171,11 @@ void SingleFileBlockManager::Read(Block &block) {
 	}
 }
 
-void SingleFileBlockManager::Writes(FileBuffer &buffer, block_id_t block_id) {
+void SingleFileBlockManager::Write(FileBuffer &buffer, block_id_t block_id) {
 	assert(block_id >= 0);
 
     if (encrypted_storage) {
-        buffer.Encrypted(*handle, BLOCK_START + block_id * Storage::BLOCK_ALLOC_SIZE);
+        buffer.WriteEncrypted(*handle, BLOCK_START + block_id * Storage::BLOCK_ALLOC_SIZE);
     } else {
         buffer.Write(*handle, BLOCK_START + block_id * Storage::BLOCK_ALLOC_SIZE);
     }
@@ -204,7 +222,7 @@ void SingleFileBlockManager::WriteHeader(DatabaseHeader header) {
 	*((DatabaseHeader *)header_buffer.buffer) = header;
 	// now write the header to the file, active_header determines whether we write to h1 or h2
 	// note that if active_header is h1 we write to h2, and vice versa
-	header_buffer.Write(*handle, active_header == 1 ? Storage::FILE_HEADER_SIZE : Storage::FILE_HEADER_SIZE * 2);
+	header_buffer.WriteEncrypted(*handle, active_header == 1 ? Storage::FILE_HEADER_SIZE : Storage::FILE_HEADER_SIZE * 2);
 	// switch active header to the other header
 	active_header = 1 - active_header;
 	//! Ensure the header write ends up on disk

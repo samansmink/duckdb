@@ -63,28 +63,26 @@ void FileBuffer::WriteEncrypted(FileHandle &handle, uint64_t location) {
     handle.Write(tmp_buffer, internal_size, location);
 }
 
-//void FileBuffer::Read(FileHandle &handle, uint64_t location) {
-//    // read the buffer from disk
-//    handle.Read(internal_buffer, internal_size, location);
-//    // compute the checksum
-//    uint64_t stored_checksum = *((uint64_t *)internal_buffer);
-//    uint64_t computed_checksum = Checksum(buffer, size);
-//    // verify the checksum
-//    if (stored_checksum != computed_checksum) {
-//        throw IOException("Corrupt database file: computed checksum %llu does not match stored checksum %llu in block",
-//                          computed_checksum, stored_checksum);
-//    }
-//
-//
-//}
+void FileBuffer::Read(FileHandle &handle, uint64_t location) {
+    // read the buffer from disk
+    handle.Read(internal_buffer, internal_size, location);
+    // compute the checksum
+    uint64_t stored_checksum = *((uint64_t *)internal_buffer);
+    uint64_t computed_checksum = Checksum(buffer, size);
+    // verify the checksum
+    if (stored_checksum != computed_checksum) {
+        throw IOException("Corrupt database file: computed checksum %llu does not match stored checksum %llu in block",
+                          computed_checksum, stored_checksum);
+    }
+}
 
-//void FileBuffer::Write(FileHandle &handle, uint64_t location) {
-//    // compute the checksum and write it to the start of the buffer
-//    uint64_t checksum = Checksum(buffer, size);
-//    *((uint64_t *)internal_buffer) = checksum;
-//    // now write the buffer
-//    handle.Write(internal_buffer, internal_size, location);
-//}
+void FileBuffer::Write(FileHandle &handle, uint64_t location) {
+    // compute the checksum and write it to the start of the buffer
+    uint64_t checksum = Checksum(buffer, size);
+    *((uint64_t *)internal_buffer) = checksum;
+    // now write the buffer
+    handle.Write(internal_buffer, internal_size, location);
+}
 
 void FileBuffer::Clear() {
 	memset(internal_buffer, 0, internal_size);
