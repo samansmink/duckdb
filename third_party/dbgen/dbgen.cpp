@@ -7,6 +7,7 @@
 #include "tpch_constants.hpp"
 #include "duckdb/main/appender.hpp"
 #include <string>
+#include <map>
 
 #define DECLARER /* EXTERN references get defined here */
 
@@ -19,6 +20,8 @@ using namespace std;
 extern seed_t Seed[];
 seed_t seed_backup[MAX_STREAM + 1];
 static bool first_invocation = true;
+
+std::map<string,int> string_dict;
 
 tdef tdefs[] = {
     {"part.tbl", "part table", 200000, NULL, NULL, PSUPP, 0},
@@ -38,6 +41,28 @@ namespace tpch {
 struct tpch_append_information {
 	unique_ptr<Appender> appender;
 };
+
+void init_string_dict() {
+    std::vector<char*> l_returnflag = {"A", "N", "R"};
+    std::vector<char*> l_linestatus = {"F", "O"};
+    std::vector<char*> c_mktsegment = {"AUTOMOBILE","MACHINERY","HOUSEHOLD","BUILDING","FURNITURE"};
+    std::vector<char*> n_name = {"ARGENTINA", "RUSSIA", "UNITED STATES", "SAUDI ARABIA", "ALGERIA", "CANADA", "VIETNAM", "FRANCE", "KENYA", "GERMANY", "ETHIOPIA", "JORDAN", "IRAN", "IRAQ", "BRAZIL", "INDIA", "INDONESIA", "ROMANIA", "CHINA", "UNITED KINGDOM", "PERU", "MOROCCO", "MOZAMBIQUE", "EGYPT", "JAPAN"};
+    std::vector<char*> r_name = {"MIDDLE EAST", "AMERICA", "EUROPE", "ASIA", "AFRICA"};
+    std::vector<char*> o_orderpriority = {"1-URGENT", "4-NOT SPECIFIED", "5-LOW", "2-HIGH", "3-MEDIUM"};
+    std::vector<char*> p_brand = {"Brand#41", "Brand#42", "Brand#43", "Brand#44", "Brand#45", "Brand#51", "Brand#52", "Brand#53", "Brand#54", "Brand#55", "Brand#11", "Brand#12", "Brand#13", "Brand#14", "Brand#15", "Brand#21", "Brand#22", "Brand#23", "Brand#24", "Brand#25", "Brand#31", "Brand#32", "Brand#33", "Brand#34", "Brand#35"};
+    std::vector<char*> p_container = {"JUMBO CASE", "LG CASE", "MED PACK", "MED BOX", "JUMBO BAG", "MED JAR", "WRAP BOX", "WRAP JAR", "MED CASE", "SM CAN", "SM PKG", "LG CAN", "SM DRUM", "JUMBO BOX", "JUMBO JAR", "LG PKG", "MED CAN", "WRAP CAN", "WRAP DRUM", "MED PKG", "WRAP PKG", "SM PACK", "JUMBO CAN", "JUMBO DRUM", "WRAP PACK", "SM BAG", "LG DRUM", "SM CASE", "JUMBO PKG", "LG BAG", "WRAP CASE", "MED DRUM", "MED BAG", "WRAP BAG", "JUMBO PACK", "SM BOX", "LG PACK", "SM JAR", "LG BOX", "LG JAR"};
+    std::vector<char*> l_shipmode = {"AIR", "TRUCK", "REG AIR", "RAIL", "MAIL", "SHIP", "FOB", "AIR REG"};
+    std::vector<char*> l_shipinstruct = {"COLLECT COD", "TAKE BACK RETURN", "DELIVER IN PERSON", "NONE"};
+
+    std::vector<std::vector<char*>> arrs = {l_returnflag, l_linestatus, c_mktsegment, n_name, r_name, o_orderpriority, p_brand, p_container, l_shipmode, l_shipinstruct};
+
+    // Map every string to their index in the original arrays
+	for (int i = 0; i < arrs.size(); ++i) {
+        for (int j = 0; j < arrs[i].size(); ++j) {
+            string_dict[arrs[i][j]] = j;
+        }
+	}
+}
 
 void append_value(tpch_append_information &info, int32_t value) {
 	info.appender->Append<int32_t>(value);
@@ -87,6 +112,8 @@ static void append_order(order_t *o, tpch_append_information *info) {
 	append_date(append_info, o->odate);
 	// o_orderpriority
 	append_string(append_info, o->opriority);
+    // o_orderpriority_dictkey
+    append_value(append_info, string_dict[o->opriority]);
 	// o_clerk
 	append_string(append_info, o->clerk);
 	// o_shippriority
@@ -132,8 +159,14 @@ static void append_line(order_t *o, tpch_append_information *info) {
 		append_decimal(append_info, o->l[i].tax);
 		// l_returnflag
 		append_char(append_info, o->l[i].rflag[0]);
+		// l_returnflag_dictkey
+        std::string return_flag_string(1, o->l[i].rflag[0]);
+        append_value(append_info, string_dict[return_flag_string]);
 		// l_linestatus
 		append_char(append_info, o->l[i].lstatus[0]);
+        // l_linestatus_dictkey
+        std::string linestatus_string(1, o->l[i].lstatus[0]);
+        append_value(append_info, string_dict[linestatus_string]);
 
 		// l_shipdate
 		append_date(append_info, o->l[i].sdate);
@@ -156,8 +189,12 @@ static void append_line(order_t *o, tpch_append_information *info) {
 		append_date(append_info, o->l[i].rdate);
 		// l_shipinstruct
 		append_string(append_info, o->l[i].shipinstruct);
+		// l_shipinstruct_dictkey
+        append_value(append_info, string_dict[o->l[i].shipinstruct]);
 		// l_shipmode
 		append_string(append_info, o->l[i].shipmode);
+		// l_shipmode_dictkey
+        append_value(append_info, string_dict[o->l[i].shipmode]);
 		// l_comment
 		append_string(append_info, o->l[i].comment);
 		append_info.appender->EndRow();
@@ -208,6 +245,8 @@ static void append_cust(customer_t *c, tpch_append_information *info) {
 	append_decimal(append_info, c->acctbal);
 	// c_mktsegment
 	append_string(append_info, c->mktsegment);
+    // c_mktsegment_dictkey
+    append_value(append_info, string_dict[c->mktsegment]);
 	// c_comment
 	append_string(append_info, c->comment);
 	append_info.appender->EndRow();
@@ -225,12 +264,16 @@ static void append_part(part_t *part, tpch_append_information *info) {
 	append_string(append_info, part->mfgr);
 	// p_brand
 	append_string(append_info, part->brand);
+	// p_brand_dictkey
+    append_value(append_info, string_dict[part->brand]);
 	// p_type
 	append_string(append_info, part->type);
 	// p_size
 	append_value(append_info, part->size);
 	// p_container
 	append_string(append_info, part->container);
+    // p_container_dictkey
+    append_value(append_info, string_dict[part->container]);
 	// p_retailprice
 	append_decimal(append_info, part->retailprice);
 	// p_comment
@@ -269,6 +312,8 @@ static void append_nation(code_t *c, tpch_append_information *info) {
 	append_value(append_info, c->code);
 	// n_name
 	append_string(append_info, c->text);
+    // n_name_dictkey
+    append_value(append_info, string_dict[c->text]);
 	// n_regionkey
 	append_value(append_info, c->join);
 	// n_comment
@@ -284,6 +329,8 @@ static void append_region(code_t *c, tpch_append_information *info) {
 	append_value(append_info, c->code);
 	// r_name
 	append_string(append_info, c->text);
+    // r_name_dictkey
+    append_value(append_info, string_dict[c->text]);
 	// r_comment
 	append_string(append_info, c->comment);
 	append_info.appender->EndRow();
@@ -360,6 +407,7 @@ static string RegionSchema(string schema, string suffix) {
 	       " ("
 	       "r_regionkey INT NOT NULL,"
 	       "r_name VARCHAR(25) NOT NULL,"
+	       "r_name_dictkey INT NOT NULL,"
 	       "r_comment VARCHAR(152) NOT NULL);";
 }
 
@@ -368,6 +416,7 @@ static string NationSchema(string schema, string suffix) {
 	       " ("
 	       "n_nationkey INT NOT NULL,"
 	       "n_name VARCHAR(25) NOT NULL,"
+	       "n_name_dictkey INT NOT NULL,"
 	       "n_regionkey INT NOT NULL,"
 	       "n_comment VARCHAR(152) NOT NULL);";
 }
@@ -394,6 +443,7 @@ static string CustomerSchema(string schema, string suffix) {
 	       "c_phone VARCHAR(15) NOT NULL,"
 	       "c_acctbal DECIMAL(15,2) NOT NULL,"
 	       "c_mktsegment VARCHAR(10) NOT NULL,"
+	       "c_mktsegment_dictkey INT NOT NULL,"
 	       "c_comment VARCHAR(117) NOT NULL);";
 }
 
@@ -404,9 +454,11 @@ static string PartSchema(string schema, string suffix) {
 	       "p_name VARCHAR(55) NOT NULL,"
 	       "p_mfgr VARCHAR(25) NOT NULL,"
 	       "p_brand VARCHAR(10) NOT NULL,"
+	       "p_brand_dictkey INT NOT NULL,"
 	       "p_type VARCHAR(25) NOT NULL,"
 	       "p_size INT NOT NULL,"
 	       "p_container VARCHAR(10) NOT NULL,"
+	       "p_container_dictkey INT NOT NULL,"
 	       "p_retailprice DECIMAL(15,2) NOT NULL,"
 	       "p_comment VARCHAR(23) NOT NULL);";
 }
@@ -430,6 +482,7 @@ static string OrdersSchema(string schema, string suffix) {
 	       "o_totalprice DECIMAL(15,2) NOT NULL,"
 	       "o_orderdate DATE NOT NULL,"
 	       "o_orderpriority VARCHAR(15) NOT NULL,"
+	       "o_orderpriority_dictkey INT NOT NULL,"
 	       "o_clerk VARCHAR(15) NOT NULL,"
 	       "o_shippriority INT NOT NULL,"
 	       "o_comment VARCHAR(79) NOT NULL);";
@@ -453,18 +506,24 @@ static string LineitemSchema(string schema, string suffix) {
 	       "l_discount_decompressed DECIMAL(15,2) NOT NULL,"
 	       "l_tax DECIMAL(15,2) NOT NULL,"
 	       "l_returnflag VARCHAR(1) NOT NULL,"
+	       "l_returnflag_dictkey INT NOT NULL,"
 	       "l_linestatus VARCHAR(1) NOT NULL,"
+	       "l_linestatus_dictkey INT NOT NULL,"
 	       "l_shipdate DATE NOT NULL,"
 	       "l_shipdate_compressed SMALLINT NOT NULL,"
 	       "l_shipdate_decompressed DATE NOT NULL,"
 	       "l_commitdate DATE NOT NULL,"
 	       "l_receiptdate DATE NOT NULL,"
 	       "l_shipinstruct VARCHAR(25) NOT NULL,"
+	       "l_shipinstruct_dictkey INT NOT NULL,"
 	       "l_shipmode VARCHAR(10) NOT NULL,"
+	       "l_shipmode_dictkey INT NOT NULL,"
 	       "l_comment VARCHAR(44) NOT NULL)";
 }
 
 void dbgen(double flt_scale, DuckDB &db, string schema, string suffix) {
+    init_string_dict();
+
 	unique_ptr<QueryResult> result;
 	Connection con(db);
 	con.Query("BEGIN TRANSACTION");
