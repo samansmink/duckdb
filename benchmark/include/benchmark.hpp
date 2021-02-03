@@ -29,6 +29,7 @@ struct BenchmarkState {
 //! The base Benchmark class is a base class that is used to create and register
 //! new benchmarks
 class Benchmark {
+    constexpr static size_t DEFAULT_COLD_RUNS = 1;
 	constexpr static size_t DEFAULT_NRUNS = 5;
 	constexpr static size_t DEFAULT_TIMEOUT = 30;
 
@@ -39,6 +40,13 @@ public:
 	string name;
 	//! The benchmark group this benchmark belongs to
 	string group;
+
+	// Disables inmemory mode and reloading of benchmark data allowing much faster (re)running of benchmark, especially when db is larger than available memory
+	// NOTE: requires a valid duckdb_benchmark_db.db to be generated beforehand
+	bool fast_mode = false;
+	bool fast_mode_load = false;
+	bool read_only = false;
+	float scale_factor = 1;
 
 	Benchmark(bool register_benchmark, string name, string group);
 
@@ -74,6 +82,10 @@ public:
 	//! The amount of runs to do for this benchmark
 	virtual size_t NRuns() {
 		return DEFAULT_NRUNS;
+	}
+
+	virtual size_t NColdRuns() {
+	    return DEFAULT_COLD_RUNS;
 	}
 	//! The timeout for this benchmark (in seconds)
 	virtual size_t Timeout() {

@@ -46,10 +46,12 @@ public:
 
 	void RunBenchmark(Benchmark *benchmark);
 	void RunBenchmarks();
+	std::string custom_query;
 
 	vector<Benchmark *> benchmarks;
 	ofstream out_file;
 	ofstream log_file;
+	ifstream query_file;
 };
 
 } // namespace duckdb
