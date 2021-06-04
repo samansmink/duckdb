@@ -46,7 +46,7 @@ public:
 	bool fast_mode = false;
 	bool fast_mode_load = false;
 	bool read_only = false;
-	int scale_factor = 1;
+	float scale_factor = 1;
 
 	Benchmark(bool register_benchmark, string name, string group);
 
