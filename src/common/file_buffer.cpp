@@ -44,6 +44,7 @@ FileBuffer::~FileBuffer() {
 }
 
 void FileBuffer::ReadEncrypted(FileHandle &handle, uint64_t location) {
+//    printf("Read Encrypted buffer\n");
     auto tmp_buffer = (unsigned char*) malloc(internal_size);
 
     // read the buffer from disk to tmp buffer.
@@ -54,6 +55,7 @@ void FileBuffer::ReadEncrypted(FileHandle &handle, uint64_t location) {
 }
 
 void FileBuffer::WriteEncrypted(FileHandle &handle, uint64_t location) {
+//    printf("Wrote Encrypted buffer\n");
     auto tmp_buffer = (unsigned char*) malloc(internal_size);
 
 //    encrypt internal buffer to tmp buffer
@@ -64,6 +66,7 @@ void FileBuffer::WriteEncrypted(FileHandle &handle, uint64_t location) {
 }
 
 void FileBuffer::Read(FileHandle &handle, uint64_t location) {
+//    printf("Read Unencrypted buffer\n");
     // read the buffer from disk
     handle.Read(internal_buffer, internal_size, location);
     // compute the checksum
@@ -77,6 +80,7 @@ void FileBuffer::Read(FileHandle &handle, uint64_t location) {
 }
 
 void FileBuffer::Write(FileHandle &handle, uint64_t location) {
+//    printf("Wrote Unencrypted buffer\n");
     // compute the checksum and write it to the start of the buffer
     uint64_t checksum = Checksum(buffer, size);
     *((uint64_t *)internal_buffer) = checksum;

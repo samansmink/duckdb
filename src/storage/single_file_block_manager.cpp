@@ -222,7 +222,12 @@ void SingleFileBlockManager::WriteHeader(DatabaseHeader header) {
 	*((DatabaseHeader *)header_buffer.buffer) = header;
 	// now write the header to the file, active_header determines whether we write to h1 or h2
 	// note that if active_header is h1 we write to h2, and vice versa
-	header_buffer.WriteEncrypted(*handle, active_header == 1 ? Storage::FILE_HEADER_SIZE : Storage::FILE_HEADER_SIZE * 2);
+    if (encrypted_storage) {
+        header_buffer.WriteEncrypted(*handle, active_header == 1 ? Storage::FILE_HEADER_SIZE : Storage::FILE_HEADER_SIZE * 2);
+    } else {
+        header_buffer.Write(*handle, active_header == 1 ? Storage::FILE_HEADER_SIZE : Storage::FILE_HEADER_SIZE * 2);
+    }
+
 	// switch active header to the other header
 	active_header = 1 - active_header;
 	//! Ensure the header write ends up on disk
