@@ -69,7 +69,7 @@ inline void Encrypt(unsigned char *ciphertext, unsigned char *plaintext, long le
 }
 
 inline void Decrypt(unsigned char *plaintext, unsigned char *ciphertext, long length, unsigned char *nonce) {
-    crypto_stream_salsa208_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
+    crypto_stream_salsa208_xor(plaintext, ciphertext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char *)TEST_KEY);
 //    aes_ctr_128_decrypt(ciphertext, length, (unsigned char*)TEST_KEY, nonce, plaintext);
