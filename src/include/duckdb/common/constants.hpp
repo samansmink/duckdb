@@ -92,7 +92,7 @@ struct Storage {
 	//! The size of a hard disk sector, only really needed for Direct IO
 	constexpr static int SECTOR_SIZE = 4096;
 	//! Block header size for blocks written to the storage
-	constexpr static int BLOCK_HEADER_SIZE = 16; //sizeof(uint64_t) + NONCE_BYTES;
+	constexpr static int BLOCK_HEADER_SIZE = 28; //sizeof(uint64_t) + NONCE_BYTES;
 	// Size of a memory slot managed by the StorageManager. This is the quantum of allocation for Blocks on DuckDB. We
 	// default to 256KB. (1 << 18)
 	constexpr static int BLOCK_ALLOC_SIZE = 262144 * 2;
