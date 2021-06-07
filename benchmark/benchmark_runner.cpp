@@ -304,7 +304,7 @@ BenchmarkConfiguration parse_arguments(const int arg_counter, char const *const 
 				exit(1);
 			}
 			configuration.scale_factor = std::stof(splits[1]);
-			printf("Scale factor set to %d\n", configuration.scale_factor);
+			printf("Scale factor set to %f\n", configuration.scale_factor);
 		} else {
 			if (!configuration.name_pattern.empty()) {
 				fprintf(stderr, "Only one benchmark can be specified.\n");
