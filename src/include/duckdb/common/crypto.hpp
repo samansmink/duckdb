@@ -26,7 +26,7 @@ namespace duckdb {
 
 //#define NONCE_BYTES crypto_stream_NONCEBYTES // For all NACL functions
 //#define NONCE_BYTES 16 // For OPENSSL AES CTR
-#define NONCE_BYTES 28 // For OPENSSL AES GCM
+#define NONCE_BYTES 8 // For OPENSSL AES GCM
 
 int aes_ctr_128_encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key, unsigned char *iv,
                         unsigned char *ciphertext);
@@ -79,7 +79,7 @@ inline void Encrypt(unsigned char *ciphertext, unsigned char *plaintext, long le
 //    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    aes_ctr_128_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
-    aes_gcm_128_encrypt(plaintext, length, (unsigned char*)"", 0, (unsigned char *)TEST_KEY, nonce, 12 ,ciphertext, nonce + 12);
+    aes_gcm_128_encrypt(plaintext, length, (unsigned char*)"", 0, (unsigned char *)TEST_KEY, (unsigned char *)TEST_NONCE, 12 ,ciphertext, nonce);
 //    chacha8avx_encrypt(plaintext, length, (unsigned char *)TEST_KEY, nonce, ciphertext);
 //    memcpy(ciphertext, plaintext, length);
 }
@@ -90,7 +90,7 @@ inline void Decrypt(unsigned char *plaintext, unsigned char *ciphertext, long le
 //    crypto_stream_xsalsa20_xor(ciphertext, plaintext, length, nonce, (unsigned char*)TEST_KEY);
 //    crypto_stream_aes128ctr_xor(ciphertext, plaintext, length, nonce, (unsigned char *)TEST_KEY);
 //    aes_ctr_128_decrypt(ciphertext, length, (unsigned char*)TEST_KEY, nonce, plaintext);
-    aes_gcm_128_decrypt(ciphertext, length, (unsigned char*)"", 0, nonce+12, (unsigned char*)TEST_KEY, nonce, 12, plaintext);
+    aes_gcm_128_decrypt(ciphertext, length, (unsigned char*)"", 0, nonce, (unsigned char*)TEST_KEY, (unsigned char *)TEST_NONCE, 12, plaintext);
 //    chacha8avx_decrypt(ciphertext, length, (unsigned char *)TEST_KEY, nonce, plaintext);
 //    memcpy(plaintext, ciphertext, length);
 }

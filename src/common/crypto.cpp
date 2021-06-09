@@ -63,7 +63,7 @@ int aes_gcm_128_encrypt(unsigned char *plaintext, int plaintext_len,
     ciphertext_len += len;
 
     /* Get the tag */
-    if(1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag))
+    if(1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 8, tag))
         throw std::runtime_error("AES GCM failed");
 
     /* Clean up */
@@ -116,7 +116,7 @@ int aes_gcm_128_decrypt(unsigned char *ciphertext, int ciphertext_len,
     plaintext_len = len;
 
     /* Set expected tag value. Works in OpenSSL 1.0.1d and later */
-    if(!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, tag))
+    if(!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 8, tag))
         throw std::runtime_error("AES GCM failed");
 
     /*
