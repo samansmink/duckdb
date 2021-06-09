@@ -77,7 +77,7 @@ public:
 	//! Whether or not Initialize() should be called once for every run or just
 	//! once
 	virtual bool RequireReinit() {
-		return false;
+		return true;
 	}
 	//! The amount of runs to do for this benchmark
 	virtual size_t NRuns() {
