@@ -16,10 +16,10 @@ SingleFileBlockManager::SingleFileBlockManager(FileSystem &fs, string path, bool
 	if (read_only) {
 		assert(!create_new);
 		flags = FileFlags::READ;
-		lock = FileLockType::READ_LOCK;
+		lock = FileLockType::NO_LOCK;
 	} else {
 		flags = FileFlags::WRITE;
-		lock = FileLockType::WRITE_LOCK;
+		lock = FileLockType::NO_LOCK;
 		if (create_new) {
 			flags |= FileFlags::CREATE;
 		}
