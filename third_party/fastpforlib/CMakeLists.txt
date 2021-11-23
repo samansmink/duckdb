@@ -2,7 +2,7 @@ if(POLICY CMP0063)
     cmake_policy(SET CMP0063 NEW)
 endif()
 
-add_library(fastpforlib STATIC bitpacking.cpp)
+add_library(fastpforlib STATIC bitpacking.cpp bitpackingunaligned.cpp bitpackingaligned.cpp)
 
 target_include_directories(
         fastpforlib

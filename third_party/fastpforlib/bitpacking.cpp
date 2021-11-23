@@ -1,4 +1,5 @@
 #include "bitpacking.h"
+#include "fastpfor.h"
 
 #include <cstdint>
 #include <type_traits>
