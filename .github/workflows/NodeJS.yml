@@ -96,7 +96,7 @@ jobs:
    win-nodejs:
      name: node.js Windows
      runs-on: windows-latest
-     needs: linux-nodejs
+#     needs: linux-nodejs
 
      strategy:
        matrix:
@@ -131,11 +131,9 @@ jobs:
          run: |
            choco install openssl -y --force
 
-       - name: Build
+       - name: Build extensions
          run: |
-           python scripts/windows_ci.py
-           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM=x64 -DBUILD_TPCH_EXTENSION=1 -DBUILD_HTTPFS_EXTENSION=1 -DOPENSSL_USE_STATIC_LIBS=1 -DDISABLE_UNITY=1
-           cmake --build . --config Release
+           BUILD_TPCH=1 BUILD_HTTPFS=1 STATIC_OPENSSL=1 make
 
        - name: Uninstall OpenSSL
          run: |
