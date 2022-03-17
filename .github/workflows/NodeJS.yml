@@ -144,6 +144,7 @@ jobs:
            systeminfo
            node -v
            npm -v
+           ls
 
        - name: Windows Build Tools
          run: |

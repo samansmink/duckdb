@@ -5,7 +5,7 @@ import subprocess
 import platform
 
 extensions = ['parquet']
-
+# TEST LOLOL
 # check if there are any additional extensions being requested
 if 'DUCKDB_R_EXTENSIONS' in os.environ:
     extensions = extensions + os.environ['DUCKDB_R_EXTENSIONS'].split(",")
