@@ -214,13 +214,13 @@ jobs:
         fi
 
    osx-python3:
-      if: github.ref == 'refs/heads/master'
+#      if: github.ref == 'refs/heads/master'
       name: Python 3 OSX
       runs-on: macos-latest
       strategy:
        matrix:
         python_build: [cp36-*, cp37-*, cp38-*, cp39-*, cp310-*]
-      needs: linux-python3-9
+#      needs: linux-python3-9
       env:
         CIBW_BUILD: ${{ matrix.python_build}}
         CIBW_ARCHS: 'x86_64 universal2 arm64'
