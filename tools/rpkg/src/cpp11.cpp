@@ -142,7 +142,6 @@ static const R_CallMethodDef CallEntries[] = {
 void AltrepString_Initialize(DllInfo* dll);
 
 extern "C" attribute_visible void R_init_duckdb(DllInfo* dll){
-printf("eeek");
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
   AltrepString_Initialize(dll);
