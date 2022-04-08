@@ -138,7 +138,7 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: r-test-extensions
-        path: tools/rpkg
+        path: /tmp
 
     - name: Install
       env:
@@ -150,6 +150,8 @@ jobs:
 
     - name: Prepare
       run: |
+        ls /tmp
+        ls /tmp/httpfs
         cd tools/rpkg
         ./configure
         R CMD build .

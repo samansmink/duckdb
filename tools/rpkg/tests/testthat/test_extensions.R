@@ -13,6 +13,7 @@ test_that("extensions can be loaded", {
   )
 
   matches = list.files(pattern='*.duckdb_extension', recursive=FALSE, full.names=TRUE)
+  matches <- c(matches, list.files(pattern=paste(extension_path, '/tmp/*/*.duckdb_extension', sep = ""), recursive=FALSE, full.names=TRUE))
 
   require_variable <- Sys.getenv("DUCKDB_R_TEST_EXTENSION_REQUIRED")
 
