@@ -14,6 +14,18 @@
   lapply(routines$.Call, function(symbol) {
     assign(symbol$name, symbol, envir=duckdb_env)
   })
+
+  #Register namespace mimicking https://github.com/wch/r-source/blob/a7bc962f5ec2a5200b71ca2d744732cffc5eb1ac/src/library/base/R/namespace.R#L620
+  current_dynlibs <- duckdb_env[[".__NAMESPACE__."]][["dynlibs"]]
+  setNamespaceInfo(duckdb_env, "dynlibs", c(current_dynlibs, list("duckdb"))
+  print(getNamespaceInfo(duckdb_env, "dynlibs"))
+
+  nativeRoutines <- list()
+  nativeRoutines[["duckdb"]] <- routines$.Call
+  setNamespaceInfo(duckdb_env, "nativeRoutines", routines)
+
+  print(getNamespaceInfo(duckdb_env, "nativeRoutines"))
+
   NULL
 }
 
