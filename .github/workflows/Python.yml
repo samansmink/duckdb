@@ -69,7 +69,8 @@ jobs:
 #    needs: linux-python3-9
     strategy:
       matrix:
-        arch: ['i686']
+        # TODO: reenable i686: Python install doesnt work well with 32bit openssl installed
+        arch: ['x86_64']
     env:
       DISABLE_MAIN_DUCKDB_LIBRARY: 1
       BUILD_HTTPFS: 1
@@ -146,15 +147,6 @@ jobs:
         path: |
           build/release/extension/*/*.duckdb_extension
 
-    - name: Switch back to OpenSSL x86_64 for python
-      if: ${{matrix.arch == 'i686'}}
-      run: |
-        cd openssl-1.1.1k
-        make uninstall
-        ./config --prefix=/usr --openssldir=/etc/ssl --libdir=lib no-shared zlib-dynamic
-        make
-        make install
-
     - name: Install Python 3.7
       run: |
         wget https://www.python.org/ftp/python/3.7.12/Python-3.7.12.tgz
@@ -167,10 +159,6 @@ jobs:
         python3.7 --version
         python3.7 -m pip install pip
         python3.7 -m pip install requests awscli
-
-    - name: Test credentials
-      run: |
-        aws s3 cp s3://duckdb-extensions/000fbffa3/linux_amd64/fts.duckdb_extension.gz .
 
     - name: Deploy
       run: |
@@ -217,13 +205,14 @@ jobs:
       run: pip install cibuildwheel twine
 
     - uses: actions/download-artifact@v3
+      if: ${{ matrix.arch == 'x86_64' }}
       with:
         name: python-wheel-centos7-extensions-centos-${{ matrix.arch }}
         path: tools/pythonpkg
 
     - name: List extensions to be tested
       run: |
-        find tools/pythonpkg -maxdepth 1 -type f -name "*.duckdb_extension"
+        find tools/pythonpkg -maxdepth 2 -type f -name "*.duckdb_extension"
 
     - name: Build
       run: |
