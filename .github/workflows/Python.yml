@@ -343,3 +343,22 @@ jobs:
           export SETUPTOOLS_SCM_PRETEND_VERSION=0.2.2
           python setup.py install --user
           (cd tests/ && python -m pytest)
+
+   pypi-linux-extension-test:
+#      if: github.ref == 'refs/heads/master'
+      name: Test PyPi wheels on linux can load extensions
+      strategy:
+        matrix:
+          runs-on: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
+      runs-on: ${{ matrix.runs-on }}
+#      needs: linux-python3
+
+      steps:
+        - uses: actions/setup-python@v2
+          with:
+            python-version: '3.7'
+
+        - name: Install
+          run: |
+            python -m pip install duckdb
+            python -c "import duckdb; con = duckdb.connect(); con.execute('install httpfs'); con.execute('load httpfs');"
