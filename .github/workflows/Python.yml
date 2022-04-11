@@ -344,14 +344,14 @@ jobs:
           python setup.py install --user
           (cd tests/ && python -m pytest)
 
-   pypi-linux-extension-test:
+   pypi-extension-test:
 #      if: github.ref == 'refs/heads/master'
       name: Test PyPi wheels on linux can load extensions
       strategy:
         matrix:
           runs-on: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
       runs-on: ${{ matrix.runs-on }}
-#      needs: linux-python3
+#      needs: [linux-python3, win-python3, osx-python3]
 
       steps:
         - uses: actions/setup-python@v2
