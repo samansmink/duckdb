@@ -44,11 +44,11 @@ void PragmaVersion::RegisterFunction(BuiltinFunctions &set) {
 }
 
 const char *DuckDB::SourceID() {
-	return DUCKDB_SOURCE_ID;
+	return "fe9ba8003";
 }
 
 const char *DuckDB::LibraryVersion() {
-	return DUCKDB_VERSION;
+	return "v0.3.3";
 }
 
 string DuckDB::Platform() {
