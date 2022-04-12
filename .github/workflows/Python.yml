@@ -346,7 +346,7 @@ jobs:
 
    pypi-extension-test:
 #      if: github.ref == 'refs/heads/master'
-      name: Test PyPi wheels on linux can load extensions
+      name: Test PyPi wheels can load extensions
       strategy:
         matrix:
           runs-on: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
