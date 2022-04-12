@@ -62,22 +62,18 @@ jobs:
       run: ./scripts/node_build.sh 10
 
     - name: Node 12
-      if: github.ref == 'refs/heads/master'
       run: ./scripts/node_build.sh 12
 
     - name: Node 14
-      if: github.ref == 'refs/heads/master'
       run: ./scripts/node_build.sh 14
 
     - name: Node 15
-      if: github.ref == 'refs/heads/master'
       run: ./scripts/node_build.sh 15
 
     - name: Node 17
       run: ./scripts/node_build.sh 17
 
    osx-nodejs:
-      if: github.ref == 'refs/heads/master'
       name: node.js OSX
       runs-on: macos-latest
       needs: linux-nodejs
@@ -100,15 +96,12 @@ jobs:
         run: ./scripts/node_build.sh 10
 
       - name: Node 12
-        if: github.ref == 'refs/heads/master'
         run: ./scripts/node_build.sh 12
 
       - name: Node 14
-        if: github.ref == 'refs/heads/master'
         run: ./scripts/node_build.sh 14
 
       - name: Node 15
-        if: github.ref == 'refs/heads/master'
         run: ./scripts/node_build.sh 15
 
       - name: Node 17
@@ -122,13 +115,6 @@ jobs:
      strategy:
        matrix:
          node: [ '10', '12', '14', '15' ]
-         isMaster:
-            - ${{ github.ref == 'refs/heads/master' }}
-         exclude:
-           - isMaster: false
-             node: 12
-           - isMaster: false
-             node: 14
 
      steps:
        - uses: actions/setup-python@v2
