@@ -130,8 +130,16 @@ unique_ptr<ResponseWrapper> HTTPFileSystem::HeadRequest(FileHandle &handle, stri
 	return make_unique<ResponseWrapper>(res.value());
 }
 
+HTTPFileSystem::~HTTPFileSystem() {
+	std::cout << "Bytes read : " << bytes_read << std::endl;
+	std::cout << "Bytes requested : " << bytes_requested << std::endl;
+	std::cout << "Requests made: " << requests_made << std::endl;
+}
+
 unique_ptr<ResponseWrapper> HTTPFileSystem::GetRangeRequest(FileHandle &handle, string url, HeaderMap header_map,
                                                             idx_t file_offset, char *buffer_out, idx_t buffer_out_len) {
+	requests_made++;
+	bytes_requested += buffer_out_len;
 	auto &hfs = (HTTPFileHandle &)handle;
 	string path, proto_host_port;
 	ParseUrl(url, path, proto_host_port);
