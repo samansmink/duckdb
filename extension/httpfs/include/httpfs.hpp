@@ -119,6 +119,7 @@ public:
 	idx_t bytes_read = 0;
 	idx_t requests_made = 0;
 	idx_t bytes_requested = 0;
+	idx_t head_requests = 0;
 
 protected:
 	virtual std::unique_ptr<HTTPFileHandle> CreateHandle(const string &path, uint8_t flags, FileLockType lock,
