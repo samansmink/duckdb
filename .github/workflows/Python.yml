@@ -78,7 +78,7 @@ jobs:
       matrix:
         arch: ['i686', 'x86_64']
     env:
-      DISABLE_MAIN_DUCKDB_LIBRARY: 1
+      DISABLE_MAIN_DUCKDB_LIBRARY: 0
       BUILD_HTTPFS: 1
       BUILD_VISUALIZER: 1
       BUILD_ICU: 1
@@ -92,6 +92,7 @@ jobs:
       TREAT_WARNINGS_AS_ERRORS: 1
       FORCE_WARN_UNUSED: 1
       DISABLE_BUILTIN_EXTENSIONS: 1
+      EXTENSION_STATIC_BUILD: 1
       FORCE_32_BIT: ${{ matrix.arch == 'i686' && 1 || 0}}
       AWS_ACCESS_KEY_ID: ${{secrets.S3_ID}}
       AWS_SECRET_ACCESS_KEY: ${{secrets.S3_KEY}}

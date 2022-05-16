@@ -111,6 +111,7 @@ jobs:
       FORCE_WARN_UNUSED: 1
       STATIC_OPENSSL: 1
       DISABLE_BUILTIN_EXTENSIONS: 1
+      EXTENSION_STATIC_BUILD: 1
       OPENSSL_ROOT_DIR: /usr/local/ssl
       AWS_ACCESS_KEY_ID: ${{secrets.S3_ID}}
       AWS_SECRET_ACCESS_KEY: ${{secrets.S3_KEY}}
