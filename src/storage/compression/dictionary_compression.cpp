@@ -102,6 +102,7 @@ typedef struct {
 	uint32_t index_buffer_offset;
 	uint32_t index_buffer_count;
 	uint32_t bitpacking_width;
+	uint32_t fsst_symbol_table_offset;
 } dictionary_compression_header_t;
 
 struct DictionaryCompressionStorage {
@@ -197,6 +198,8 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 	bitpacking_width_t next_width = 0;
 
 	fsst_encoder_t* fsst_encoder;
+	unsigned char fsst_serialized_symbol_table[sizeof(fsst_decoder_t)];
+	size_t fsst_serialized_symbol_table_size;
 
 	// Result of latest LookupString call
 	uint32_t latest_lookup_result;
@@ -255,10 +258,10 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 			next_width = BitpackingPrimitives::MinimumBitWidth(index_buffer.size() - 1 + new_string);
 			return DictionaryCompressionStorage::HasEnoughSpace(current_segment->count.load() + 1,
 			                                                    index_buffer.size() + 1,
-			                                                    current_dictionary.size + string_size, next_width);
+			                                                    fsst_serialized_symbol_table_size + current_dictionary.size + string_size, next_width);
 		} else {
 			return DictionaryCompressionStorage::HasEnoughSpace(current_segment->count.load() + 1, index_buffer.size(),
-			                                                    current_dictionary.size, current_width);
+			                                                    fsst_serialized_symbol_table_size + current_dictionary.size, current_width);
 		}
 	}
 
@@ -284,13 +287,14 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		    BitpackingPrimitives::GetRequiredSize<sel_t>(current_segment->count, current_width);
 		auto index_buffer_size = index_buffer.size() * sizeof(uint32_t);
 		auto total_size = DictionaryCompressionStorage::DICTIONARY_HEADER_SIZE + compressed_selection_buffer_size +
-		                  index_buffer_size + current_dictionary.size;
+		                  index_buffer_size + current_dictionary.size + fsst_serialized_symbol_table_size;
 
 		// calculate ptr and offsets
 		auto base_ptr = handle->node->buffer;
 		auto header_ptr = (dictionary_compression_header_t *)base_ptr;
 		auto compressed_selection_buffer_offset = DictionaryCompressionStorage::DICTIONARY_HEADER_SIZE;
 		auto index_buffer_offset = compressed_selection_buffer_offset + compressed_selection_buffer_size;
+		auto symbol_table_offset = index_buffer_offset + index_buffer_size;
 
 		// Write compressed selection buffer
 		BitpackingPrimitives::PackBuffer<sel_t, false>(base_ptr + compressed_selection_buffer_offset,
@@ -300,10 +304,14 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		// Write the index buffer
 		memcpy(base_ptr + index_buffer_offset, index_buffer.data(), index_buffer_size);
 
+		// Write the fsst symbol table
+		memcpy(base_ptr + symbol_table_offset, &fsst_serialized_symbol_table[0], fsst_serialized_symbol_table_size);
+
 		// Store sizes and offsets in segment header
 		Store<uint32_t>(index_buffer_offset, (data_ptr_t)&header_ptr->index_buffer_offset);
 		Store<uint32_t>(index_buffer.size(), (data_ptr_t)&header_ptr->index_buffer_count);
 		Store<uint32_t>((uint32_t)current_width, (data_ptr_t)&header_ptr->bitpacking_width);
+		Store<uint32_t>(symbol_table_offset, (data_ptr_t)&header_ptr->fsst_symbol_table_offset);
 
 		D_ASSERT(current_width == BitpackingPrimitives::MinimumBitWidth(index_buffer.size() - 1));
 		D_ASSERT(DictionaryCompressionStorage::HasEnoughSpace(current_segment->count, index_buffer.size(),
@@ -318,13 +326,14 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		// the block has space left: figure out how much space we can save
 		auto move_amount = Storage::BLOCK_SIZE - total_size;
 		// move the dictionary so it lines up exactly with the offsets
-		auto new_dictionary_offset = index_buffer_offset + index_buffer_size;
+		auto new_dictionary_offset = symbol_table_offset + fsst_serialized_symbol_table_size;
 		memmove(base_ptr + new_dictionary_offset, base_ptr + current_dictionary.end - current_dictionary.size,
 		        current_dictionary.size);
 		current_dictionary.end -= move_amount;
 		D_ASSERT(current_dictionary.end == total_size);
 		// write the new dictionary (with the updated "end")
 		DictionaryCompressionStorage::SetDictionary(*current_segment, *handle, current_dictionary);
+
 		return total_size;
 	}
 };
@@ -416,7 +425,7 @@ idx_t DictionaryCompressionStorage::StringFinalAnalyze(AnalyzeState &state_p) {
 	auto &state = (DictionaryCompressionAnalyzeState &)state_p;
 
 	auto n = state.fsst_string_sizes.size();
-	size_t output_buffer_size = state.fsst_string_total_size * 3; // way too big see fsst api
+	size_t output_buffer_size = state.fsst_string_total_size * 5; // way too big see fsst api
 
 	state.fsst_encoder = fsst_create(n, &state.fsst_string_sizes[0], &state.fsst_string_ptrs[0], 0);
 	unsigned char fsst_symbol_table[sizeof(fsst_decoder_t)];
@@ -438,13 +447,14 @@ idx_t DictionaryCompressionStorage::StringFinalAnalyze(AnalyzeState &state_p) {
 
 
 	if (n != res) {
-		throw std::runtime_error("not all strings were compressed!");
+		std::cout << "Res: " << res << "\n";
+		throw std::runtime_error("A not all strings were compressed!");
 	}
 
-	std::cout << "\n";
-	std::cout << "Dictionary contains " << n << " strings (total " << state.fsst_string_total_size << " bytes)\n";
-	std::cout << "Compressed size is " << (compressed_ptrs[res-1] - compressed_ptrs[0]) + compressed_sizes[res-1] << "\n";
-	std::cout << "Symbol table size is " << serialized_symbol_table_size << "\n";
+//	std::cout << "\n";
+//	std::cout << "Dictionary contains " << n << " strings (total " << state.fsst_string_total_size << " bytes)\n";
+//	std::cout << "Compressed size is " << (compressed_ptrs[res-1] - compressed_ptrs[0]) + compressed_sizes[res-1] << "\n";
+//	std::cout << "Symbol table size is " << serialized_symbol_table_size << "\n";
 
 	// Quick check that size is correct
 	size_t size_sum = 0;
@@ -468,6 +478,11 @@ unique_ptr<CompressionState> DictionaryCompressionStorage::InitCompression(Colum
 	auto analyze_state = dynamic_cast<DictionaryCompressionAnalyzeState*>(analyze_state_p.get());
 	auto compression_state = make_unique<DictionaryCompressionCompressState>(checkpointer);
 	compression_state->fsst_encoder = analyze_state->fsst_encoder;
+
+	compression_state->fsst_serialized_symbol_table_size = fsst_export(
+	    compression_state->fsst_encoder,
+	    &compression_state->fsst_serialized_symbol_table[0]);
+
 	return compression_state;
 }
 
@@ -500,7 +515,7 @@ void DictionaryCompressionStorage::Compress(CompressionState &state_p, Vector &s
 	}
 
 	// Compress buffer
-	size_t compress_buffer_size = total_size * 2 + 7;
+	size_t compress_buffer_size = total_size * 3 + 7;
 	vector<unsigned char*> strings_out(total_count, nullptr);
 	vector<size_t> sizes_out(total_count, 0);
 	vector<unsigned char> compress_buffer(compress_buffer_size, 0);
@@ -544,8 +559,8 @@ void DictionaryCompressionStorage::Compress(CompressionState &state_p, Vector &s
 
 void DictionaryCompressionStorage::FinalizeCompress(CompressionState &state_p) {
 	auto &state = (DictionaryCompressionCompressState &)state_p;
-	fsst_destroy(state.fsst_encoder);
 	state.Flush(true);
+	fsst_destroy(state.fsst_encoder);
 }
 
 //===--------------------------------------------------------------------===//
@@ -557,6 +572,7 @@ struct CompressedStringScanState : public StringScanState {
 	bitpacking_width_t current_width;
 	buffer_ptr<SelectionVector> sel_vec;
 	idx_t sel_vec_size = 0;
+	fsst_decoder_t fsst_decoder;
 };
 
 unique_ptr<SegmentScanState> DictionaryCompressionStorage::StringInitScan(ColumnSegment &segment) {
@@ -572,6 +588,13 @@ unique_ptr<SegmentScanState> DictionaryCompressionStorage::StringInitScan(Column
 	auto index_buffer_offset = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_offset);
 	auto index_buffer_count = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_count);
 	state->current_width = (bitpacking_width_t)(Load<uint32_t>((data_ptr_t)&header_ptr->bitpacking_width));
+	auto fsst_symbol_table_offset = Load<uint32_t>((data_ptr_t)&header_ptr->fsst_symbol_table_offset);
+
+	// Import fsst decoder
+	auto retval = fsst_import(&state->fsst_decoder, baseptr + fsst_symbol_table_offset);
+	if (retval == 0){
+		throw std::runtime_error("Error decoding fsst symbol table");
+	}
 
 	auto index_buffer_ptr = (uint32_t *)(baseptr + index_buffer_offset);
 
@@ -607,7 +630,7 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 	auto base_data = (data_ptr_t)(baseptr + DICTIONARY_HEADER_SIZE);
 	auto result_data = FlatVector::GetData<string_t>(result);
 
-	if (!ALLOW_DICT_VECTORS || scan_count != STANDARD_VECTOR_SIZE ||
+	if (true || !ALLOW_DICT_VECTORS || scan_count != STANDARD_VECTOR_SIZE ||
 	    start % BitpackingPrimitives::BITPACKING_ALGORITHM_GROUP_SIZE != 0) {
 		// Emit regular vector
 
@@ -635,8 +658,19 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 			auto dict_offset = index_buffer_ptr[string_number];
 			uint16_t str_len = GetStringLength(index_buffer_ptr, string_number);
 			result_data[result_offset + i] = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
-		}
 
+			string_t compressed_string = result_data[result_offset + i];
+			unsigned char decompress_buffer [1000];
+
+			auto decompressed_string_size = fsst_decompress(
+			    &scan_state.fsst_decoder,  							/* IN: use this symbol table for compression. */
+			    compressed_string.GetSize(),        				/* IN: byte-length of compressed string. */
+			    (unsigned char*)compressed_string.GetDataUnsafe(),  /* IN: compressed string. */
+			    1000,              							/* IN: byte-length of output buffer. */
+			    &decompress_buffer[0]    					/* OUT: memory buffer to put the decompressed string in. */
+			);
+			result_data[result_offset + i] = StringVector::AddString(result, (const char*)decompress_buffer, decompressed_string_size);
+		}
 	} else {
 		D_ASSERT(start % BitpackingPrimitives::BITPACKING_ALGORITHM_GROUP_SIZE == 0);
 		D_ASSERT(scan_count == STANDARD_VECTOR_SIZE);
