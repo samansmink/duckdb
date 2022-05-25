@@ -53,6 +53,8 @@ void VectorOperations::Copy(const Vector &source, Vector &target, const Selectio
 	case VectorType::CONSTANT_VECTOR:
 		sel = ConstantVector::ZeroSelectionVector(copy_count, owned_sel);
 		break; // carry on with below code
+	case VectorType::FSST_VECTOR:
+		break;
 	case VectorType::FLAT_VECTOR:
 		break;
 	default:
@@ -102,6 +104,43 @@ void VectorOperations::Copy(const Vector &source, Vector &target, const Selectio
 	}
 
 	D_ASSERT(sel);
+
+	// For FSST Vectors we decompress on
+	if (source.GetVectorType() == VectorType::FSST_VECTOR) {
+		auto ldata = FSSTVector::GetData<string_t>(source);
+		auto tdata = FlatVector::GetData<string_t>(target);
+		for (idx_t i = 0; i < copy_count; i++) {
+			auto source_idx = sel->get_index(source_offset + i);
+			auto target_idx = target_offset + i;
+			if (tmask.RowIsValid(target_idx)) {
+				// Decompress
+
+				// old
+//				tdata[target_idx] = StringVector::AddStringOrBlob(target, ldata[source_idx]);
+
+				// new
+				string_t compressed_string = ldata[source_idx];
+				unsigned char decompress_buffer [1000]; // variable size
+
+				auto decompressed_string_size = fsst_decompress(
+				    FSSTVector::GetDecoder(const_cast<Vector &>(source)),  							/* IN: use this symbol table for compression. */
+				    compressed_string.GetSize(),        				/* IN: byte-length of compressed string. */
+				    (unsigned char*)compressed_string.GetDataUnsafe(),  /* IN: compressed string. */
+				    1000,              							/* IN: byte-length of output buffer. */
+				    &decompress_buffer[0]    					/* OUT: memory buffer to put the decompressed string in. */
+				);
+
+				auto str = FSSTVector::AddCompressedString(target, (const char*)decompress_buffer, decompressed_string_size);
+				tdata[target_idx] = str;
+			}
+		}
+
+		if (target_vector_type != VectorType::FLAT_VECTOR) {
+			target.SetVectorType(target_vector_type);
+		}
+
+		return;
+	}
 
 	// now copy over the data
 	switch (source.GetType().InternalType()) {
@@ -251,6 +290,12 @@ void VectorOperations::Copy(const Vector &source, Vector &target, idx_t source_c
 		break;
 	}
 	case VectorType::FLAT_VECTOR: {
+		SelectionVector owned_sel;
+		auto sel = FlatVector::IncrementalSelectionVector(source_count, owned_sel);
+		VectorOperations::Copy(source, target, *sel, source_count, source_offset, target_offset);
+		break;
+	}
+	case VectorType::FSST_VECTOR: {
 		SelectionVector owned_sel;
 		auto sel = FlatVector::IncrementalSelectionVector(source_count, owned_sel);
 		VectorOperations::Copy(source, target, *sel, source_count, source_offset, target_offset);

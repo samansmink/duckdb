@@ -572,7 +572,7 @@ struct CompressedStringScanState : public StringScanState {
 	bitpacking_width_t current_width;
 	buffer_ptr<SelectionVector> sel_vec;
 	idx_t sel_vec_size = 0;
-	fsst_decoder_t fsst_decoder;
+	buffer_ptr<fsst_decoder_t> fsst_decoder;
 };
 
 unique_ptr<SegmentScanState> DictionaryCompressionStorage::StringInitScan(ColumnSegment &segment) {
@@ -591,7 +591,8 @@ unique_ptr<SegmentScanState> DictionaryCompressionStorage::StringInitScan(Column
 	auto fsst_symbol_table_offset = Load<uint32_t>((data_ptr_t)&header_ptr->fsst_symbol_table_offset);
 
 	// Import fsst decoder
-	auto retval = fsst_import(&state->fsst_decoder, baseptr + fsst_symbol_table_offset);
+	state->fsst_decoder = make_buffer<fsst_decoder_t>();
+	auto retval = fsst_import(state->fsst_decoder.get(), baseptr + fsst_symbol_table_offset);
 	if (retval == 0){
 		throw std::runtime_error("Error decoding fsst symbol table");
 	}
@@ -628,6 +629,7 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 	auto index_buffer_ptr = (uint32_t *)(baseptr + index_buffer_offset);
 
 	auto base_data = (data_ptr_t)(baseptr + DICTIONARY_HEADER_SIZE);
+	result.SetVectorType(VectorType::FSST_VECTOR);
 	auto result_data = FlatVector::GetData<string_t>(result);
 
 	if (true || !ALLOW_DICT_VECTORS || scan_count != STANDARD_VECTOR_SIZE ||
@@ -658,19 +660,9 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 			auto dict_offset = index_buffer_ptr[string_number];
 			uint16_t str_len = GetStringLength(index_buffer_ptr, string_number);
 			result_data[result_offset + i] = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
-
-			string_t compressed_string = result_data[result_offset + i];
-			unsigned char decompress_buffer [1000];
-
-			auto decompressed_string_size = fsst_decompress(
-			    &scan_state.fsst_decoder,  							/* IN: use this symbol table for compression. */
-			    compressed_string.GetSize(),        				/* IN: byte-length of compressed string. */
-			    (unsigned char*)compressed_string.GetDataUnsafe(),  /* IN: compressed string. */
-			    1000,              							/* IN: byte-length of output buffer. */
-			    &decompress_buffer[0]    					/* OUT: memory buffer to put the decompressed string in. */
-			);
-			result_data[result_offset + i] = StringVector::AddString(result, (const char*)decompress_buffer, decompressed_string_size);
 		}
+
+		FSSTVector::RegisterDecoder(result, scan_state.fsst_decoder);
 	} else {
 		D_ASSERT(start % BitpackingPrimitives::BITPACKING_ALGORITHM_GROUP_SIZE == 0);
 		D_ASSERT(scan_count == STANDARD_VECTOR_SIZE);
