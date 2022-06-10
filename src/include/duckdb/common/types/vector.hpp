@@ -199,14 +199,12 @@ public:
 struct ConstantVector {
 	static inline const_data_ptr_t GetData(const Vector &vector) {
 		D_ASSERT(vector.GetVectorType() == VectorType::CONSTANT_VECTOR ||
-		         vector.GetVectorType() == VectorType::FLAT_VECTOR ||
-		         vector.GetVectorType() == VectorType::FSST_VECTOR);
+		         vector.GetVectorType() == VectorType::FLAT_VECTOR);
 		return vector.data;
 	}
 	static inline data_ptr_t GetData(Vector &vector) {
 		D_ASSERT(vector.GetVectorType() == VectorType::CONSTANT_VECTOR ||
-		         vector.GetVectorType() == VectorType::FLAT_VECTOR ||
-		         vector.GetVectorType() == VectorType::FSST_VECTOR);
+		         vector.GetVectorType() == VectorType::FLAT_VECTOR);
 		return vector.data;
 	}
 	template <class T>
@@ -349,18 +347,22 @@ struct StringVector {
 };
 
 struct FSSTVector {
-	static inline data_ptr_t GetData(Vector &vector) {
-		return ConstantVector::GetData(vector);
+	static inline const_data_ptr_t GetCompressedData(const Vector &vector) {
+		D_ASSERT(vector.GetVectorType() == VectorType::FSST_VECTOR);
+		return vector.data;
+	}
+	static inline data_ptr_t GetCompressedData(Vector &vector) {
+		D_ASSERT(vector.GetVectorType() == VectorType::FSST_VECTOR);
+		return vector.data;
 	}
 	template <class T>
-	static inline const T *GetData(const Vector &vector) {
-		return ConstantVector::GetData<T>(vector);
+	static inline const T *GetCompressedData(const Vector &vector) {
+		return (const T *)FSSTVector::GetCompressedData(vector);
 	}
 	template <class T>
-	static inline T *GetData(Vector &vector) {
-		return ConstantVector::GetData<T>(vector);
+	static inline T *GetCompressedData(Vector &vector) {
+		return (T *)FSSTVector::GetCompressedData(vector);
 	}
-
 	DUCKDB_API static string_t AddCompressedString(Vector &vector, string_t data);
 	DUCKDB_API static string_t AddCompressedString(Vector &vector, const char *data, idx_t len);
 	DUCKDB_API static void RegisterDecoder(Vector &vector, buffer_ptr<fsst_decoder_t> &fsst_decoder);

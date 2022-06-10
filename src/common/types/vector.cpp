@@ -159,6 +159,12 @@ void Vector::Slice(const SelectionVector &sel, idx_t count) {
 		buffer = make_buffer<DictionaryBuffer>(move(sliced_dictionary));
 		return;
 	}
+
+	if (GetVectorType() == VectorType::FSST_VECTOR) {
+		Normalify(sel, count);
+		return;
+	}
+
 	Vector child_vector(*this);
 	auto child_ref = make_buffer<VectorChildBuffer>(move(child_vector));
 	auto dict_buffer = make_buffer<DictionaryBuffer>(sel);

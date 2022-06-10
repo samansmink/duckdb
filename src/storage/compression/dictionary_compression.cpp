@@ -630,7 +630,7 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 
 	auto base_data = (data_ptr_t)(baseptr + DICTIONARY_HEADER_SIZE);
 	result.SetVectorType(VectorType::FSST_VECTOR);
-	auto result_data = FlatVector::GetData<string_t>(result);
+	auto result_data = FSSTVector::GetCompressedData<string_t>(result);
 
 	if (true || !ALLOW_DICT_VECTORS || scan_count != STANDARD_VECTOR_SIZE ||
 	    start % BitpackingPrimitives::BITPACKING_ALGORITHM_GROUP_SIZE != 0) {

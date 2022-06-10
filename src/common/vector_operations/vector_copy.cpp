@@ -107,18 +107,13 @@ void VectorOperations::Copy(const Vector &source, Vector &target, const Selectio
 
 	// For FSST Vectors we decompress on
 	if (source.GetVectorType() == VectorType::FSST_VECTOR) {
-		auto ldata = FSSTVector::GetData<string_t>(source);
+		auto ldata = FSSTVector::GetCompressedData<string_t>(source);
 		auto tdata = FlatVector::GetData<string_t>(target);
 		for (idx_t i = 0; i < copy_count; i++) {
 			auto source_idx = sel->get_index(source_offset + i);
 			auto target_idx = target_offset + i;
 			if (tmask.RowIsValid(target_idx)) {
 				// Decompress
-
-				// old
-//				tdata[target_idx] = StringVector::AddStringOrBlob(target, ldata[source_idx]);
-
-				// new
 				string_t compressed_string = ldata[source_idx];
 				unsigned char decompress_buffer [1000]; // variable size
 
