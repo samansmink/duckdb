@@ -63,7 +63,6 @@ inputs:
   python_name:
     description: 'Python binary name because wtf Python'
     default: 'python3'
-    default: 0
   substrait:
     description: 'Build Substrait'
     default: 0
@@ -103,6 +102,7 @@ runs:
       run: |
         mkdir -p build/release/extension/out_of_tree
         ${{ inputs.python_name}} scripts/build_out_of_tree_extensions.py
+        cp build/release/external_extension_build/*.duckdb_extension build/release/extension/out_of_tree
 
     - name: Run post-install scripts
       if: ${{ inputs.post_install != '' }}
