@@ -384,7 +384,7 @@ jobs:
  linux-httpfs:
     name: Linux HTTPFS
     runs-on: ubuntu-20.04
-    needs: linux-release-64
+#    needs: linux-release-64
     env:
       BUILD_VISUALIZER: 1
       BUILD_HTTPFS: 1
@@ -421,7 +421,7 @@ jobs:
 
     - name: Test
       shell: bash
-      run: make allunit
+      run: catchsegv make allunit
 
  amalgamation-tests:
     name: Amalgamation Tests

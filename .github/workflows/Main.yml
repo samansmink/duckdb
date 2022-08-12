@@ -109,7 +109,7 @@ jobs:
  force-restart:
     name: Force Restart
     runs-on: ubuntu-20.04
-    needs: linux-debug
+#    needs: linux-debug
     env:
       CC: gcc-10
       CXX: g++-10
@@ -143,7 +143,7 @@ jobs:
 
     - name: Test
       shell: bash
-      run: build/reldebug/test/unittest "*" --force-reload --force-storage
+      run: catchsegv build/reldebug/test/unittest "*" --force-reload --force-storage
 
  linux-arrow:
       name: Linux Debug (Arrow Tests)
@@ -180,7 +180,7 @@ jobs:
  threadsan:
     name: Thread Sanitizer
     runs-on: ubuntu-20.04
-    needs: linux-debug
+#    needs: linux-debug
     env:
       CC: gcc-10
       CXX: g++-10
@@ -215,11 +215,11 @@ jobs:
     - name: Test
       shell: bash
       run: |
-          python3 scripts/run_tests_one_by_one.py build/reldebug/test/unittest
-          python3 scripts/run_tests_one_by_one.py build/reldebug/test/unittest "[intraquery]"
-          python3 scripts/run_tests_one_by_one.py build/reldebug/test/unittest "[interquery]"
-          python3 scripts/run_tests_one_by_one.py build/reldebug/test/unittest "[detailed_profiler]"
-          python3 scripts/run_tests_one_by_one.py build/reldebug/test/unittest test/sql/tpch/tpch_sf01.test_slow
+          python3 scripts/run_tests_one_by_one.py catchsegv build/reldebug/test/unittest
+          python3 scripts/run_tests_one_by_one.py catchsegv build/reldebug/test/unittest "[intraquery]"
+          python3 scripts/run_tests_one_by_one.py catchsegv build/reldebug/test/unittest "[interquery]"
+          python3 scripts/run_tests_one_by_one.py catchsegv build/reldebug/test/unittest "[detailed_profiler]"
+          python3 scripts/run_tests_one_by_one.py catchsegv build/reldebug/test/unittest test/sql/tpch/tpch_sf01.test_slow
 
 
  valgrind:
