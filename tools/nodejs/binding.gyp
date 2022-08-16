@@ -25,7 +25,7 @@
                 "-Wno-redundant-move",
             ],
             "cflags_cc!": [
-                "-fno-rrti",
+                "-fno-rtti",
                 "-fno-exceptions",
             ],
             "cflags": [
@@ -34,7 +34,7 @@
                 "-Wno-redundant-move",
             ],
             "cflags!": [
-                "-fno-rrti",
+                "-fno-rtti",
                 "-fno-exceptions",
             ],
             "xcode_settings": {
@@ -48,6 +48,7 @@
             },
             "msvs_settings": {
                 "VCCLCompilerTool": {
+                    "RuntimeTypeInfo": 'true'
                     "ExceptionHandling": 1,
                     "AdditionalOptions": [
                         "/bigobj"

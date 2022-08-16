@@ -116,7 +116,6 @@ unique_ptr<DataChunk> ClientContext::FetchInternal(ClientContextLock &lock, Exec
 		result.error = "Caught a string" + ex;
 	} catch (...) { // LCOV_EXCL_START
 		result.error = "Unhandled exception in FetchInternal";
-		throw;
 	} // LCOV_EXCL_STOP
 	result.success = false;
 	CleanupInternal(lock, &result, invalidate_query);
