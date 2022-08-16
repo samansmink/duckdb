@@ -48,7 +48,7 @@
             },
             "msvs_settings": {
                 "VCCLCompilerTool": {
-                    "RuntimeTypeInfo": 'true'
+                    "RuntimeTypeInfo": 'true',
                     "ExceptionHandling": 1,
                     "AdditionalOptions": [
                         "/bigobj"
