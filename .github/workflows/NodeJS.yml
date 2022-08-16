@@ -98,64 +98,40 @@ jobs:
 #    - name: Node 18
 #      shell: bash
 #      run: ./scripts/node_build.sh 18
-#
-#   osx-nodejs:
-#      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
-#      name: node.js OSX
-#      runs-on: macos-latest
-#      needs: linux-nodejs
-#      steps:
-#      - uses: actions/checkout@v3
-#        with:
-#          fetch-depth: 0
-#
-#      - name: Setup Ccache
-#        uses: hendrikmuhs/ccache-action@main
-#        with:
-#          key: ${{ github.job }}
-#
-#      - name: Build extensions
-#        shell: bash
-#        run: |
-#          brew install openssl ninja
-#          export OPENSSL_ROOT_DIR=`brew --prefix openssl`
-#          echo $OPENSSL_ROOT_DIR
-#          GEN=ninja BUILD_TPCH=1 BUILD_HTTPFS=1 STATIC_OPENSSL=1 make
-#
-#      - name: Setup
-#        shell: bash
-#        run: ./scripts/node_version.sh
-#
-#      - name: Node 10
-#        shell: bash
-#        run: ./scripts/node_build.sh 10
-#
-#      - name: Node 12
-#        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
-#        shell: bash
-#        run: ./scripts/node_build.sh 12
-#
-#      - name: Node 14
-#        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
-#        shell: bash
-#        run: ./scripts/node_build.sh 14
-#
-#      - name: Node 15
-#        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
-#        shell: bash
-#        run: ./scripts/node_build.sh 15
-#
-#      - name: Node 16
-#        shell: bash
-#        run: ./scripts/node_build.sh 16
-#
-#      - name: Node 17
-#        shell: bash
-#        run: ./scripts/node_build.sh 17
-#
-#      - name: Node 18
-#        shell: bash
-#        run: ./scripts/node_build.sh 18
+
+   osx-nodejs:
+      name: node.js OSX
+      runs-on: macos-latest
+      needs: linux-nodejs
+      steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Ccache
+        uses: hendrikmuhs/ccache-action@main
+        with:
+          key: ${{ github.job }}
+
+      - name: Build extensions
+        shell: bash
+        run: |
+          brew install openssl ninja
+          export OPENSSL_ROOT_DIR=`brew --prefix openssl`
+          echo $OPENSSL_ROOT_DIR
+          GEN=ninja BUILD_TPCH=1 BUILD_HTTPFS=1 STATIC_OPENSSL=1 make
+
+      - name: Setup
+        shell: bash
+        run: ./scripts/node_version.sh
+
+      - name: Node 10
+        shell: bash
+        run: ./scripts/node_build.sh 10
+
+      - name: Node 15
+        shell: bash
+        run: ./scripts/node_build.sh 15
 
    win-nodejs:
      name: node.js Windows
