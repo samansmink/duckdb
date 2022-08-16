@@ -16,7 +16,7 @@
                 "<!@(node -p \"require('node-addon-api').include\")"
             ],
             'defines': [
-                'NAPI_DISABLE_CPP_EXCEPTIONS=0',
+                'NAPI_DISABLE_CPP_EXCEPTIONS=1',
                 "NAPI_VERSION=5"
             ],
             "cflags_cc": [
@@ -25,7 +25,7 @@
                 "-Wno-redundant-move",
             ],
             "cflags_cc!": [
-                "-fno-rtti",
+                "-fno-rrti",
                 "-fno-exceptions",
             ],
             "cflags": [
@@ -34,7 +34,7 @@
                 "-Wno-redundant-move",
             ],
             "cflags!": [
-                "-fno-rtti",
+                "-fno-rrti",
                 "-fno-exceptions",
             ],
             "xcode_settings": {
@@ -48,9 +48,10 @@
             },
             "msvs_settings": {
                 "VCCLCompilerTool": {
-                    "RuntimeTypeInfo": 'true',
                     "ExceptionHandling": 1,
-                    'AdditionalOptions': ['/EHsc',  "/bigobj"]
+                    "AdditionalOptions": [
+                        "/bigobj"
+                    ]
                 }
             },
             "conditions": [
