@@ -16,7 +16,7 @@
                 "<!@(node -p \"require('node-addon-api').include\")"
             ],
             'defines': [
-                'NAPI_DISABLE_CPP_EXCEPTIONS=1',
+                'NAPI_DISABLE_CPP_EXCEPTIONS=0',
                 "NAPI_VERSION=5"
             ],
             "cflags_cc": [
