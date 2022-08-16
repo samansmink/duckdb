@@ -10,7 +10,7 @@ cd tools/nodejs
 make clean
 ./configure
 
-npm install --build-from-source
+npm install --build-from-source --verbose
 npm test
 npx node-pre-gyp package testpackage testbinary
 

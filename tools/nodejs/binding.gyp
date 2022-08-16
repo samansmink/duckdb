@@ -50,6 +50,7 @@
                 "VCCLCompilerTool": {
                     "RuntimeTypeInfo": 'true',
                     "ExceptionHandling": 1,
+                    'AdditionalOptions': ['/EHsc'],
                     "AdditionalOptions": [
                         "/bigobj"
                     ]
