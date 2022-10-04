@@ -227,9 +227,9 @@ Connection.prototype.arrowIPCStream = async function (sql) {
  * @return {void}
  * @note this follows the wasm udfs somewhat but is simpler because we can pass data much more cleanly
  */
-Connection.prototype.register = function (name, return_type, fun) {
+Connection.prototype.register_udf = function (name, return_type, fun) {
     // TODO what if this throws an error somewhere? do we need a try/catch?
-    return this.register_bulk(name, return_type, function (desc) {
+    return this.register_udf_bulk(name, return_type, function (desc) {
         try {
             // Build an argument resolver
             const buildResolver = (arg) => {
@@ -365,7 +365,7 @@ Connection.prototype.exec;
  * @param callback
  * @return {void}
  */
-Connection.prototype.register_bulk;
+Connection.prototype.register_udf_bulk;
 /**
  * Unregister a User Defined Function
  *
@@ -375,7 +375,7 @@ Connection.prototype.register_bulk;
  * @param callback
  * @return {void}
  */
-Connection.prototype.unregister;
+Connection.prototype.unregister_udf;
 
 var default_connection = function (o) {
     if (o.default_connection == undefined) {
@@ -508,26 +508,26 @@ Database.prototype.exec = function () {
 /**
  * Register a User Defined Function
  *
- * Convenience method for Connection#register
+ * Convenience method for Connection#register_udf
  * @arg name
  * @arg return_type
  * @arg fun
  * @return {this}
  */
-Database.prototype.register = function () {
-    default_connection(this).register.apply(this.default_connection, arguments);
+Database.prototype.register_udf = function () {
+    default_connection(this).register_udf.apply(this.default_connection, arguments);
     return this;
 }
 
 /**
  * Unregister a User Defined Function
  *
- * Convenience method for Connection#unregister
+ * Convenience method for Connection#unregister_udf
  * @arg name
  * @return {this}
  */
-Database.prototype.unregister = function () {
-    default_connection(this).unregister.apply(this.default_connection, arguments);
+Database.prototype.unregister_udf = function () {
+    default_connection(this).unregister_udf.apply(this.default_connection, arguments);
     return this;
 }
 
