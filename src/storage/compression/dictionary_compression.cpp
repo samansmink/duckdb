@@ -36,17 +36,25 @@ public:
 				new_string = !LookupString(data[idx]);
 			}
 
-			bool fits = HasEnoughSpace(new_string, string_size);
+			size_t string_dict_size;
+
+			if (new_string) {
+				string_dict_size = RegisterNewString(data[idx]);
+			} else {
+				string_dict_size = string_size;
+			}
+
+			bool fits = HasEnoughSpace(new_string, string_dict_size);
 			if (!fits) {
 				Flush();
 				new_string = true;
-				D_ASSERT(HasEnoughSpace(new_string, string_size));
+				D_ASSERT(HasEnoughSpace(new_string, string_dict_size));
 			}
 
 			if (!row_is_valid) {
 				AddNull();
 			} else if (new_string) {
-				AddNewString(data[idx]);
+				AddRegisteredString();
 			} else {
 				AddLastLookup();
 			}
@@ -64,8 +72,10 @@ protected:
 	virtual bool LookupString(string_t str) = 0;
 	// Add the most recently looked up str to compression state
 	virtual void AddLastLookup() = 0;
+	// Registers the next string, allowing the CompressionState to perform compression on the string in advance
+	virtual idx_t RegisterNewString(string_t new_string) = 0;
 	// Add string to the state that is known to not be seen yet
-	virtual void AddNewString(string_t str) = 0;
+	virtual void AddRegisteredString() = 0;
 	// Add a null value to the compression state
 	virtual void AddNull() = 0;
 	// Check if we have enough space to add a string
@@ -154,6 +164,12 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 	// Result of latest LookupString call
 	uint32_t latest_lookup_result;
 
+	unique_ptr<unsigned char[]> fsst_compress_buffer;
+	size_t fsst_compress_buffer_size;
+	unsigned char* fsst_string_ptr;
+	size_t fsst_string_size;
+	string_t uncompressed_string;
+
 public:
 	void CreateEmptySegment(idx_t row_start) {
 		auto &db = checkpointer.GetDatabase();
@@ -198,23 +214,56 @@ public:
 		return has_result;
 	}
 
-	void AddNewString(string_t str) override {
-		UncompressedStringStorage::UpdateStringStats(current_segment->stats, str);
+	idx_t RegisterNewString(string_t new_string) override {
+		uncompressed_string = new_string;
+		auto string_in = new_string.GetDataUnsafe();
+		size_t string_in_len = new_string.GetSize();
+
+		// Allocate/resize compression buffer
+		auto compress_buffer_size = string_in_len * 2 + 7;
+		if (!fsst_compress_buffer || fsst_compress_buffer_size < compress_buffer_size) {
+			fsst_compress_buffer = unique_ptr<unsigned char[]>(new unsigned char[compress_buffer_size]());
+		}
+
+		// TODO enable compression here
+		// Compress new_string
+//		auto res = duckdb_fsst_compress(
+//			state.fsst_encoder,   /* IN: encoder obtained from duckdb_fsst_create(). */ // TODO
+//			1,          /* IN: number of strings in batch to compress. */
+//			&string_in_len,         /* IN: byte-lengths of the inputs */
+//			&string_in,       /* IN: input string start pointers. */
+//		    compress_buffer_size, /* IN: byte-length of output buffer. */
+//		    fsst_compress_buffer.get(),  /* OUT: memory buffer to put the compressed strings in (one after the other). */
+//			&fsst_string_ptr,        /* OUT: byte-lengths of the compressed strings. */
+//			&fsst_string_size       /* OUT: output string start pointers. Will all point into [output,output+size). */
+//		);
+
+//		if (res != 1) {
+//			throw FatalException("FSST compression failed to compress string");
+//		}
+		fsst_string_ptr = (unsigned char *)uncompressed_string.GetDataUnsafe();
+		fsst_string_size = uncompressed_string.GetSize();
+//		return fsst_string_size;
+		return new_string.GetSize();
+	}
+
+	void AddRegisteredString() override {
+		UncompressedStringStorage::UpdateStringStats(current_segment->stats, uncompressed_string);
 
 		// Copy string to dict
-		current_dictionary.size += str.GetSize();
+		current_dictionary.size += fsst_string_size;
 		auto dict_pos = current_end_ptr - current_dictionary.size;
-		memcpy(dict_pos, str.GetDataUnsafe(), str.GetSize());
+		memcpy(dict_pos, fsst_string_ptr, fsst_string_size);
 		current_dictionary.Verify();
 		D_ASSERT(current_dictionary.end == Storage::BLOCK_SIZE);
 
 		// Update buffers and map
 		index_buffer.push_back(current_dictionary.size);
 		selection_buffer.push_back(index_buffer.size() - 1);
-		if (str.IsInlined()) {
-			current_string_map.insert({str, index_buffer.size() - 1});
+		if (uncompressed_string.IsInlined()) {
+			current_string_map.insert({uncompressed_string, index_buffer.size() - 1});
 		} else {
-			current_string_map.insert({heap.AddBlob(str), index_buffer.size() - 1});
+			current_string_map.insert({heap.AddBlob(uncompressed_string), index_buffer.size() - 1});
 		}
 		DictionaryCompressionStorage::SetDictionary(*current_segment, current_handle, current_dictionary);
 
@@ -328,19 +377,25 @@ struct DictionaryAnalyzeState : public DictionaryCompressionState {
 	string_set_t current_set;
 	bitpacking_width_t current_width;
 	bitpacking_width_t next_width;
+	string_t registered_string;
 
 	bool LookupString(string_t str) override {
 		return current_set.count(str);
 	}
 
-	void AddNewString(string_t str) override {
+	idx_t RegisterNewString(string_t new_string) override {
+		registered_string = new_string;
+		return new_string.GetSize();
+	}
+
+	void AddRegisteredString() override {
 		current_tuple_count++;
 		current_unique_count++;
-		current_dict_size += str.GetSize();
-		if (str.IsInlined()) {
-			current_set.insert(str);
+		current_dict_size += registered_string.GetSize();
+		if (registered_string.IsInlined()) {
+			current_set.insert(registered_string);
 		} else {
-			current_set.insert(heap.AddBlob(str));
+			current_set.insert(heap.AddBlob(registered_string));
 		}
 		current_width = next_width;
 	}
@@ -507,6 +562,8 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 			auto dict_offset = index_buffer_ptr[string_number];
 			uint16_t str_len = GetStringLength(index_buffer_ptr, string_number);
 			result_data[result_offset + i] = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
+
+			// TODO decompress here
 		}
 
 	} else {
