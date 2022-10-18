@@ -9,6 +9,8 @@
 #include "duckdb/storage/string_uncompressed.hpp"
 #include "duckdb/storage/table/append_state.hpp"
 #include "duckdb/storage/table/column_data_checkpointer.hpp"
+#include "fsst.h"
+#include <iostream>
 
 namespace duckdb {
 
@@ -89,6 +91,7 @@ typedef struct {
 	uint32_t dict_end;
 	uint32_t index_buffer_offset;
 	uint32_t index_buffer_count;
+	uint32_t fsst_decoder_offset;
 	uint32_t bitpacking_width;
 } dictionary_compression_header_t;
 
@@ -136,11 +139,17 @@ struct DictionaryCompressionStorage {
 // scanning the whole dictionary at once and then scanning the selection buffer for each emitted vector. Secondly, it
 // allows for efficient bitpacking compression as the selection values should remain relatively small.
 struct DictionaryCompressionCompressState : public DictionaryCompressionState {
-	explicit DictionaryCompressionCompressState(ColumnDataCheckpointer &checkpointer) : checkpointer(checkpointer) {
+	explicit DictionaryCompressionCompressState(ColumnDataCheckpointer &checkpointer, duckdb_fsst_encoder_t * fsst_encoder_p) : checkpointer(checkpointer), fsst_encoder(fsst_encoder_p) {
 		auto &db = checkpointer.GetDatabase();
 		auto &config = DBConfig::GetConfig(db);
 		function = config.GetCompressionFunction(CompressionType::COMPRESSION_DICTIONARY, PhysicalType::VARCHAR);
 		CreateEmptySegment(checkpointer.GetRowGroup().start);
+	}
+
+	~DictionaryCompressionCompressState() override {
+		if (fsst_encoder) {
+			duckdb_fsst_destroy(fsst_encoder);
+		}
 	}
 
 	ColumnDataCheckpointer &checkpointer;
@@ -169,6 +178,9 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 	unsigned char* fsst_string_ptr;
 	size_t fsst_string_size;
 	string_t uncompressed_string;
+	duckdb_fsst_encoder_t * fsst_encoder = nullptr;
+	unsigned char fsst_serialized_symbol_table[sizeof(duckdb_fsst_decoder_t)];
+	size_t fsst_serialized_symbol_table_size = sizeof(duckdb_fsst_decoder_t);
 
 public:
 	void CreateEmptySegment(idx_t row_start) {
@@ -228,19 +240,20 @@ public:
 		// TODO enable compression here
 		// Compress new_string
 //		auto res = duckdb_fsst_compress(
-//			state.fsst_encoder,   /* IN: encoder obtained from duckdb_fsst_create(). */ // TODO
+//			fsst_encoder,   /* IN: encoder obtained from duckdb_fsst_create(). */
 //			1,          /* IN: number of strings in batch to compress. */
 //			&string_in_len,         /* IN: byte-lengths of the inputs */
-//			&string_in,       /* IN: input string start pointers. */
+//		    (unsigned char **)&string_in,       /* IN: input string start pointers. */
 //		    compress_buffer_size, /* IN: byte-length of output buffer. */
 //		    fsst_compress_buffer.get(),  /* OUT: memory buffer to put the compressed strings in (one after the other). */
-//			&fsst_string_ptr,        /* OUT: byte-lengths of the compressed strings. */
-//			&fsst_string_size       /* OUT: output string start pointers. Will all point into [output,output+size). */
+//			&fsst_string_size,        /* OUT: byte-lengths of the compressed strings. */
+//			&fsst_string_ptr       /* OUT: output string start pointers. Will all point into [output,output+size). */
 //		);
-
+//
 //		if (res != 1) {
 //			throw FatalException("FSST compression failed to compress string");
 //		}
+
 		fsst_string_ptr = (unsigned char *)uncompressed_string.GetDataUnsafe();
 		fsst_string_size = uncompressed_string.GetSize();
 //		return fsst_string_size;
@@ -315,7 +328,9 @@ public:
 		    BitpackingPrimitives::GetRequiredSize(current_segment->count, current_width);
 		auto index_buffer_size = index_buffer.size() * sizeof(uint32_t);
 		auto total_size = DictionaryCompressionStorage::DICTIONARY_HEADER_SIZE + compressed_selection_buffer_size +
-		                  index_buffer_size + current_dictionary.size;
+		                  index_buffer_size + current_dictionary.size ;//+ sizeof(duckdb_fsst_decoder_t);
+
+		// TODO we need to write the serialized thingy here somewhere
 
 		// calculate ptr and offsets
 		auto base_ptr = handle.Ptr();
@@ -331,10 +346,15 @@ public:
 		// Write the index buffer
 		memcpy(base_ptr + index_buffer_offset, index_buffer.data(), index_buffer_size);
 
+		// Write the fsst symbol table
+//		auto fsst_decoder_offset = index_buffer_offset + index_buffer_size;
+//		memcpy(base_ptr + fsst_decoder_offset, fsst_serialized_symbol_table, fsst_compress_buffer_size);
+
 		// Store sizes and offsets in segment header
 		Store<uint32_t>(index_buffer_offset, (data_ptr_t)&header_ptr->index_buffer_offset);
 		Store<uint32_t>(index_buffer.size(), (data_ptr_t)&header_ptr->index_buffer_count);
 		Store<uint32_t>((uint32_t)current_width, (data_ptr_t)&header_ptr->bitpacking_width);
+//		Store<uint32_t>(fsst_decoder_offset, (data_ptr_t)&header_ptr->fsst_decoder_offset);
 
 		D_ASSERT(current_width == BitpackingPrimitives::MinimumBitWidth(index_buffer.size() - 1));
 		D_ASSERT(DictionaryCompressionStorage::HasEnoughSpace(current_segment->count, index_buffer.size(),
@@ -350,6 +370,7 @@ public:
 		auto move_amount = Storage::BLOCK_SIZE - total_size;
 		// move the dictionary so it lines up exactly with the offsets
 		auto new_dictionary_offset = index_buffer_offset + index_buffer_size;
+//		auto new_dictionary_offset = fsst_decoder_offset + fsst_compress_buffer_size;
 		memmove(base_ptr + new_dictionary_offset, base_ptr + current_dictionary.end - current_dictionary.size,
 		        current_dictionary.size);
 		current_dictionary.end -= move_amount;
@@ -369,6 +390,12 @@ struct DictionaryAnalyzeState : public DictionaryCompressionState {
 	      next_width(0) {
 	}
 
+	~DictionaryAnalyzeState() override {
+		if (fsst_encoder) {
+			duckdb_fsst_destroy(fsst_encoder);
+		}
+	}
+
 	size_t segment_count;
 	idx_t current_tuple_count;
 	idx_t current_unique_count;
@@ -378,6 +405,12 @@ struct DictionaryAnalyzeState : public DictionaryCompressionState {
 	bitpacking_width_t current_width;
 	bitpacking_width_t next_width;
 	string_t registered_string;
+
+	// For FSST
+	vector<string_t> all_strings;
+	vector<unsigned char*> string_ptrs;
+	vector<size_t> string_sizes;
+	duckdb_fsst_encoder_t *fsst_encoder = nullptr;
 
 	bool LookupString(string_t str) override {
 		return current_set.count(str);
@@ -392,12 +425,20 @@ struct DictionaryAnalyzeState : public DictionaryCompressionState {
 		current_tuple_count++;
 		current_unique_count++;
 		current_dict_size += registered_string.GetSize();
+
+		string_t new_string;
 		if (registered_string.IsInlined()) {
-			current_set.insert(registered_string);
+			new_string = registered_string;
 		} else {
-			current_set.insert(heap.AddBlob(registered_string));
+			new_string = heap.AddBlob(registered_string);
 		}
+
+		current_set.insert(new_string);
 		current_width = next_width;
+
+		all_strings.push_back(new_string);
+		string_ptrs.push_back((unsigned char*)new_string.GetDataUnsafe());
+		string_sizes.push_back(new_string.GetSize());
 	}
 
 	void AddLastLookup() override {
@@ -450,6 +491,15 @@ idx_t DictionaryCompressionStorage::StringFinalAnalyze(AnalyzeState &state_p) {
 	auto &analyze_state = (DictionaryCompressionAnalyzeState &)state_p;
 	auto &state = *analyze_state.analyze_state;
 
+	if (!state.string_ptrs.size()) {
+		return DConstants::INVALID_INDEX;
+	}
+
+//	 Create FSST encoder from all strings
+	state.fsst_encoder = duckdb_fsst_create(state.string_ptrs.size(), &state.string_sizes[0], &state.string_ptrs[0], 0);
+
+	D_ASSERT(state.fsst_encoder);
+
 	auto width = BitpackingPrimitives::MinimumBitWidth(state.current_unique_count + 1);
 	auto req_space =
 	    RequiredSpace(state.current_tuple_count, state.current_unique_count, state.current_dict_size, width);
@@ -461,8 +511,14 @@ idx_t DictionaryCompressionStorage::StringFinalAnalyze(AnalyzeState &state_p) {
 // Compress
 //===--------------------------------------------------------------------===//
 unique_ptr<CompressionState> DictionaryCompressionStorage::InitCompression(ColumnDataCheckpointer &checkpointer,
-                                                                           unique_ptr<AnalyzeState> state) {
-	return make_unique<DictionaryCompressionCompressState>(checkpointer);
+                                                                           unique_ptr<AnalyzeState> state_p) {
+	auto state = static_cast<DictionaryCompressionAnalyzeState *>(state_p.get());
+	auto compression_state = make_unique<DictionaryCompressionCompressState>(checkpointer, state->analyze_state->fsst_encoder);
+	state->analyze_state->fsst_encoder = nullptr;
+	// Serialize the decoder;
+	compression_state->fsst_serialized_symbol_table_size =
+	    duckdb_fsst_export(compression_state->fsst_encoder, &compression_state->fsst_serialized_symbol_table[0]);
+	return compression_state;
 }
 
 void DictionaryCompressionStorage::Compress(CompressionState &state_p, Vector &scan_vector, idx_t count) {
@@ -641,9 +697,8 @@ idx_t DictionaryCompressionStorage::RequiredSpace(idx_t current_count, idx_t ind
 	idx_t base_space = DICTIONARY_HEADER_SIZE + dict_size;
 	idx_t string_number_space = BitpackingPrimitives::GetRequiredSize(current_count, packing_width);
 	idx_t index_space = index_count * sizeof(uint32_t);
-
-	idx_t used_space = base_space + index_space + string_number_space;
-
+	idx_t fsst_symbol_table_space = sizeof(duckdb_fsst_decoder_t);
+	idx_t used_space = base_space + index_space + string_number_space + fsst_symbol_table_space;
 	return used_space;
 }
 
