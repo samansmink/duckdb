@@ -236,6 +236,7 @@ public:
 		auto compress_buffer_size = string_in_len * 2 + 7;
 		if (!fsst_compress_buffer || fsst_compress_buffer_size < compress_buffer_size) {
 			fsst_compress_buffer = unique_ptr<unsigned char[]>(new unsigned char[compress_buffer_size]());
+			fsst_compress_buffer_size = compress_buffer_size;
 		}
 
 		// TODO enable compression here
@@ -246,7 +247,7 @@ public:
 			&string_in_len,         /* IN: byte-lengths of the inputs */
 		    (unsigned char **)&string_in,       /* IN: input string start pointers. */
 		    compress_buffer_size, /* IN: byte-length of output buffer. */
-		    fsst_compress_buffer.get(),  /* OUT: memory buffer to put the compressed strings in (one after the other). */
+		    &fsst_compress_buffer.get()[0],  /* OUT: memory buffer to put the compressed strings in (one after the other). */
 			&fsst_string_size,        /* OUT: byte-lengths of the compressed strings. */
 			&fsst_string_ptr       /* OUT: output string start pointers. Will all point into [output,output+size). */
 		);
@@ -674,6 +675,12 @@ void DictionaryCompressionStorage::StringFetchRow(ColumnSegment &segment, Column
 	auto base_data = (data_ptr_t)(baseptr + DICTIONARY_HEADER_SIZE);
 	auto result_data = FlatVector::GetData<string_t>(result);
 
+	auto fsst_decoder_offset =  Load<uint32_t>((data_ptr_t)&header_ptr->fsst_decoder_offset);
+	duckdb_fsst_decoder_t fsst_decoder;
+	if(!duckdb_fsst_import(&fsst_decoder, baseptr + fsst_decoder_offset)) {
+		throw InternalException("Failed to import fsst decoder");
+	};
+
 	// Handling non-bitpacking-group-aligned start values;
 	idx_t start_offset = row_id % BitpackingPrimitives::BITPACKING_ALGORITHM_GROUP_SIZE;
 
@@ -687,7 +694,9 @@ void DictionaryCompressionStorage::StringFetchRow(ColumnSegment &segment, Column
 	auto dict_offset = index_buffer_ptr[selection_value];
 	uint16_t str_len = GetStringLength(index_buffer_ptr, selection_value);
 
-	result_data[result_idx] = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
+	auto compressed_string = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
+
+	result_data[result_idx] = FSSTPrimitives::DecompressValue(&fsst_decoder, result, (unsigned char *)compressed_string.GetDataUnsafe(), compressed_string.GetSize());
 }
 
 //===--------------------------------------------------------------------===//
