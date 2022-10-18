@@ -328,9 +328,7 @@ public:
 		    BitpackingPrimitives::GetRequiredSize(current_segment->count, current_width);
 		auto index_buffer_size = index_buffer.size() * sizeof(uint32_t);
 		auto total_size = DictionaryCompressionStorage::DICTIONARY_HEADER_SIZE + compressed_selection_buffer_size +
-		                  index_buffer_size + current_dictionary.size ;//+ sizeof(duckdb_fsst_decoder_t);
-
-		// TODO we need to write the serialized thingy here somewhere
+		                  index_buffer_size + current_dictionary.size + fsst_serialized_symbol_table_size;
 
 		// calculate ptr and offsets
 		auto base_ptr = handle.Ptr();
@@ -347,14 +345,14 @@ public:
 		memcpy(base_ptr + index_buffer_offset, index_buffer.data(), index_buffer_size);
 
 		// Write the fsst symbol table
-//		auto fsst_decoder_offset = index_buffer_offset + index_buffer_size;
-//		memcpy(base_ptr + fsst_decoder_offset, fsst_serialized_symbol_table, fsst_compress_buffer_size);
+		auto fsst_decoder_offset = index_buffer_offset + index_buffer_size;
+		memcpy(base_ptr + fsst_decoder_offset, &fsst_serialized_symbol_table[0], fsst_serialized_symbol_table_size);
 
 		// Store sizes and offsets in segment header
 		Store<uint32_t>(index_buffer_offset, (data_ptr_t)&header_ptr->index_buffer_offset);
 		Store<uint32_t>(index_buffer.size(), (data_ptr_t)&header_ptr->index_buffer_count);
 		Store<uint32_t>((uint32_t)current_width, (data_ptr_t)&header_ptr->bitpacking_width);
-//		Store<uint32_t>(fsst_decoder_offset, (data_ptr_t)&header_ptr->fsst_decoder_offset);
+		Store<uint32_t>(fsst_decoder_offset, (data_ptr_t)&header_ptr->fsst_decoder_offset);
 
 		D_ASSERT(current_width == BitpackingPrimitives::MinimumBitWidth(index_buffer.size() - 1));
 		D_ASSERT(DictionaryCompressionStorage::HasEnoughSpace(current_segment->count, index_buffer.size(),
@@ -369,8 +367,7 @@ public:
 		// the block has space left: figure out how much space we can save
 		auto move_amount = Storage::BLOCK_SIZE - total_size;
 		// move the dictionary so it lines up exactly with the offsets
-		auto new_dictionary_offset = index_buffer_offset + index_buffer_size;
-//		auto new_dictionary_offset = fsst_decoder_offset + fsst_compress_buffer_size;
+		auto new_dictionary_offset = fsst_decoder_offset + fsst_serialized_symbol_table_size;
 		memmove(base_ptr + new_dictionary_offset, base_ptr + current_dictionary.end - current_dictionary.size,
 		        current_dictionary.size);
 		current_dictionary.end -= move_amount;
@@ -540,6 +537,7 @@ struct CompressedStringScanState : public StringScanState {
 	bitpacking_width_t current_width;
 	buffer_ptr<SelectionVector> sel_vec;
 	idx_t sel_vec_size = 0;
+	duckdb_fsst_decoder_t fsst_decoder;
 };
 
 unique_ptr<SegmentScanState> DictionaryCompressionStorage::StringInitScan(ColumnSegment &segment) {
@@ -555,6 +553,11 @@ unique_ptr<SegmentScanState> DictionaryCompressionStorage::StringInitScan(Column
 	auto index_buffer_offset = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_offset);
 	auto index_buffer_count = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_count);
 	state->current_width = (bitpacking_width_t)(Load<uint32_t>((data_ptr_t)&header_ptr->bitpacking_width));
+	auto fsst_decoder_offset =  Load<uint32_t>((data_ptr_t)&header_ptr->fsst_decoder_offset);
+
+	if(!duckdb_fsst_import(&state->fsst_decoder, baseptr + fsst_decoder_offset)) {
+		throw InternalException("Failed to import fsst decoder");
+	};
 
 	auto index_buffer_ptr = (uint32_t *)(baseptr + index_buffer_offset);
 
