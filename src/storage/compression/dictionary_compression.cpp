@@ -9,6 +9,7 @@
 #include "duckdb/storage/string_uncompressed.hpp"
 #include "duckdb/storage/table/append_state.hpp"
 #include "duckdb/storage/table/column_data_checkpointer.hpp"
+#include "duckdb/common/fsst.hpp"
 #include "fsst.h"
 #include <iostream>
 
@@ -239,25 +240,25 @@ public:
 
 		// TODO enable compression here
 		// Compress new_string
-//		auto res = duckdb_fsst_compress(
-//			fsst_encoder,   /* IN: encoder obtained from duckdb_fsst_create(). */
-//			1,          /* IN: number of strings in batch to compress. */
-//			&string_in_len,         /* IN: byte-lengths of the inputs */
-//		    (unsigned char **)&string_in,       /* IN: input string start pointers. */
-//		    compress_buffer_size, /* IN: byte-length of output buffer. */
-//		    fsst_compress_buffer.get(),  /* OUT: memory buffer to put the compressed strings in (one after the other). */
-//			&fsst_string_size,        /* OUT: byte-lengths of the compressed strings. */
-//			&fsst_string_ptr       /* OUT: output string start pointers. Will all point into [output,output+size). */
-//		);
-//
-//		if (res != 1) {
-//			throw FatalException("FSST compression failed to compress string");
-//		}
+		auto res = duckdb_fsst_compress(
+			fsst_encoder,   /* IN: encoder obtained from duckdb_fsst_create(). */
+			1,          /* IN: number of strings in batch to compress. */
+			&string_in_len,         /* IN: byte-lengths of the inputs */
+		    (unsigned char **)&string_in,       /* IN: input string start pointers. */
+		    compress_buffer_size, /* IN: byte-length of output buffer. */
+		    fsst_compress_buffer.get(),  /* OUT: memory buffer to put the compressed strings in (one after the other). */
+			&fsst_string_size,        /* OUT: byte-lengths of the compressed strings. */
+			&fsst_string_ptr       /* OUT: output string start pointers. Will all point into [output,output+size). */
+		);
 
-		fsst_string_ptr = (unsigned char *)uncompressed_string.GetDataUnsafe();
-		fsst_string_size = uncompressed_string.GetSize();
-//		return fsst_string_size;
-		return new_string.GetSize();
+		if (res != 1) {
+			throw FatalException("FSST compression failed to compress string");
+		}
+
+//		fsst_string_ptr = (unsigned char *)uncompressed_string.GetDataUnsafe();
+//		fsst_string_size = uncompressed_string.GetSize();
+		return fsst_string_size;
+//		return new_string.GetSize();
 	}
 
 	void AddRegisteredString() override {
@@ -593,7 +594,7 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 	auto base_data = (data_ptr_t)(baseptr + DICTIONARY_HEADER_SIZE);
 	auto result_data = FlatVector::GetData<string_t>(result);
 
-	if (!ALLOW_DICT_VECTORS || scan_count != STANDARD_VECTOR_SIZE ||
+	if (true || !ALLOW_DICT_VECTORS || scan_count != STANDARD_VECTOR_SIZE ||
 	    start % BitpackingPrimitives::BITPACKING_ALGORITHM_GROUP_SIZE != 0) {
 		// Emit regular vector
 
@@ -620,9 +621,11 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 			auto string_number = scan_state.sel_vec->get_index(i + start_offset);
 			auto dict_offset = index_buffer_ptr[string_number];
 			uint16_t str_len = GetStringLength(index_buffer_ptr, string_number);
-			result_data[result_offset + i] = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
+//			result_data[result_offset + i] = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
+			auto compressed_string = FetchStringFromDict(segment, dict, baseptr, dict_offset, str_len);
 
 			// TODO decompress here
+			result_data[result_offset + i] = FSSTPrimitives::DecompressValue(&scan_state.fsst_decoder, result, (unsigned char *)compressed_string.GetDataUnsafe(), compressed_string.GetSize());
 		}
 
 	} else {
