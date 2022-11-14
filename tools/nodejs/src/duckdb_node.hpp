@@ -89,6 +89,10 @@ public:
 	constexpr static int DUCKDB_NODEJS_READONLY = 1;
 	std::unique_ptr<duckdb::DuckDB> database;
 
+	// Registered arrow ipc buffers, to query from replacement scans
+	std::unordered_map<std::string, std::vector<std::pair<uint64_t, uint64_t>>> buffers;
+	std::unordered_map<std::string, Napi::Reference<Napi::Array>> array_references;
+
 private:
 	// TODO this task queue can also live in the connection?
 	std::queue<std::unique_ptr<Task>> task_queue;
@@ -133,8 +137,6 @@ public:
 	std::unique_ptr<duckdb::Connection> connection;
 	Database *database_ref;
 	std::unordered_map<std::string, duckdb_node_udf_function_t> udfs;
-	std::unordered_map<std::string, std::vector<std::pair<uint64_t, uint64_t>>> buffers;
-	std::unordered_map<std::string, Napi::Reference<Napi::Array>> array_references;
 };
 
 struct StatementParam;
