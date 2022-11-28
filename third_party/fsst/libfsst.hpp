@@ -379,7 +379,8 @@ struct Counters {
    }
    u32 count1GetNext(u32 &pos1) { // note: we will advance pos1 to the next nonzero counter in register range
       // read 16-bits single symbol counter, split into two 8-bits numbers (count1Low, count1High), while skipping over zeros
-	   u64 high = fsst_unaligned_load(&count1High[pos1]);
+//	   u64 high = fsst_unaligned_load(&count1High[pos1]);
+	  u64 high = *(u64*) &count1High[pos1];
 
       u32 zero = high?(__builtin_ctzl(high)>>3):7UL; // number of zero bytes
       high = (high >> (zero << 3)) & 255; // advance to nonzero counter
@@ -392,7 +393,9 @@ struct Counters {
    }
    u32 count2GetNext(u32 pos1, u32 &pos2) { // note: we will advance pos2 to the next nonzero counter in register range
       // read 12-bits pairwise symbol counter, split into low 8-bits and high 4-bits number while skipping over zeros
-	  u64 high = fsst_unaligned_load(&count2High[pos1][pos2>>1]);
+//	  u64 high = fsst_unaligned_load(&count2High[pos1][pos2>>1]);
+	  u64 high = *(u64*) &count2High[pos1][pos2>>1];
+
       high >>= ((pos2&1) << 2); // odd pos2: ignore the lowest 4 bits & we see only 15 counters
 
       u32 zero = high?(__builtin_ctzl(high)>>2):(15UL-(pos2&1UL)); // number of zero 4-bits counters
