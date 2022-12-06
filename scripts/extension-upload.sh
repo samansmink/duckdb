@@ -4,10 +4,11 @@
 
 set -e
 
-SHOULD_SIGN=${4:-TRUE}
+SHOULD_SIGN=${4:-true}
 S3_BUCKET=${3:-"duckdb-extensions"}
 
 if [ "$SHOULD_SIGN" = true ] ; then
+    echo "creating key"
     echo "$DUCKDB_EXTENSION_SIGNING_PK" > private.pem
 fi
 
@@ -18,6 +19,7 @@ do
 	echo $ext
 
 	if [ "$SHOULD_SIGN" = true ] ; then
+	    echo "signing it"
       # calculate SHA256 hash of extension binary
       openssl dgst -binary -sha256 $f > $f.hash
       # encrypt hash with extension signing private key to create signature
@@ -32,4 +34,6 @@ do
 	aws s3 cp $f.gz s3://$S3_BUCKET/$2/$1/$ext.duckdb_extension.gz --acl public-read
 done
 
-rm private.pem
+if [ "$SHOULD_SIGN" = true ] ; then
+  rm private.pem
+fi
