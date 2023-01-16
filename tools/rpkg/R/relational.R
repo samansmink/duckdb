@@ -9,10 +9,10 @@
 #' col_ref_expr <- expr_reference("some_column_name")
 #' col_ref_expr2 <- expr_reference("some_column_name", "some_table_name")
 expr_reference <- function(name, table = "") {
-    if (inherits(table, "duckdb_relation")) {
-        table <- rel_alias(table)
-    }
-    rapi_expr_reference(name, table)
+  if (inherits(table, "duckdb_relation")) {
+    table <- rel_alias(table)
+  }
+  rapi_expr_reference(name, table)
 }
 
 #' Create a constant expression
@@ -51,8 +51,8 @@ expr_set_alias <- rapi_expr_set_alias
 
 #' @export
 print.duckdb_expr <- function(x, ...) {
-    message("DuckDB Expression: ", expr_tostring(x))
-    invisible(NULL)
+  message("DuckDB Expression: ", expr_tostring(x))
+  invisible(NULL)
 }
 
 # relations
@@ -72,25 +72,25 @@ rel_from_df <- function(con, df, experimental=FALSE) {
 
 #' @export
 print.duckdb_relation <- function(x, ...) {
-    message("DuckDB Relation: \n", rapi_rel_tostring(x))
+  message("DuckDB Relation: \n", rapi_rel_tostring(x))
 }
 
 #' @export
-as.data.frame.duckdb_relation <- function(x, row.names=NULL, optional=NULL, ...) {
-    if (!missing(row.names) || !missing(optional)) {
-        stop("row.names and optional parameters not supported")
-    }
-    rapi_rel_to_df(x)
+as.data.frame.duckdb_relation <- function(x, row.names = NULL, optional = NULL, ...) {
+  if (!missing(row.names) || !missing(optional)) {
+    stop("row.names and optional parameters not supported")
+  }
+  rapi_rel_to_df(x)
 }
 
 #' @export
 names.duckdb_relation <- function(x) {
-    rapi_rel_names(x)
+  rapi_rel_names(x)
 }
 
 #' @export
-head.duckdb_relation <- function(x, n=6L, ...) {
-    rapi_rel_limit(x, n)
+head.duckdb_relation <- function(x, n = 6L, ...) {
+  rapi_rel_limit(x, n)
 }
 
 #' Lazily retrieve the top-n rows of a DuckDB relation object
@@ -122,7 +122,7 @@ rel_project <- rapi_rel_project
 #' @noRd
 #' @examples
 #' con <- DBI::dbConnect(duckdb())
-#' DBI::dbExecute(con, 'CREATE MACRO gt(a, b) AS a > b')
+#' DBI::dbExecute(con, "CREATE MACRO gt(a, b) AS a > b")
 #' rel <- rel_from_df(con, mtcars)
 #' rel2 <- rel_filter(rel, list(expr_function("gt", list(expr_reference("cyl"), expr_constant("6")))))
 rel_filter <- rapi_rel_filter
@@ -159,12 +159,24 @@ rel_order <- rapi_rel_order
 #' @noRd
 #' @examples
 #' con <- DBI::dbConnect(duckdb())
-#' DBI::dbExecute(con, 'CREATE MACRO eq(a, b) AS a = b')
+#' DBI::dbExecute(con, "CREATE MACRO eq(a, b) AS a = b")
 #' left <- rel_from_df(con, mtcars)
 #' right <- rel_from_df(con, mtcars)
 #' cond <- list(expr_function("eq", list(expr_reference("cyl", left), expr_reference("cyl", right))))
 #' rel2 <- rel_inner_join(left, right, cond)
 rel_inner_join <- rapi_rel_inner_join
+
+#' UNION ALL on two DuckDB relation objects
+#' @param rel_a a DuckDB relation object
+#' @param rel_b a DuckDB relation object
+#' @return a new `duckdb_relation` object resulting from the union
+#' @noRd
+#' @examples
+#' con <- DBI::dbConnect(duckdb())
+#' rel_a <- rel_from_df(con, mtcars)
+#' rel_b <- rel_from_df(con, mtcars)
+#' rel_union_all(rel_a, rel_b)
+rel_union_all <- rapi_rel_union_all
 
 #' Lazily compute a distinct result on a DuckDB relation object
 #' @param rel the input DuckDB relation object
@@ -175,6 +187,39 @@ rel_inner_join <- rapi_rel_inner_join
 #' rel <- rel_from_df(con, mtcars)
 #' rel2 <- rel_distinct(rel)
 rel_distinct <- rapi_rel_distinct
+
+#' SET INTERSECT on two DuckDB relation objects
+#' @param rel_a a DuckDB relation object
+#' @param rel_b a DuckDB relation object
+#' @return a new `duckdb_relation` object resulting from the intersection
+#' @noRd
+#' @examples
+#' rel_a <- rel_from_df(con, mtcars)
+#' rel_b <- rel_from_df(con, mtcars)
+#' rel_set_intersect_all(rel_a, rel_b)
+rel_set_intersect <- rapi_rel_set_intersect
+
+#' SET DIFF on two DuckDB relation objects
+#' @param rel_a a DuckDB relation object
+#' @param rel_b a DuckDB relation object
+#' @return a new `duckdb_relation` object resulting from the set difference
+#' @noRd
+#' @examples
+#' rel_a <- rel_from_df(con, mtcars)
+#' rel_b <- rel_from_df(con, mtcars)
+#' rel_set_diff(rel_a, rel_b)
+rel_set_diff <- rapi_rel_set_diff
+
+#' SET SYMDIFF on two DuckDB relation objects
+#' @param rel_a a DuckDB relation object
+#' @param rel_b a DuckDB relation object
+#' @return a new `duckdb_relation` object resulting from the symmetric difference of rel_a and rel_b
+#' @noRd
+#' @examples
+#' rel_a <- rel_from_df(con, mtcars)
+#' rel_b <- rel_from_df(con, mtcars)
+#' rel_set_symdiff(rel_a, rel_b)
+rel_set_symdiff <- rapi_rel_set_symdiff
 
 #' Run a SQL query on a DuckDB relation object
 #' @param rel the DuckDB relation object
@@ -195,8 +240,8 @@ rel_sql <- rapi_rel_sql
 #' rel <- rel_from_df(con, mtcars)
 #' rel_explain(rel)
 rel_explain <- function(rel) {
-    cat(rapi_rel_explain(rel)[[2]][[1]])
-    invisible(NULL)
+  cat(rapi_rel_explain(rel)[[2]][[1]])
+  invisible(NULL)
 }
 
 #' Get the internal alias for a DuckDB relation object
