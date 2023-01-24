@@ -10,6 +10,7 @@
 #include "miniz_wrapper.hpp"
 #include "fsst.h"
 #include <iostream>
+#include <sstream>
 
 namespace duckdb {
 
@@ -271,7 +272,6 @@ public:
 	}
 
 	bool HasEnoughSpace(size_t string_len) {
-		std::cout << "HasEnoughSpace (len: " << string_len << ", max_len: " << max_compressed_string_length << ", ";
 		bitpacking_width_t required_minimum_width;
 		if (string_len > max_compressed_string_length) {
 			required_minimum_width = BitpackingPrimitives::MinimumBitWidth(string_len);
@@ -279,26 +279,39 @@ public:
 			required_minimum_width = current_width;
 		}
 
-		std::cout << "req_width: " << (int64_t)required_minimum_width << ", ";
-
 		size_t current_dict_size = current_dictionary.size;
 		idx_t current_string_count = index_buffer.size();
 
 		size_t dict_offsets_size =
 		    BitpackingPrimitives::GetRequiredSize(current_string_count + 1, required_minimum_width);
-		std::cout << "offset_size: " << dict_offsets_size << ", ";
-		std::cout << "seg_count: " << current_segment->count+1 << ", ";
 
 		// TODO switch to a symbol table per RowGroup, saves a bit of space
 		idx_t required_space = sizeof(fsst_compression_header_t) + current_dict_size + dict_offsets_size + string_len +
 		                       fsst_serialized_symbol_table_size;
 
-		std::cout << "space_calc: " << sizeof(fsst_compression_header_t) << "+" << current_dict_size << "+" << dict_offsets_size << "+" << string_len << "+" << fsst_serialized_symbol_table_size << "=" << required_space << ")\n";
-
 		if (required_space <= Storage::BLOCK_SIZE) {
 			last_fitting_size = required_space;
+
+			std::stringstream ss;
+			ss << "FIT HasEnoughSpace (len: " << string_len << ", max_len: " << max_compressed_string_length << ", ";
+			ss << "block_id: " << (int64_t)current_handle.GetBlockHandle()->BlockId() << ", ";
+			ss << "req_width: " << (int64_t)required_minimum_width << ", ";
+			ss << "offset_size: " << dict_offsets_size << ", ";
+			ss << "seg_count: " << current_segment->count+1 << ", ";
+			ss << "space_calc: " << sizeof(fsst_compression_header_t) << "+" << current_dict_size << "+" << dict_offsets_size << "+" << string_len << "+" << fsst_serialized_symbol_table_size << "=" << required_space << ")\n";
+			last_fitting_log = ss.str();
 			return true;
 		}
+
+		std::stringstream ss;
+		ss << "NO FIT HasEnoughSpace (len: " << string_len << ", max_len: " << max_compressed_string_length << ", ";
+		ss << "block_id: " << (int64_t)current_handle.GetBlockHandle()->BlockId() << ", ";
+		ss << "req_width: " << (int64_t)required_minimum_width << ", ";
+		ss << "offset_size: " << dict_offsets_size << ", ";
+		ss << "seg_count: " << current_segment->count+1 << ", ";
+		ss << "space_calc: " << sizeof(fsst_compression_header_t) << "+" << current_dict_size << "+" << dict_offsets_size << "+" << string_len << "+" << fsst_serialized_symbol_table_size << "=" << required_space << ")\n";
+		last_not_fitting_log = ss.str();
+
 		return false;
 	}
 
@@ -332,6 +345,24 @@ public:
 		auto symbol_table_offset = compressed_index_buffer_offset + compressed_index_buffer_size;
 
 		D_ASSERT(current_segment->count == index_buffer.size());
+
+		// This call seems to write outside its bounds
+		// Since this is a pointer into a block that means
+		// - Block is not pinned
+		// - Segment count is not correct (Assertion should have triggered, index_buffer should SegFault first)
+		// - width has changed or is bogus?
+		// - Somehow the index_buffer itself is already larger
+
+		std::cout << "\n";
+		std::cout << last_fitting_log;
+		std::cout << last_not_fitting_log;
+		std::cout << "Finalize (len: " << 0 << ", max_len: " << max_compressed_string_length << ", ";
+		std::cout << "block_id: " << (int64_t)handle.GetBlockHandle()->BlockId() << ", ";
+		std::cout << "req_width: " << (int64_t)current_width << ", ";
+		std::cout << "offset_size: " << compressed_index_buffer_size << ", ";
+		std::cout << "seg_count: " << current_segment->count << ", ";
+		std::cout << "space_calc: " << sizeof(fsst_compression_header_t) << "+" << current_dictionary.size << "+" << compressed_index_buffer_size << "+" << 0 << "+" << fsst_serialized_symbol_table_size << "=" << sizeof(fsst_compression_header_t)+current_dictionary.size+compressed_index_buffer_size+fsst_serialized_symbol_table_size << ")\n";
+
 		BitpackingPrimitives::PackBuffer<sel_t, false>(base_ptr + compressed_index_buffer_offset,
 		                                               (uint32_t *)(index_buffer.data()), current_segment->count,
 		                                               current_width);
@@ -345,12 +376,6 @@ public:
 
 		Store<uint32_t>(symbol_table_offset, (data_ptr_t)&header_ptr->fsst_symbol_table_offset);
 		Store<uint32_t>((uint32_t)current_width, (data_ptr_t)&header_ptr->bitpacking_width);
-
-		std::cout << "Finalize (len: " << 0 << ", max_len: " << max_compressed_string_length << ", ";
-		std::cout << "req_width: " << (int64_t)current_width << ", ";
-		std::cout << "offset_size: " << compressed_index_buffer_size << ", ";
-		std::cout << "seg_count: " << current_segment->count << ", ";
-		std::cout << "space_calc: " << sizeof(fsst_compression_header_t) << "+" << current_dictionary.size << "+" << compressed_index_buffer_size << "+" << 0 << "+" << fsst_serialized_symbol_table_size << "=" << sizeof(fsst_compression_header_t)+current_dictionary.size+compressed_index_buffer_size+fsst_serialized_symbol_table_size << ")\n";
 
 		if (last_fitting_size != sizeof(fsst_compression_header_t)+current_dictionary.size+compressed_index_buffer_size+fsst_serialized_symbol_table_size) {
 			throw InternalException("Last size calculation does not match size calculation during finalize!");
@@ -402,6 +427,8 @@ public:
 	size_t max_compressed_string_length = 0;
 	bitpacking_width_t current_width = 0;
 	idx_t last_fitting_size = 0;
+	string last_fitting_log = "";
+	string last_not_fitting_log = "";
 
 	duckdb_fsst_encoder_t *fsst_encoder = nullptr;
 	unsigned char fsst_serialized_symbol_table[sizeof(duckdb_fsst_decoder_t)];
