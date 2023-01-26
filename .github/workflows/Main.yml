@@ -1,10 +1,6 @@
 name: Main
 on:
-  push:
-    paths-ignore:
-      - '**.md'
   pull_request:
-    types: [read_for_review, opened, reopened]
     paths-ignore:
       - '**.md'
       - 'tools/nodejs/**'
