@@ -28,7 +28,7 @@ string StreamQueryResult::ToString() {
 	}
 	return result;
 }
-
+//bogus
 unique_ptr<ClientContextLock> StreamQueryResult::LockContext() {
 	if (!context) {
 		string error_str = "Attempting to execute an unsuccessful or closed pending query result";
