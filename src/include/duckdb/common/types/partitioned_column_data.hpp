@@ -72,7 +72,7 @@ protected:
 	virtual void ComputePartitionIndices(PartitionedColumnDataAppendState &state, DataChunk &input) {
 		throw NotImplementedException("ComputePartitionIndices for this type of PartitionedColumnData");
 	}
-
+// BOGUS CHANGE
 protected:
 	//! PartitionedColumnData can only be instantiated by derived classes
 	PartitionedColumnData(PartitionedColumnDataType type, ClientContext &context, vector<LogicalType> types);
