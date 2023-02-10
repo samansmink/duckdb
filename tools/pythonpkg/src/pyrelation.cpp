@@ -385,13 +385,15 @@ duckdb::pyarrow::RecordBatchReader DuckDBPyRelation::FetchRecordBatchReader(idx_
 	return result->FetchRecordBatchReader(chunk_size);
 }
 
+static unique_ptr<QueryResult> PyExecuteRelation(const shared_ptr<Relation> &rel) {
+	auto context = rel->context.GetContext();
+	py::gil_scoped_release release;
+	auto pending_query = context->PendingQuery(rel, false);
+	return DuckDBPyConnection::CompletePendingQuery(*pending_query);
+}
+
 unique_ptr<QueryResult> DuckDBPyRelation::ExecuteInternal() {
-	{
-		auto context = rel->context.GetContext();
-		py::gil_scoped_release release;
-		auto pending_query = context->PendingQuery(rel, false);
-		return DuckDBPyConnection::CompletePendingQuery(*pending_query);
-	}
+	return PyExecuteRelation(rel);
 }
 
 void DuckDBPyRelation::ExecuteOrThrow() {
@@ -521,15 +523,123 @@ unique_ptr<DuckDBPyRelation> DuckDBPyRelation::Join(DuckDBPyRelation *other, con
 	return make_unique<DuckDBPyRelation>(rel->Join(other->rel, condition, dtype));
 }
 
-void DuckDBPyRelation::WriteCsv(const string &file) {
-	rel->WriteCSV(file);
+void DuckDBPyRelation::ToParquet(const string &filename, const py::object &compression) {
+	case_insensitive_map_t<vector<Value>> options;
+
+	if (!py::none().is(compression)) {
+		if (!py::isinstance<py::str>(compression)) {
+			throw InvalidInputException("to_csv only accepts 'compression' as a string");
+		}
+		options["compression"] = {Value(py::str(compression))};
+	}
+
+	auto write_parquet = rel->WriteParquetRel(filename, std::move(options));
+	PyExecuteRelation(write_parquet);
+}
+
+void DuckDBPyRelation::ToCSV(const string &filename, const py::object &sep, const py::object &na_rep,
+                             const py::object &header, const py::object &quotechar, const py::object &escapechar,
+                             const py::object &date_format, const py::object &timestamp_format,
+                             const py::object &quoting, const py::object &encoding, const py::object &compression) {
+	case_insensitive_map_t<vector<Value>> options;
+
+	if (!py::none().is(sep)) {
+		if (!py::isinstance<py::str>(sep)) {
+			throw InvalidInputException("to_csv only accepts 'sep' as a string");
+		}
+		options["delimiter"] = {Value(py::str(sep))};
+	}
+
+	if (!py::none().is(na_rep)) {
+		if (!py::isinstance<py::str>(na_rep)) {
+			throw InvalidInputException("to_csv only accepts 'na_rep' as a string");
+		}
+		options["null"] = {Value(py::str(na_rep))};
+	}
+
+	if (!py::none().is(header)) {
+		if (!py::isinstance<py::bool_>(header)) {
+			throw InvalidInputException("to_csv only accepts 'header' as a boolean");
+		}
+		options["header"] = {Value::BOOLEAN(py::bool_(header))};
+	}
+
+	if (!py::none().is(quotechar)) {
+		if (!py::isinstance<py::str>(quotechar)) {
+			throw InvalidInputException("to_csv only accepts 'quotechar' as a string");
+		}
+		options["quote"] = {Value(py::str(quotechar))};
+	}
+
+	if (!py::none().is(escapechar)) {
+		if (!py::isinstance<py::str>(escapechar)) {
+			throw InvalidInputException("to_csv only accepts 'escapechar' as a string");
+		}
+		options["escape"] = {Value(py::str(escapechar))};
+	}
+
+	if (!py::none().is(date_format)) {
+		if (!py::isinstance<py::str>(date_format)) {
+			throw InvalidInputException("to_csv only accepts 'date_format' as a string");
+		}
+		options["dateformat"] = {Value(py::str(date_format))};
+	}
+
+	if (!py::none().is(timestamp_format)) {
+		if (!py::isinstance<py::str>(timestamp_format)) {
+			throw InvalidInputException("to_csv only accepts 'timestamp_format' as a string");
+		}
+		options["timestampformat"] = {Value(py::str(timestamp_format))};
+	}
+
+	if (!py::none().is(quoting)) {
+		// TODO: add list of strings as valid option
+		if (py::isinstance<py::str>(quoting)) {
+			string quoting_option = StringUtil::Lower(py::str(quoting));
+			if (quoting_option != "force" && quoting_option != "all") {
+				throw InvalidInputException(
+				    "to_csv 'quoting' supported options are ALL or FORCE (both set FORCE_QUOTE=True)");
+			}
+		} else if (py::isinstance<py::int_>(quoting)) {
+			int64_t quoting_value = py::int_(quoting);
+			// csv.QUOTE_ALL expands to 1
+			static constexpr int64_t QUOTE_ALL = 1;
+			if (quoting_value != QUOTE_ALL) {
+				throw InvalidInputException("Only csv.QUOTE_ALL is a supported option for 'quoting' currently");
+			}
+		} else {
+			throw InvalidInputException(
+			    "to_csv only accepts 'quoting' as a string or a constant from the 'csv' package");
+		}
+		options["force_quote"] = {Value("*")};
+	}
+
+	if (!py::none().is(encoding)) {
+		if (!py::isinstance<py::str>(encoding)) {
+			throw InvalidInputException("to_csv only accepts 'encoding' as a string");
+		}
+		string encoding_option = StringUtil::Lower(py::str(encoding));
+		if (encoding_option != "utf-8" && encoding_option != "utf8") {
+			throw InvalidInputException("The only supported encoding option is 'UTF8");
+		}
+	}
+
+	if (!py::none().is(compression)) {
+		if (!py::isinstance<py::str>(compression)) {
+			throw InvalidInputException("to_csv only accepts 'compression' as a string");
+		}
+		options["compression"] = {Value(py::str(compression))};
+	}
+
+	auto write_csv = rel->WriteCSVRel(filename, std::move(options));
+	PyExecuteRelation(write_csv);
 }
 
 void DuckDBPyRelation::WriteCsvDF(const DataFrame &df, const string &file, shared_ptr<DuckDBPyConnection> conn) {
 	if (!conn) {
 		conn = DuckDBPyConnection::DefaultConnection();
 	}
-	return conn->FromDF(df)->WriteCsv(file);
+	return conn->FromDF(df)->ToCSV(file);
 }
 
 // should this return a rel with the new view?
@@ -605,13 +715,8 @@ unique_ptr<DuckDBPyRelation> DuckDBPyRelation::QueryDF(const DataFrame &df, cons
 
 void DuckDBPyRelation::InsertInto(const string &table) {
 	auto parsed_info = QualifiedName::Parse(table);
-	if (parsed_info.schema.empty()) {
-		//! No Schema Defined, we use default schema.
-		rel->Insert(table);
-	} else {
-		//! Schema defined, we try to insert into it.
-		rel->Insert(parsed_info.schema, parsed_info.name);
-	}
+	auto insert = rel->InsertRel(parsed_info.schema, parsed_info.name);
+	PyExecuteRelation(insert);
 }
 
 static bool IsAcceptedInsertRelationType(const Relation &relation) {
@@ -623,13 +728,15 @@ void DuckDBPyRelation::Insert(const py::object &params) {
 		throw InvalidInputException("'DuckDBPyRelation.insert' can only be used on a table relation");
 	}
 	vector<vector<Value>> values {DuckDBPyConnection::TransformPythonParamList(params)};
+
 	py::gil_scoped_release release;
 	rel->Insert(values);
 }
 
 void DuckDBPyRelation::Create(const string &table) {
-	py::gil_scoped_release release;
-	rel->Create(table);
+	auto parsed_info = QualifiedName::Parse(table);
+	auto create = rel->CreateRel(parsed_info.schema, parsed_info.name);
+	PyExecuteRelation(create);
 }
 
 unique_ptr<DuckDBPyRelation> DuckDBPyRelation::Map(py::function fun) {
@@ -642,11 +749,14 @@ unique_ptr<DuckDBPyRelation> DuckDBPyRelation::Map(py::function fun) {
 
 string DuckDBPyRelation::Print() {
 	if (rendered_result.empty()) {
+		idx_t limit_rows = 10000;
 		BoxRenderer renderer;
-		auto res = ExecuteInternal();
+		auto limit = Limit(limit_rows, 0);
+		auto res = limit->ExecuteInternal();
 
 		auto context = rel->context.GetContext();
 		BoxRendererConfig config;
+		config.limit = limit_rows;
 		rendered_result = res->ToBox(*context, config);
 	}
 	return rendered_result;
