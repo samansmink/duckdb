@@ -138,7 +138,7 @@ public:
 
 typedef unique_ptr<FunctionData> (*table_function_bind_t)(ClientContext &context, TableFunctionBindInput &input,
                                                           vector<LogicalType> &return_types, vector<string> &names);
-typedef unique_ptr<LogicalOperator> (*table_function_bind_replace_t)(ClientContext &context, const FunctionData *bind_data, BindContext& bind_context, idx_t bind_index);
+typedef unique_ptr<LogicalOperator> (*table_function_bind_replace_t)(ClientContext &context, const FunctionData *bind_data, BindContext& bind_context, Binder& binder);
 typedef unique_ptr<GlobalTableFunctionState> (*table_function_init_global_t)(ClientContext &context,
                                                                              TableFunctionInitInput &input);
 typedef unique_ptr<LocalTableFunctionState> (*table_function_init_local_t)(ExecutionContext &context,

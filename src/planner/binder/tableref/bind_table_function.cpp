@@ -156,7 +156,7 @@ Binder::BindTableFunctionInternal(TableFunction &table_function, const string &f
 
 	unique_ptr<LogicalOperator> ret;
 	if (table_function.bind_replace) {
-		auto custom_plan = table_function.bind_replace(context, bind_data.get(), bind_context, bind_index);
+		auto custom_plan = table_function.bind_replace(context, bind_data.get(), bind_context, *this);
 		ret = std::move(custom_plan);
 	} else {
 		auto get = make_unique<LogicalGet>(bind_index, table_function, std::move(bind_data), return_types, return_names);
