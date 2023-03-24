@@ -65,8 +65,74 @@ struct HivePartitionKey {
 	};
 };
 
+//! To allow flushing, we will use the following trick:
+//! - a partition in the cdc is not actually a partition, but a single flush of a partition.
+
+//! Two layer lookup
+// 1: map<HivePartitionKey, idx_t> partition_map KEY -> PartitionIndex (same as the current partition indices, but idx it not used directly)
+// 2: map<idx_t,idx_t> partition_version_map PartitionIndex -> VersionedPartitionIndex (VersionedPartitionIndex is how it's seen by the base CDC) DO WE NEED THIS THOUGH?
+//! When in ComputePartitionIndices we look up a partition key, we need to check if its version matches
+//!
+
+// For all partitionIndices we find in ComputePartitionIndices:
+// - check if partition_end < limit
+// 		- if it is, update it with our count
+//			- if our count does not exceed the limit, we gud
+//			- if it does, we need to create the next version of this partition AND flush the existing one.
+//		- if it is not, we need to update the entry (how?)
+
+// How to flush the partition version:
+// - create a new partition so that other threads can continue writing
+//		- lock the global_state
+//			- A new partition (both for a new key and a new existing key version )
+//		- update partition_version_map for our partition
+//		- call GrowAllocators to ensure the new versioned_partition is available
+//		- call SynchronizeLocalMap() to ensure we're good to go locally
+
 //! Maps hive partitions to partition_ids
 typedef unordered_map<HivePartitionKey, idx_t, HivePartitionKey::Hash, HivePartitionKey::Equality> hive_partition_map_t;
+
+//! The version stats allow setting limits to how full a partition can actually be
+struct PartitionVersionStats {
+	//! the limit for this partition
+	static constexpr idx_t PARTITION_TUPLE_LIMIT {10 * STANDARD_ROW_GROUPS_SIZE};
+
+	//! the amount of tuples that have been written globally into this partition.
+	atomic<idx_t> written {0};
+	//! the total amount of tuples that will be written into this partition
+	atomic<idx_t> started {0};
+
+	enum class RegisterWriteResult {
+		//! Successfully registered the write, partition is cleared for writing
+		SUCCESS,
+		//! Some other thread is flushing this partition, we cannot write to it
+		IS_FLUSHING,
+		//! This thread can write to the partition, but MUST flush this partition globally for all threads
+		SHOULD_FLUSH
+	};
+
+	//! Synchronization primitive to ensure threads stop writing to a partition when its full, and to ensure that
+	//! one thread is assigned the task of flushing a partition.
+	RegisterWriteResult RegisterWrite (idx_t count) {
+		while(true) {
+			auto current = started.load();
+
+			if (current > PARTITION_TUPLE_LIMIT) {
+				return RegisterWriteResult::IS_FLUSHING;
+			}
+
+			if (started.compare_exchange_weak(current, current + count)) {
+				if (current + count > PARTITION_TUPLE_LIMIT) {
+					return RegisterWriteResult::SHOULD_FLUSH;
+				} else {
+					return RegisterWriteResult::SUCCESS;
+				}
+			}
+		}
+	}
+};
+
+class HivePartitionedColumnData;
 
 //! class shared between HivePartitionColumnData classes that synchronizes partition discovery between threads.
 //! each HivePartitionedColumnData will hold a local copy of the key->partition map
@@ -74,22 +140,48 @@ class GlobalHivePartitionState {
 public:
 	mutex lock;
 	hive_partition_map_t partition_map;
+
 	//! Used for incremental updating local copies of the partition map;
 	std::vector<hive_partition_map_t::const_iterator> partitions;
+
+	//! Optionally, we can enable streaming mode
+	bool streaming_mode = true;
+
+	// maps partition_idx to VersionInfo, needs to be shared because threads need their own thread-local copy of this
+	// vector to be able to access it in a thread safe way
+	vector<shared_ptr<PartitionVersionStats>> partition_info;
+
+	// to prevent every thread from refreshing its entire partition map on every sync, we have a list of all flushes that
+	// threads can apply to their local
+	// TODO: can we do better than this?
+	vector<std::pair<HivePartitionKey, idx_t>> updates;
+
+	// TODO: raw pointers here is probably ugly / error-prone?
+	vector<HivePartitionedColumnData*> data_collections;
 };
+
+//! Callback for flushes
+typedef void (*hive_partition_flush_callback_t)(HivePartitionKey& key, unique_ptr<ColumnDataCollection> data);
 
 class HivePartitionedColumnData : public PartitionedColumnData {
 public:
 	HivePartitionedColumnData(ClientContext &context, vector<LogicalType> types, vector<idx_t> partition_by_cols,
-	                          shared_ptr<GlobalHivePartitionState> global_state = nullptr)
+	                          shared_ptr<GlobalHivePartitionState> global_state_p = nullptr)
 	    : PartitionedColumnData(PartitionedColumnDataType::HIVE, context, std::move(types)),
-	      global_state(std::move(global_state)), group_by_columns(partition_by_cols) {
+	      global_state(std::move(global_state_p)), group_by_columns(partition_by_cols) {
+
+		if (global_state) {
+			global_state->data_collections.push_back(this);
+		}
 	}
 	HivePartitionedColumnData(const HivePartitionedColumnData &other);
 	void ComputePartitionIndices(PartitionedColumnDataAppendState &state, DataChunk &input) override;
 
 	//! Reverse lookup map to reconstruct keys from a partition id
 	std::map<idx_t, const HivePartitionKey *> GetReverseMap();
+
+	//! Flushes all partitions, flushing the partitions for all threads globally. To be done at end
+	void FlushAll();
 
 protected:
 	//! Create allocators for all currently registered partitions
@@ -109,6 +201,22 @@ protected:
 	hive_partition_map_t local_partition_map;
 	//! The columns that make up the key
 	vector<idx_t> group_by_columns;
+
+	//!
+	void FlushPartition(HivePartitionKey& key, idx_t current_partition_id, idx_t count);
+
+	//! This function will ensure a key is remappend to a new partition_id to ensure other threads can continue writing
+	//! tuples with that key to a new partition_idx; TODO should key be copied?
+	idx_t RemapPartition(HivePartitionKey key, PartitionedColumnDataAppendState &state);
+
+	idx_t RegisterWrite(HivePartitionKey& key, idx_t original_idx, idx_t count);
+
+	vector<shared_ptr<PartitionVersionStats>> local_partition_info;
+
+	idx_t applied_partition_update_idx = 0;
+
+	//! Flushes a partition from the PCD for ALL threads
+	hive_partition_flush_callback_t flush_callback;
 };
 
 } // namespace duckdb
