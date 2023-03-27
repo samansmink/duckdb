@@ -95,7 +95,7 @@ typedef unordered_map<HivePartitionKey, idx_t, HivePartitionKey::Hash, HiveParti
 //! The version stats allow setting limits to how full a partition can actually be
 struct PartitionVersionStats {
 	//! the limit for this partition
-	static constexpr idx_t PARTITION_TUPLE_LIMIT {10 * STANDARD_ROW_GROUPS_SIZE};
+	static constexpr idx_t PARTITION_TUPLE_LIMIT {10};
 
 	//! the amount of tuples that have been written globally into this partition.
 	atomic<idx_t> written {0};
@@ -161,7 +161,8 @@ public:
 };
 
 //! Callback for flushes
-typedef void (*hive_partition_flush_callback_t)(HivePartitionKey& key, unique_ptr<ColumnDataCollection> data);
+//typedef void (*hive_partition_flush_callback_t)(HivePartitionKey& key, unique_ptr<ColumnDataCollection> data);
+typedef std::function<void(HivePartitionKey& key, idx_t current_idx, unique_ptr<ColumnDataCollection> data)> hive_partition_flush_callback_t;
 
 class HivePartitionedColumnData : public PartitionedColumnData {
 public:
@@ -182,6 +183,9 @@ public:
 
 	//! Flushes all partitions, flushing the partitions for all threads globally. To be done at end
 	void FlushAll();
+
+	//! Flushes a partition from the PCD for ALL threads
+	hive_partition_flush_callback_t flush_callback;
 
 protected:
 	//! Create allocators for all currently registered partitions
@@ -205,18 +209,22 @@ protected:
 	//!
 	void FlushPartition(HivePartitionKey& key, idx_t current_partition_id, idx_t count);
 
-	//! This function will ensure a key is remappend to a new partition_id to ensure other threads can continue writing
+	//! This function will ensure a key is remapped to a new partition_id to ensure other threads can continue writing
 	//! tuples with that key to a new partition_idx; TODO should key be copied?
 	idx_t RemapPartition(HivePartitionKey key, PartitionedColumnDataAppendState &state);
+	//! This function will try to claim write permission on original_idx. If it fails, it will either allocate a new
+	//! partition id for the key, or wait for another thread to do so.
+	idx_t RegisterWrite(HivePartitionKey& key, idx_t original_idx, idx_t count, idx_t waiting, PartitionedColumnDataAppendState& state);
 
-	idx_t RegisterWrite(HivePartitionKey& key, idx_t original_idx, idx_t count);
+	void FinishWrite(idx_t partition_index, idx_t count) override {
+		if (global_state) {
+			global_state->partition_info[partition_index]->written += count;
+		}
+	}
 
 	vector<shared_ptr<PartitionVersionStats>> local_partition_info;
 
 	idx_t applied_partition_update_idx = 0;
-
-	//! Flushes a partition from the PCD for ALL threads
-	hive_partition_flush_callback_t flush_callback;
 };
 
 } // namespace duckdb

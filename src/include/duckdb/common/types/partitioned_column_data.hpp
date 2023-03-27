@@ -92,6 +92,10 @@ protected:
 	//! Create a DataChunk used for buffering appends to the partition
 	unique_ptr<DataChunk> CreatePartitionBuffer() const;
 
+	//! Called when finishing writing to a partition index, used for synchronization when flushing PartitionedColumnData
+	//! with shared allocators
+	virtual void FinishWrite(idx_t partition_index, idx_t count) {};
+
 protected:
 	PartitionedColumnDataType type;
 	ClientContext &context;

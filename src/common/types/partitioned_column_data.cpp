@@ -74,6 +74,7 @@ void PartitionedColumnData::Append(PartitionedColumnDataAppendState &state, Data
 		auto &partition = *partitions[partition_index];
 		auto &partition_append_state = state.partition_append_states[partition_index];
 		partition.Append(*partition_append_state, input);
+		FinishWrite(partition_index, input.size());
 		return;
 	}
 
@@ -118,6 +119,7 @@ void PartitionedColumnData::Append(PartitionedColumnDataAppendState &state, Data
 
 			// Append it to the partition directly
 			partition.Append(*partition_append_state, state.slice_chunk);
+			FinishWrite(partition_index, partition_length);
 		} else {
 			// Append the input chunk to the partition buffer using the selection vector
 			partition_buffer.Append(input, false, &partition_sel, partition_length);
@@ -125,6 +127,7 @@ void PartitionedColumnData::Append(PartitionedColumnDataAppendState &state, Data
 			if (partition_buffer.size() >= HalfBufferSize()) {
 				// Next batch won't fit in the buffer, flush it to the partition
 				partition.Append(*partition_append_state, partition_buffer);
+				FinishWrite(partition_index, partition_buffer.size());
 				partition_buffer.Reset();
 				partition_buffer.SetCapacity(BufferSize());
 			}

@@ -65,6 +65,7 @@ SinkResultType PhysicalCopyToFile::Sink(ExecutionContext &context, GlobalSinkSta
 		return SinkResultType::NEED_MORE_INPUT;
 	}
 
+	// TODO are we really locking on each sink just to have a global counter? shouldn't we count locally and combine?
 	{
 		lock_guard<mutex> glock(g.lock);
 		g.rows_copied += input.size();
@@ -172,6 +173,35 @@ unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContex
 			                                                            partition_columns, g.partition_state);
 			state->part_buffer_append_state = make_unique<PartitionedColumnDataAppendState>();
 			state->part_buffer->InitializeAppendState(*state->part_buffer_append_state);
+
+			auto &fs = FileSystem::GetFileSystem(context.client);
+			auto partition_key_map = state->part_buffer->GetReverseMap();
+			auto &partitions = state->part_buffer->GetPartitions();
+			string trimmed_path = file_path;
+			StringUtil::RTrim(trimmed_path, fs.PathSeparator());
+
+			hive_partition_flush_callback_t flush_callback = [&, trimmed_path](HivePartitionKey& key, idx_t current_idx, unique_ptr<ColumnDataCollection> data){
+				Printer::Print("Flush callback for key " + key.values[0].ToString() + " id " + to_string(current_idx));
+				string hive_path =
+				    CreateDirRecursive(partition_columns, names, key.values, trimmed_path, fs);
+				string full_path = fs.JoinPath(hive_path, "data_" + to_string(state->writer_offset) + "." + function.extension);
+				if (fs.FileExists(full_path) && !allow_overwrite) {
+					throw IOException("failed to create " + full_path +
+					                  ", file exists! Enable ALLOW_OVERWRITE option to force writing");
+				}
+				// Create a writer for the current file
+				auto fun_data_global = function.copy_to_initialize_global(context.client, *bind_data, full_path);
+				auto fun_data_local = function.copy_to_initialize_local(context, *bind_data);
+
+				for (auto &chunk : partitions[current_idx]->Chunks()) {
+					function.copy_to_sink(context, *bind_data, *fun_data_global, *fun_data_local, chunk);
+				}
+
+				function.copy_to_combine(context, *bind_data, *fun_data_global, *fun_data_local);
+				function.copy_to_finalize(context.client, *bind_data, *fun_data_global);
+			};
+
+			state->part_buffer->flush_callback = flush_callback;
 		}
 		return std::move(state);
 	}
