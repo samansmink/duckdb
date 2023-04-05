@@ -144,98 +144,193 @@ HivePartitionedColumnData::HivePartitionedColumnData(const HivePartitionedColumn
     : PartitionedColumnData(other) {
 	// Synchronize to ensure consistency of shared partition map
 	if (other.global_state) {
+		// TODO add sanity check here to ensure we cannot add construct more of these after we've started writing
+		// this would cause issues when handling the final flush (and possibly elsewhere too?)
 		global_state = other.global_state;
 		unique_lock<mutex> lck(global_state->lock);
 		global_state->data_collections.push_back(this);
+		global_state->total_writers++;
 		SynchronizeLocalMap();
 	}
 }
 
-void HivePartitionedColumnData::FlushPartition(HivePartitionKey& key, idx_t current_partition_id, idx_t my_count) {
+void HivePartitionedColumnData::FlushPartition(idx_t logical_partition_index, idx_t physical_partition_index, idx_t count, PartitionedColumnDataAppendState* state) {
+//	Printer::Print("\nFlushing partition (" + to_string(logical_partition_index) + ", " + to_string(physical_partition_index) + ")");
+
+	// TODO: make explicit that we can have a flush that refreshes first or a flush that just flushes
+	// Also: the rest of the function is probably also partially unnecessary? we should not need to wait in this case
+	if (state) {
+		{
+			unique_lock<mutex> lck_gstate(global_state->lock);
+
+			auto new_idx = global_state->partition_info.size(); // careful, partition_info size used as partition count!
+			global_state->version_map_updates.push_back({logical_partition_index, new_idx});
+			global_state->version_map[logical_partition_index] = new_idx;
+
+			Printer::Print("Made new partition: " + to_string(new_idx));
+
+			// Create partition stats for the new partition
+			global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>(logical_partition_index));
+
+			// TODO: we could consider first releasing and growing the allocators before doing this so other threads are
+			//       not blocked as long
+			SynchronizeLocalMap();
+		}
+
+		// Grow stuff
+		GrowAllocators();
+		GrowAppendState(*state);
+		GrowPartitions(*state);
+	} else {
+		Printer::Print("BOOPBYOOOP");
+	}
+
 	//! - busy wait for other threads to finish writing to the old partition (wait for PartitionVersionStats.started = PartitionVersionStats.written)
 	//! - merge columndatacollections from all threads, call flush_callback
 	//! - free shared allocator for partition
 
-	auto& partition_info = local_partition_info[current_partition_id];
+	auto& partition_info = local_partition_info[physical_partition_index];
 
-	Printer::Print("Busy waiting for threads to finish with partition " + to_string(current_partition_id));
-	// busy wait for other threads to finish writing to this partition.
-	while (partition_info->started - partition_info->written > my_count) {
+	//Printer::Print("\nReady for flushing!");
+	//Printer::Print("  > Busy waiting for threads to finish with physical partition " + to_string(physical_partition_index));
+
+	// busy wait for other threads to finish writing to this partition
+	// TODO: we need to account for the tuples registered to our thread here!
+	while (partition_info->started < partition_info->written) {
 	}
-	Printer::Print("Done busy waiting on " + to_string(current_partition_id));
-
+	//Printer::Print("  > Done busy waiting on " + to_string(physical_partition_index));
+	//Printer::Print("  > Merging " + to_string(global_state->data_collections.size()) + " partitions");
 	// Merge partitions from all threads
-	auto& combined = global_state->data_collections[0]->partitions[current_partition_id];
+	if (!state) {
+		Printer::Print("DOIN " + to_string(physical_partition_index));
+	}
+	auto& combined = global_state->data_collections[0]->partitions[physical_partition_index];
+
+	if (!combined) {
+		Printer::Print("BEFO");
+		throw InternalException("WHY");
+	}
 	for (idx_t i = 1; i < global_state->data_collections.size(); i++) {
-		auto& to_combine = global_state->data_collections[i]->partitions[current_partition_id];
+		Printer::Print("Flushing partition " + to_string(physical_partition_index));
+		Printer::Flush(OutputStream::STREAM_STDERR);
+
+		auto& to_combine = global_state->data_collections[i]->partitions[physical_partition_index];
 		combined->Combine(*to_combine);
-		combined = nullptr; // TODO: this is reset now for dev/debug purposes, we may want to keep it since its empty anyway and we could reuse it
+		to_combine = nullptr; // TODO: this is reset now for dev/debug purposes, we may want to keep it since its empty anyway and we could reuse it
 	}
 
 	if (!flush_callback) {
 		throw InternalException("Flush called on HivePartitionedColumnData without flush callback");
 	}
 
-	flush_callback(key, current_partition_id, std::move(combined));
-}
+	if (!combined) {
+		throw InternalException("No data found!");
+	}
 
-void HivePartitionedColumnData::FlushAll() {
-	// TODO: go over partitions one by one, trying to claim them and flushing them
-}
-
-idx_t HivePartitionedColumnData::RemapPartition(HivePartitionKey key, PartitionedColumnDataAppendState &state)  {
-	if (global_state) {
-		idx_t new_idx;
-
-		// Synchronize Global state with our local state with any new partitions from other threads
-		{
-			unique_lock<mutex> lck_gstate(global_state->lock);
-
-			new_idx = global_state->partition_info.size(); // careful, partition_info size used as partition count!
-			// Insert into global map, or return partition if already present
-			global_state->partition_map[key] = new_idx;
-			// Create partition stats for the new partition
-			global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>());
-			SynchronizeLocalMap();
+	// TODO improve over linear search here
+	//
+	//Printer::Print("  > Searching for key");
+	for (const auto& map_entry : local_partition_map) {
+		if (map_entry.second == logical_partition_index) {
+			//Printer::Print("  > key found: " + map_entry.first.values[0].ToString());
+			flush_callback(map_entry.first, physical_partition_index, std::move(combined));
 		}
+	}
 
-		GrowAllocators();
-
-		// Grow local partition data
-		GrowAppendState(state);
-		GrowPartitions(state);
-
-		return new_idx;
-	} else {
-		throw NotImplementedException("Remapping a partition without global_state makes no sense i think?");
+	// Now free the memory for this partition
+	{
+		unique_lock<mutex> lck_gstate(allocators->lock);
+		allocators->allocators[physical_partition_index] = nullptr;
 	}
 }
 
-// TODO I don't think we're actually synchronizing with the global state enough, it might functionally work but just
-// be slow though
-idx_t HivePartitionedColumnData::RegisterWrite(HivePartitionKey& key, idx_t original_idx, idx_t count, idx_t waiting, PartitionedColumnDataAppendState& state) {
-	Printer::Print("Registering write of size " + to_string(count) + " on key: " + key.values[0].ToString() + " for idx " + to_string(original_idx));
-	idx_t current_partition_idx = original_idx;
-	auto current_partition_info = local_partition_info[original_idx];
+void HivePartitionedColumnData::Finalize(PartitionedColumnDataAppendState& state) {
+	//Printer::Print("\nFinalizing");
+	// First we need to ensure our caches are flushed
+	FlushAppendState(state);
 
-	while (true) {
-		auto res = current_partition_info->RegisterWrite(count);
+	global_state->finished_writers++;
+	//Printer::Print("  > Waiting for others to also finish");
+
+	// Busy wait for writers to finish
+	while(global_state->total_writers != global_state->finished_writers) {
+	}
+
+	//Printer::Print("  > Every thread is finished!");
+	// Ensure we have an up-to-date view on the global state
+	{
+		unique_lock<mutex> lck_gstate(global_state->lock);
+		SynchronizeLocalMap();
+	}
+	GrowAllocators();
+	GrowAppendState(state);
+	GrowPartitions(state);
+
+	//Printer::Print("\nStarting flush cycle");
+	for (idx_t logical_partition_idx = 0; logical_partition_idx < local_version_map.size(); logical_partition_idx++) {
+		idx_t physical_partition_idx = local_version_map[logical_partition_idx];
+		auto& current_physical_partition_info = local_partition_info[physical_partition_idx];
+		auto res = current_physical_partition_info->RegisterFinalize();
 
 		if (res == PartitionVersionStats::RegisterWriteResult::IS_FLUSHING) {
-			Printer::Print("Write of size " + to_string(count) + " on key: " + key.values[0].ToString() + " for idx " + to_string(original_idx));
-			Printer::Print(" -> IS_FLUSHING!");
+			// other thread is flushing this one;
+			Printer::Print("Already being flushed: (" + to_string(logical_partition_idx) + ", " + to_string(physical_partition_idx) + ")");
+			continue;
+		} else if (res == PartitionVersionStats::RegisterWriteResult::SHOULD_FLUSH) {
+			Printer::Print("We're flushing this one: (" + to_string(logical_partition_idx) + ", " + to_string(physical_partition_idx) + ")");
+			FlushPartition(logical_partition_idx, physical_partition_idx, 0, nullptr);
+		} else {
+			//Printer::Print("DAFUQ?: (" + to_string(logical_partition_idx) + ", " + to_string(physical_partition_idx) + ")");
+			// This should not happen: we just tried to flush NumericLimits<idx_t>::Maximum(), which should always result
+			// in either us flushing the partition or another thread already flushing it.
+			throw InternalException("Invalid RegisterWriteResult returned while flushing all");
+		}
+	}
+}
+
+idx_t HivePartitionedColumnData::RegisterWrite(PartitionedColumnDataAppendState& state, idx_t logical_partition_index, idx_t count) {
+    //Printer::Print("\nRegistering write of size " + to_string(count) + " on logical index: " + to_string(logical_partition_index));
+	auto current_physical_partition_idx = local_version_map[logical_partition_index];
+
+	while (true) {
+		if (current_physical_partition_idx >= local_partition_info.size()) {
+			Printer::Print("Failed to read physical: " + to_string(current_physical_partition_idx));
+			Printer::Print("available size = " + to_string(local_partition_info.size()));
+			throw FatalException("BOOP");
+		}
+
+		auto& current_physical_partition_info = local_partition_info[current_physical_partition_idx];
+		D_ASSERT(current_physical_partition_info);
+
+		//! Try to register a write to this physical partition
+		auto res = current_physical_partition_info->RegisterWrite(count);
+
+		if (res == PartitionVersionStats::RegisterWriteResult::IS_FLUSHING) {
+			//Printer::Print("Write of size " + to_string(count) + " on logical idx : " + to_string(logical_partition_index) + " for idx " + to_string(current_physical_partition_idx));
+			//Printer::Print(" -> IS_FLUSHING!");
+
 			// This partition is being flushed, we need to sync with global to make sure we have an up-to-date
 			// partition map which will contain the new partition id
+			//Printer::Print(" -> WAITING");
 			while (true) {
+
 				idx_t new_found_partition_idx;
+				bool found_new = false;
 				{
 					unique_lock<mutex> lck_gstate(global_state->lock);
-					new_found_partition_idx = global_state->partition_map.find(key)->second;
+					new_found_partition_idx = global_state->version_map[logical_partition_index];
+
+					if (new_found_partition_idx != current_physical_partition_idx) {
+						found_new = true;
+						current_physical_partition_idx = new_found_partition_idx;
+						SynchronizeLocalMap();
+					}
 				}
 
-				if (new_found_partition_idx != current_partition_idx) {
-					Printer::Print(" -> Updated index found in global state: " + to_string(new_found_partition_idx));
-					current_partition_idx = new_found_partition_idx;
+				if (found_new) {
+					GrowAllocators();
+					GrowAppendState(state);
+					GrowPartitions(state);
 					break;
 				} else {
 					// Here we need to wait for the other thread to
@@ -246,20 +341,30 @@ idx_t HivePartitionedColumnData::RegisterWrite(HivePartitionKey& key, idx_t orig
 
 		} else if (res == PartitionVersionStats::RegisterWriteResult::SHOULD_FLUSH){
 			// This is crucial to do asap. Other threads will need to block until we have remapped
-			auto new_idx = RemapPartition(key, state);
-			Printer::Print("Write of size " + to_string(count) + " on key: " + key.values[0].ToString() + " for idx " + to_string(original_idx));
-			Printer::Print(" -> SHOULD_FLUSH!");
+			//Printer::Print("Write of size " + to_string(count) + " on logical idx : " + to_string(logical_partition_index) + " for idx " + to_string(current_physical_partition_idx));
+			//Printer::Print(" -> SHOULD_FLUSH!");
 
 			// With the new partition created, we will enter this waiting mode where we wait for other threads to finish
 			// writing all their tuples to this partition
-			FlushPartition(key, original_idx, 1 + waiting);
 
-			return new_idx;
+			FlushPartition(logical_partition_index, current_physical_partition_idx, count, &state);
+
+			// TODO: it appears that after this step somehow the thread local version map is not yet up to date.
+
+		} else if (res == PartitionVersionStats::RegisterWriteResult::SUCCESS) {
+			// No conflicts, write has been registered
+			return current_physical_partition_idx;
 		} else {
-			// the RegisterWrite succeeded, we are cleared for writing this partition!
-            return current_partition_idx;
+			throw NotImplementedException("Unknown result returned from RegisterWrite in HivePartitionedColumnData");
 		}
+
+		//Printer::Print("\nEnd of Register loop");
 	}
+}
+
+void HivePartitionedColumnData::FinishWrite(idx_t logical_index, idx_t physical_index, idx_t count) {
+	//Printer::Print("Finished write of size " + to_string(count) + " on logical index: " + to_string(logical_index) + " for physical index " + to_string(physical_index));
+	local_partition_info[physical_index]->written += count;
 }
 
 void HivePartitionedColumnData::ComputePartitionIndices(PartitionedColumnDataAppendState &state, DataChunk &input) {
@@ -276,41 +381,17 @@ void HivePartitionedColumnData::ComputePartitionIndices(PartitionedColumnDataApp
 			key.values.emplace_back(input.GetValue(col, i));
 		}
 
-		// TODO: This part is actually quite tricky:
-		// The main issue is that as soon as we register one of these tuples for writing, we are already holding up any
-		// thread that may acquire flushing duty for that partition. If we then get flushing duty ourselves, the flushes
-		// end up being sequential anyway.
-
-		// To speed this up ideally we would defer the selection of partitioning indices to a later point.
-		// Ideally do for each key as closely as possible:
-		//  - register append
-		//  - append
-		//  - finish append
-
-		// With the current setup where we move to a new partition as soon as we fill one up, this is annoying because then
-		// have changing partition ids here, unless we have a separate deduplication step first
-
-
-
 		auto lookup = local_partition_map.find(key);
 		const auto partition_indices = FlatVector::GetData<idx_t>(state.partition_indices);
 		if (lookup == local_partition_map.end()) {
 			idx_t new_partition_id = RegisterNewPartition(key, state);
+//			//Printer::Print("Key: " + key.values[0].ToString() + " = " + to_string(new_partition_id) + " NEW");
 			partition_indices[i] = new_partition_id;
 		} else {
 			partition_indices[i] = lookup->second;
+//			//Printer::Print("Key: " + key.values[0].ToString() + " = " + to_string(lookup->second) + " OLD");
 		}
-
-		// Count the different partitions we found
-		auto partition_lookup = partition_counts.find(partition_indices[i]);
-		if (partition_lookup != partition_counts.end()) {
-			partition_lookup->second++;
-		} else {
-			partition_counts[partition_indices[i]] = 1;
-        }
 	}
-
-	partition_counts
 }
 
 std::map<idx_t, const HivePartitionKey *> HivePartitionedColumnData::GetReverseMap() {
@@ -321,65 +402,96 @@ std::map<idx_t, const HivePartitionKey *> HivePartitionedColumnData::GetReverseM
 	return ret;
 }
 
+// TODO: can make this lock less with atomic of total count, to allow only locking when growing
 void HivePartitionedColumnData::GrowAllocators() {
 	unique_lock<mutex> lck_gstate(allocators->lock);
 
 	idx_t current_allocator_size = allocators->allocators.size();
-	idx_t required_allocators = local_partition_map.size();
+	idx_t required_allocators = local_partition_info.size();
+
+//	//Printer::Print("  > Growing allocators from " + to_string(current_allocator_size) + " to " + to_string(required_allocators));
 
 	allocators->allocators.reserve(current_allocator_size);
 	for (idx_t i = current_allocator_size; i < required_allocators; i++) {
 		CreateAllocator();
 	}
 
-	D_ASSERT(allocators->allocators.size() == local_partition_map.size());
+	D_ASSERT(allocators->allocators.size() == local_partition_info.size());
 }
 
 void HivePartitionedColumnData::GrowAppendState(PartitionedColumnDataAppendState &state) {
+//	Printer::Print("  > Growing append state from " + to_string(current_append_state_size) + " to " + to_string(required_append_state_size));
 	idx_t current_append_state_size = state.partition_append_states.size();
-	idx_t required_append_state_size = local_partition_map.size();
-
+	idx_t required_append_state_size = local_partition_info.size();
 	for (idx_t i = current_append_state_size; i < required_append_state_size; i++) {
 		state.partition_append_states.emplace_back(make_unique<ColumnDataAppendState>());
+	}
+
+	idx_t current_partition_buffers_size = state.partition_buffers.size();
+	idx_t required_partition_buffers_size = local_partition_map.size();
+	for (idx_t i = current_partition_buffers_size; i < required_partition_buffers_size; i++) {
 		state.partition_buffers.emplace_back(CreatePartitionBuffer());
 	}
 }
 
+// TODO: append states are per logical partition, not per physical, so we need the mapping here
 void HivePartitionedColumnData::GrowPartitions(PartitionedColumnDataAppendState &state) {
-	idx_t current_partitions = partitions.size();
-	idx_t required_partitions = local_partition_map.size();
+	idx_t current_physical_partitions = partitions.size();
+	idx_t required_physical_partitions = local_partition_info.size();
+//	Printer::Print("  > Growing partitions from " + to_string(current_physical_partitions) + " to " + to_string(required_physical_partitions));
 
-	D_ASSERT(allocators->allocators.size() == required_partitions);
+	D_ASSERT(allocators->allocators.size() == required_physical_partitions);
 
-	for (idx_t i = current_partitions; i < required_partitions; i++) {
+	for (idx_t i = current_physical_partitions; i < required_physical_partitions; i++) {
 		partitions.emplace_back(CreatePartitionCollection(i));
 		partitions[i]->InitializeAppend(*state.partition_append_states[i]);
 	}
-	D_ASSERT(partitions.size() == local_partition_map.size());
+	D_ASSERT(partitions.size() == local_partition_info.size());
 }
 
 // TODO requires lock, enforce through lock param, theres some other place this is done with the client context i think
 void HivePartitionedColumnData::SynchronizeLocalMap() {
-	// Synchronise global map into local, may contain changes from other threads too
-	for (auto it = global_state->partitions.begin() + local_partition_map.size(); it < global_state->partitions.end();
-	     it++) {
-		local_partition_map[(*it)->first] = (*it)->second;
-	}
+	Printer::RawPrint(OutputStream::STREAM_STDERR, "\n");
+	Printer::Print("SyncLocalmap");
+	Printer::Print("  > local_partition_map_size " + to_string(local_partition_map.size()) + " to global size of " + to_string(global_state->partition_map.size()));
+	local_partition_map = global_state->partition_map;
+	Printer::Print("  > local_version_map_size " + to_string(local_version_map.size()) + " to global size of " + to_string(global_state->version_map.size()));
+	local_version_map = global_state->version_map;
+	Printer::Print("  > local_partition_info_size " + to_string(local_partition_info.size()) + " to global size of " + to_string(global_state->partition_info.size()));
+	local_partition_info = global_state->partition_info;
 
-	// Synchronise version vector
-	for (auto it = global_state->partition_info.begin() + local_partition_info.size(); it < global_state->partition_info.end();
-	     it++) {
-		local_partition_info.push_back(*it);
+	for (idx_t i = 0; i < local_version_map.size(); i++) {
+		Printer::Print("  > " + to_string(i) + " = " + to_string(local_version_map[i]));
 	}
+	return;
 
-	// Apply all partition idx updates
-	for (; applied_partition_update_idx < global_state->updates.size(); applied_partition_update_idx++) {
-		auto update = global_state->updates[applied_partition_update_idx];
-        local_partition_map[update.first] = update.second;
-	}
+	// TODO: make more efficient
+//	// Synchronise global map into local, may contain changes from other threads too
+//	for (auto it = global_state->partitions.begin() + local_partition_info.size(); it < global_state->partitions.end();
+//	     it++) {
+//		local_partition_map[(*it)->first] = (*it)->second;
+//	}
+//
+//	// Synchronise version vector
+//	for (auto it = global_state->partition_info.begin() + local_partition_info.size(); it < global_state->partition_info.end();
+//	     it++) {
+//		local_partition_info.push_back(*it);
+//	}
+//
+//	// Update the local version map: note that we first resize then apply all updates. This means that when a partition
+//	// is added, we require adding a partition update.
+//	local_version_map.resize(local_partition_map.size());
+//
+//	// Apply all partition idx updates
+//	for (; applied_partition_update_idx < global_state->version_map_updates.size(); applied_partition_update_idx++) {
+//		auto update = global_state->version_map_updates[applied_partition_update_idx];
+//		local_version_map[update.first] = update.second;
+//	}
 }
 
+// TODO also register version
 idx_t HivePartitionedColumnData::RegisterNewPartition(HivePartitionKey key, PartitionedColumnDataAppendState &state) {
+//	Printer::Print("\nRegisterNewPartition " + key.values[0].ToString());
 	if (global_state) {
 		idx_t partition_id;
 
@@ -387,17 +499,24 @@ idx_t HivePartitionedColumnData::RegisterNewPartition(HivePartitionKey key, Part
 		{
 			unique_lock<mutex> lck_gstate(global_state->lock);
 
-			auto new_idx = global_state->partition_info.size(); // careful, partition_info size used as partition count!
-			// Insert into global map, or return partition if already present
-			auto res =
-			    global_state->partition_map.emplace(std::make_pair(std::move(key), new_idx));
-			// Create partition stats for the new partition
-			global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>());
-			auto it = res.first;
-			partition_id = it->second;
+			auto lookup = global_state->partition_map.find(key);
 
-			// Add iterator to vector to allow incrementally updating local states from global state
-			global_state->partitions.emplace_back(it);
+			if (lookup == global_state->partition_map.end()) {
+				auto new_physical_idx = global_state->partition_info.size(); // careful, partition_info size used as partition count!
+				auto new_logical_idx = global_state->version_map.size();
+
+				// add the partition to the global partition map
+				global_state->partition_map.emplace(std::make_pair(std::move(key), new_logical_idx));
+				// add the physical idx to the version map
+				global_state->version_map.push_back(new_physical_idx);
+				// add partition info for this partition
+				global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>(new_logical_idx));
+
+				partition_id = new_logical_idx;
+			} else {
+				partition_id = lookup->second;
+			}
+
 			SynchronizeLocalMap();
 		}
 
@@ -412,6 +531,7 @@ idx_t HivePartitionedColumnData::RegisterNewPartition(HivePartitionKey key, Part
 
 		return partition_id;
 	} else {
+		// TODO: non-shared is not working
 		return local_partition_map.emplace(std::make_pair(std::move(key), local_partition_map.size())).first->second;
 	}
 }

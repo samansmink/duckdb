@@ -92,9 +92,11 @@ protected:
 	//! Create a DataChunk used for buffering appends to the partition
 	unique_ptr<DataChunk> CreatePartitionBuffer() const;
 
+	//! Called right before writing to a logical partition to get the corresponding physical partition id
+	virtual idx_t RegisterWrite(PartitionedColumnDataAppendState& state, idx_t logical_partition_index, idx_t count) { return logical_partition_index; };
 	//! Called when finishing writing to a partition index, used for synchronization when flushing PartitionedColumnData
 	//! with shared allocators
-	virtual void FinishWrite(idx_t partition_index, idx_t count) {};
+	virtual void FinishWrite(idx_t logical_index, idx_t physical_index, idx_t count) {};
 
 protected:
 	PartitionedColumnDataType type;

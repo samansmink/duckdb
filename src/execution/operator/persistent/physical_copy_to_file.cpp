@@ -20,21 +20,23 @@ public:
 
 	//! shared state for HivePartitionedColumnData
 	shared_ptr<GlobalHivePartitionState> partition_state;
+	unique_ptr<HivePartitionedColumnDataManager> partitioning_manager;
 };
 
 class CopyToFunctionLocalState : public LocalSinkState {
 public:
 	explicit CopyToFunctionLocalState(unique_ptr<LocalFunctionData> local_state)
-	    : local_state(std::move(local_state)), writer_offset(0) {
+	    : local_state(std::move(local_state)), writer_offset(0), file_offset(0) {
 	}
 	unique_ptr<GlobalFunctionData> global_state;
 	unique_ptr<LocalFunctionData> local_state;
 
 	//! Buffers the tuples in partitions before writing
-	unique_ptr<HivePartitionedColumnData> part_buffer;
+	HivePartitionedColumnData* part_buffer;
 	unique_ptr<PartitionedColumnDataAppendState> part_buffer_append_state;
 
 	idx_t writer_offset;
+	idx_t file_offset;
 };
 
 //===--------------------------------------------------------------------===//
@@ -101,34 +103,7 @@ void PhysicalCopyToFile::Combine(ExecutionContext &context, GlobalSinkState &gst
 	auto &l = (CopyToFunctionLocalState &)lstate;
 
 	if (partition_output) {
-		auto &fs = FileSystem::GetFileSystem(context.client);
-		l.part_buffer->FlushAppendState(*l.part_buffer_append_state);
-		auto &partitions = l.part_buffer->GetPartitions();
-		auto partition_key_map = l.part_buffer->GetReverseMap();
-
-		string trimmed_path = file_path;
-		StringUtil::RTrim(trimmed_path, fs.PathSeparator());
-
-		for (idx_t i = 0; i < partitions.size(); i++) {
-			string hive_path =
-			    CreateDirRecursive(partition_columns, names, partition_key_map[i]->values, trimmed_path, fs);
-			string full_path = fs.JoinPath(hive_path, "data_" + to_string(l.writer_offset) + "." + function.extension);
-			if (fs.FileExists(full_path) && !allow_overwrite) {
-				throw IOException("failed to create " + full_path +
-				                  ", file exists! Enable ALLOW_OVERWRITE option to force writing");
-			}
-			// Create a writer for the current file
-			auto fun_data_global = function.copy_to_initialize_global(context.client, *bind_data, full_path);
-			auto fun_data_local = function.copy_to_initialize_local(context, *bind_data);
-
-			for (auto &chunk : partitions[i]->Chunks()) {
-				function.copy_to_sink(context, *bind_data, *fun_data_global, *fun_data_local, chunk);
-			}
-
-			function.copy_to_combine(context, *bind_data, *fun_data_global, *fun_data_local);
-			function.copy_to_finalize(context.client, *bind_data, *fun_data_global);
-		}
-
+		l.part_buffer->Finalize(*l.part_buffer_append_state);
 		return;
 	}
 
@@ -164,45 +139,51 @@ SinkFinalizeType PhysicalCopyToFile::Finalize(Pipeline &pipeline, Event &event, 
 unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContext &context) const {
 	if (partition_output) {
 		auto state = make_unique<CopyToFunctionLocalState>(nullptr);
+		auto &fs = FileSystem::GetFileSystem(context.client);
+
+		// Create the local HivePartitionedColumnData
 		{
 			auto &g = (CopyToFunctionGlobalState &)*sink_state;
 			lock_guard<mutex> glock(g.lock);
 			state->writer_offset = g.last_file_offset++;
-
-			state->part_buffer = make_unique<HivePartitionedColumnData>(context.client, expected_types,
-			                                                            partition_columns, g.partition_state);
+			Printer::Print("Creating local state: " + to_string(state->writer_offset));
+			state->part_buffer = g.partitioning_manager->CreateNewPartitionedColumnData();
 			state->part_buffer_append_state = make_unique<PartitionedColumnDataAppendState>();
 			state->part_buffer->InitializeAppendState(*state->part_buffer_append_state);
-
-			auto &fs = FileSystem::GetFileSystem(context.client);
-			auto partition_key_map = state->part_buffer->GetReverseMap();
-			auto &partitions = state->part_buffer->GetPartitions();
-			string trimmed_path = file_path;
-			StringUtil::RTrim(trimmed_path, fs.PathSeparator());
-
-			hive_partition_flush_callback_t flush_callback = [&, trimmed_path](HivePartitionKey& key, idx_t current_idx, unique_ptr<ColumnDataCollection> data){
-				Printer::Print("Flush callback for key " + key.values[0].ToString() + " id " + to_string(current_idx));
-				string hive_path =
-				    CreateDirRecursive(partition_columns, names, key.values, trimmed_path, fs);
-				string full_path = fs.JoinPath(hive_path, "data_" + to_string(state->writer_offset) + "." + function.extension);
-				if (fs.FileExists(full_path) && !allow_overwrite) {
-					throw IOException("failed to create " + full_path +
-					                  ", file exists! Enable ALLOW_OVERWRITE option to force writing");
-				}
-				// Create a writer for the current file
-				auto fun_data_global = function.copy_to_initialize_global(context.client, *bind_data, full_path);
-				auto fun_data_local = function.copy_to_initialize_local(context, *bind_data);
-
-				for (auto &chunk : partitions[current_idx]->Chunks()) {
-					function.copy_to_sink(context, *bind_data, *fun_data_global, *fun_data_local, chunk);
-				}
-
-				function.copy_to_combine(context, *bind_data, *fun_data_global, *fun_data_local);
-				function.copy_to_finalize(context.client, *bind_data, *fun_data_global);
-			};
-
-			state->part_buffer->flush_callback = flush_callback;
 		}
+
+		string trimmed_path = file_path;
+		StringUtil::RTrim(trimmed_path, fs.PathSeparator());
+
+		auto& local_state = *state;
+		hive_partition_flush_callback_t flush_callback = [&, trimmed_path](const HivePartitionKey& key, idx_t logical_idx, unique_ptr<ColumnDataCollection> data){
+			if (!data) {
+				throw InternalException("NO DATA");
+			}
+			string hive_path =
+				CreateDirRecursive(partition_columns, names, key.values, trimmed_path, fs);
+
+			string full_path = fs.JoinPath(hive_path, "data_" + to_string(local_state.writer_offset) + "_" + to_string(local_state.file_offset++) + "." + function.extension);
+
+			Printer::Print("Writing " + full_path);
+			if (fs.FileExists(full_path) && !allow_overwrite) {
+				throw IOException("failed to create " + full_path +
+								  ", file exists! Enable ALLOW_OVERWRITE option to force writing");
+			}
+			// Create a writer for the current file
+			auto fun_data_global = function.copy_to_initialize_global(context.client, *bind_data, full_path);
+			auto fun_data_local = function.copy_to_initialize_local(context, *bind_data);
+
+			for (auto &chunk : data->Chunks()) {
+				function.copy_to_sink(context, *bind_data, *fun_data_global, *fun_data_local, chunk);
+			}
+
+			function.copy_to_combine(context, *bind_data, *fun_data_global, *fun_data_local);
+			function.copy_to_finalize(context.client, *bind_data, *fun_data_global);
+		};
+
+		state->part_buffer->flush_callback = flush_callback;
+
 		return std::move(state);
 	}
 	auto res = make_unique<CopyToFunctionLocalState>(function.copy_to_initialize_local(context, *bind_data));
@@ -248,6 +229,7 @@ unique_ptr<GlobalSinkState> PhysicalCopyToFile::GetGlobalSinkState(ClientContext
 
 		if (partition_output) {
 			state->partition_state = make_shared<GlobalHivePartitionState>();
+			state->partitioning_manager = make_unique<HivePartitionedColumnDataManager>(context, expected_types,partition_columns, state->partition_state);
 		}
 
 		return std::move(state);

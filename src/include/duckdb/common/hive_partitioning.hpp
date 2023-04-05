@@ -94,13 +94,18 @@ typedef unordered_map<HivePartitionKey, idx_t, HivePartitionKey::Hash, HiveParti
 
 //! The version stats allow setting limits to how full a partition can actually be
 struct PartitionVersionStats {
+	PartitionVersionStats(idx_t logical_index_p) : logical_index(logical_index_p) {};
+	PartitionVersionStats() = delete;
 	//! the limit for this partition
-	static constexpr idx_t PARTITION_TUPLE_LIMIT {10};
+	static constexpr idx_t PARTITION_TUPLE_LIMIT {100000};
 
 	//! the amount of tuples that have been written globally into this partition.
 	atomic<idx_t> written {0};
 	//! the total amount of tuples that will be written into this partition
 	atomic<idx_t> started {0};
+
+	//! logical index of the physical partition
+	idx_t logical_index;
 
 	enum class RegisterWriteResult {
 		//! Successfully registered the write, partition is cleared for writing
@@ -130,39 +135,57 @@ struct PartitionVersionStats {
 			}
 		}
 	}
+
+	RegisterWriteResult RegisterFinalize() {
+		while(true) {
+			auto current = started.load();
+
+			if (current > PARTITION_TUPLE_LIMIT) {
+				return RegisterWriteResult::IS_FLUSHING;
+			}
+
+			if (started.compare_exchange_weak(current, NumericLimits<idx_t>::Maximum())) {
+				return RegisterWriteResult::SHOULD_FLUSH;
+			}
+		}
+	}
 };
 
 class HivePartitionedColumnData;
+class HivePartitionedColumnDataManager;
 
 //! class shared between HivePartitionColumnData classes that synchronizes partition discovery between threads.
 //! each HivePartitionedColumnData will hold a local copy of the key->partition map
 class GlobalHivePartitionState {
 public:
 	mutex lock;
+	//! Maps key to logical partition idx;
 	hive_partition_map_t partition_map;
 
 	//! Used for incremental updating local copies of the partition map;
 	std::vector<hive_partition_map_t::const_iterator> partitions;
 
-	//! Optionally, we can enable streaming mode
-	bool streaming_mode = true;
-
-	// maps partition_idx to VersionInfo, needs to be shared because threads need their own thread-local copy of this
-	// vector to be able to access it in a thread safe way
+	//! maps physical partition idx to VersionInfo, needs to be shared because threads need their own thread-local
+	//! copy of this vector to be able to access it in a thread safe way.
 	vector<shared_ptr<PartitionVersionStats>> partition_info;
 
-	// to prevent every thread from refreshing its entire partition map on every sync, we have a list of all flushes that
-	// threads can apply to their local
-	// TODO: can we do better than this?
-	vector<std::pair<HivePartitionKey, idx_t>> updates;
+	//! Updates to partitions are stored as updates to allow efficiently synchronizing local copies of the version map
+	vector<std::pair<idx_t, idx_t>> version_map_updates;
 
-	// TODO: raw pointers here is probably ugly / error-prone?
+	//! Maps logical partition idx to physical partition idx
+	vector<idx_t> version_map;
+
 	vector<HivePartitionedColumnData*> data_collections;
+
+	atomic<idx_t> total_writers {0};
+	atomic<idx_t> finished_writers {0};
+
+	HivePartitionedColumnDataManager* manager;
 };
 
 //! Callback for flushes
 //typedef void (*hive_partition_flush_callback_t)(HivePartitionKey& key, unique_ptr<ColumnDataCollection> data);
-typedef std::function<void(HivePartitionKey& key, idx_t current_idx, unique_ptr<ColumnDataCollection> data)> hive_partition_flush_callback_t;
+typedef std::function<void(const HivePartitionKey& key, idx_t logical_idx, unique_ptr<ColumnDataCollection> data)> hive_partition_flush_callback_t;
 
 class HivePartitionedColumnData : public PartitionedColumnData {
 public:
@@ -172,7 +195,9 @@ public:
 	      global_state(std::move(global_state_p)), group_by_columns(partition_by_cols) {
 
 		if (global_state) {
+			// TODO:
 			global_state->data_collections.push_back(this);
+			global_state->total_writers++;
 		}
 	}
 	HivePartitionedColumnData(const HivePartitionedColumnData &other);
@@ -181,8 +206,8 @@ public:
 	//! Reverse lookup map to reconstruct keys from a partition id
 	std::map<idx_t, const HivePartitionKey *> GetReverseMap();
 
-	//! Flushes all partitions, flushing the partitions for all threads globally. To be done at end
-	void FlushAll();
+	//! Flushes the append state, then will start cooperatively flushing all partitions.
+	void Finalize(PartitionedColumnDataAppendState& state);
 
 	//! Flushes a partition from the PCD for ALL threads
 	hive_partition_flush_callback_t flush_callback;
@@ -206,25 +231,49 @@ protected:
 	//! The columns that make up the key
 	vector<idx_t> group_by_columns;
 
-	//!
-	void FlushPartition(HivePartitionKey& key, idx_t current_partition_id, idx_t count);
+	//! Flushing a partition will: ASAP remap the logical partition to a new physical partition, then call the flush callback
+	//! on the "old" physical partition
+	void FlushPartition(idx_t logical_partition_index, idx_t physical_partition_index, idx_t count, PartitionedColumnDataAppendState* state);
+	idx_t RegisterWrite(PartitionedColumnDataAppendState& state, idx_t logical_partition_index, idx_t count) override;
+	void FinishWrite(idx_t logical_index, idx_t physical_index, idx_t count) override;
 
-	//! This function will ensure a key is remapped to a new partition_id to ensure other threads can continue writing
-	//! tuples with that key to a new partition_idx; TODO should key be copied?
-	idx_t RemapPartition(HivePartitionKey key, PartitionedColumnDataAppendState &state);
-	//! This function will try to claim write permission on original_idx. If it fails, it will either allocate a new
-	//! partition id for the key, or wait for another thread to do so.
-	idx_t RegisterWrite(HivePartitionKey& key, idx_t original_idx, idx_t count, idx_t waiting, PartitionedColumnDataAppendState& state);
+	// Maps logical partition idx to physical partition idx
+	vector<idx_t> local_version_map;
 
-	void FinishWrite(idx_t partition_index, idx_t count) override {
-		if (global_state) {
-			global_state->partition_info[partition_index]->written += count;
+	// Partition info for each physical partition
+	vector<shared_ptr<PartitionVersionStats>> local_partition_info;
+	idx_t applied_partition_update_idx = 0;
+};
+
+
+//! For streaming PartitionedColumnData, we need a global manager class to ensure correct ownership
+class HivePartitionedColumnDataManager {
+public:
+	HivePartitionedColumnDataManager(ClientContext &context, vector<LogicalType> types, vector<idx_t> partition_by_cols,
+	                                 shared_ptr<GlobalHivePartitionState> global_state_p = nullptr) : context(context),
+	      types(types), partition_by_cols(partition_by_cols), global_state(global_state_p){};
+
+	HivePartitionedColumnData* CreateNewPartitionedColumnData() {
+
+		if (column_data.empty()) {
+			column_data.emplace_back(make_unique<HivePartitionedColumnData>(context, types, partition_by_cols, global_state));
+		} else {
+			auto new_pcd = column_data.back().get()->CreateShared();
+
+			column_data.emplace_back();
 		}
+
+		return column_data.back().get();
 	}
 
-	vector<shared_ptr<PartitionVersionStats>> local_partition_info;
 
-	idx_t applied_partition_update_idx = 0;
+	vector<unique_ptr<HivePartitionedColumnData>> column_data;
+
+protected:
+	ClientContext &context;
+	vector<LogicalType> types;
+	vector<idx_t> partition_by_cols;
+	shared_ptr<GlobalHivePartitionState> global_state;
 };
 
 } // namespace duckdb

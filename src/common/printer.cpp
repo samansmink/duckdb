@@ -11,6 +11,7 @@
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <thread>
 #endif
 #endif
 
@@ -32,6 +33,7 @@ void Printer::RawPrint(OutputStream stream, const string &str) {
 
 // LCOV_EXCL_START
 void Printer::Print(OutputStream stream, const string &str) {
+	Printer::RawPrint(stream, "T" + to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())) + ": ");
 	Printer::RawPrint(stream, str);
 	Printer::RawPrint(stream, "\n");
 }
