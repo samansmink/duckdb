@@ -82,6 +82,7 @@ static ConfigurationOption internal_options[] = {DUCKDB_GLOBAL(AccessModeSetting
                                                  DUCKDB_GLOBAL(MaximumMemorySetting),
                                                  DUCKDB_GLOBAL_ALIAS("memory_limit", MaximumMemorySetting),
                                                  DUCKDB_GLOBAL_ALIAS("null_order", DefaultNullOrderSetting),
+                                                 DUCKDB_LOCAL(PartitionedCopyMaxPartitionSize),
                                                  DUCKDB_GLOBAL(PasswordSetting),
                                                  DUCKDB_LOCAL(PerfectHashThresholdSetting),
                                                  DUCKDB_LOCAL(PreserveIdentifierCase),

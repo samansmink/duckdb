@@ -10,6 +10,7 @@
 
 #include "duckdb/common/types/partitioned_column_data.hpp"
 #include "duckdb/execution/expression_executor.hpp"
+#include "duckdb/main/client_data.hpp"
 #include "duckdb/optimizer/filter_combiner.hpp"
 #include "duckdb/optimizer/statistics_propagator.hpp"
 #include "duckdb/planner/expression_iterator.hpp"
@@ -94,10 +95,8 @@ typedef unordered_map<HivePartitionKey, idx_t, HivePartitionKey::Hash, HiveParti
 
 //! The version stats allow setting limits to how full a partition can actually be
 struct PartitionVersionStats {
-	PartitionVersionStats(idx_t logical_index_p) : logical_index(logical_index_p) {};
+	PartitionVersionStats(idx_t logical_index_p, idx_t limit) : logical_index(logical_index_p), limit(limit) {};
 	PartitionVersionStats() = delete;
-	//! the limit for this partition
-	static constexpr idx_t PARTITION_TUPLE_LIMIT {100000};
 
 	//! the amount of tuples that have been written globally into this partition.
 	atomic<idx_t> written {0};
@@ -106,6 +105,7 @@ struct PartitionVersionStats {
 
 	//! logical index of the physical partition
 	idx_t logical_index;
+	const idx_t limit;
 
 	enum class RegisterWriteResult {
 		//! Successfully registered the write, partition is cleared for writing
@@ -122,12 +122,12 @@ struct PartitionVersionStats {
 		while(true) {
 			auto current = started.load();
 
-			if (current > PARTITION_TUPLE_LIMIT) {
+			if (current > limit) {
 				return RegisterWriteResult::IS_FLUSHING;
 			}
 
 			if (started.compare_exchange_weak(current, current + count)) {
-				if (current + count > PARTITION_TUPLE_LIMIT) {
+				if (current + count > limit) {
 					return RegisterWriteResult::SHOULD_FLUSH;
 				} else {
 					return RegisterWriteResult::SUCCESS;
@@ -140,11 +140,11 @@ struct PartitionVersionStats {
 		while(true) {
 			auto current = started.load();
 
-			if (current > PARTITION_TUPLE_LIMIT) {
+			if (current > limit) {
 				return RegisterWriteResult::IS_FLUSHING;
 			}
 
-			if (started.compare_exchange_weak(current, current + PARTITION_TUPLE_LIMIT)) {
+			if (started.compare_exchange_weak(current, current + limit)) {
 				return RegisterWriteResult::SHOULD_FLUSH;
 			}
 		}
@@ -195,8 +195,6 @@ public:
 	      global_state(std::move(global_state_p)), group_by_columns(partition_by_cols) {
 
 		if (global_state) {
-			// TODO:
-//			global_state->data_collections.push_back(this);
 			global_state->total_writers++;
 		}
 	}
@@ -216,7 +214,8 @@ public:
 		return make_unique<HivePartitionedColumnData>((HivePartitionedColumnData &)*this);
 	}
 
-	void Sync(PartitionedColumnDataAppendState &state) {
+	//! Ensures there are enough allocators, append states and partitions
+	void Grow(PartitionedColumnDataAppendState &state) {
 		{
 			unique_lock<mutex>(global_state->lock);
 			SynchronizeLocalMap();
@@ -226,6 +225,13 @@ public:
 		GrowPartitions(state);
 	}
 
+	void Sync(PartitionedColumnDataAppendState &state) {
+		{
+			unique_lock<mutex>(global_state->lock);
+			SynchronizeLocalMap();
+		}
+		Grow(state);
+	}
 protected:
 	//! Create allocators for all currently registered partitions
 	void GrowAllocators();
@@ -245,9 +251,11 @@ protected:
 	//! The columns that make up the key
 	vector<idx_t> group_by_columns;
 
-	//! Flushing a partition will: ASAP remap the logical partition to a new physical partition, then call the flush callback
-	//! on the "old" physical partition
-	void FlushPartition(idx_t logical_partition_index, idx_t physical_partition_index, idx_t count, PartitionedColumnDataAppendState* state);
+	//! Flushes the data from the physical partition. Not that this is only safe to call when the correct RegisterWrite
+	//! result has been given to this thread
+	void FlushPartition(idx_t logical_partition_index, idx_t physical_partition_index, idx_t count);
+	//! Ensures a new physical partition is made available globally
+	void AssignNewPhysicalPartition(idx_t logical_partition_index, PartitionedColumnDataAppendState& state);
 	idx_t RegisterWrite(PartitionedColumnDataAppendState& state, idx_t logical_partition_index, idx_t count) override;
 	void FinishWrite(idx_t logical_index, idx_t physical_index, idx_t count) override;
 
@@ -286,6 +294,10 @@ public:
 
 
 	vector<unique_ptr<HivePartitionedColumnData>> column_data;
+
+	idx_t GetPartitionTupleLimit() {
+		return context.config.partitioned_copy_max_partition_size;
+	}
 
 protected:
 	ClientContext &context;

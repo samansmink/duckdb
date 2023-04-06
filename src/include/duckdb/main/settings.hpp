@@ -310,6 +310,15 @@ struct MaximumMemorySetting {
 	static Value GetSetting(ClientContext &context);
 };
 
+struct PartitionedCopyMaxPartitionSize {
+	static constexpr const char *Name = "max_copy_partition_size";
+	static constexpr const char *Description = "Sets the maximum tuples per partition for a COPY with PARTITION_BY (-1 for unlimited)";
+	static constexpr const LogicalTypeId InputType = LogicalTypeId::BIGINT;
+	static void SetLocal(ClientContext &context, const Value &parameter);
+	static void ResetLocal(ClientContext &context);
+	static Value GetSetting(ClientContext &context);
+};
+
 struct PasswordSetting {
 	static constexpr const char *Name = "password";
 	static constexpr const char *Description = "The password to use. Ignored for legacy compatibility.";

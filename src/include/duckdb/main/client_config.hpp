@@ -75,6 +75,8 @@ struct ClientConfig {
 	//! Maximum bits allowed for using a perfect hash table (i.e. the perfect HT can hold up to 2^perfect_ht_threshold
 	//! elements)
 	idx_t perfect_ht_threshold = 12;
+	//! Maximum number of tuples per partition before flushing for a COPY with PARTITION_BY
+	idx_t partitioned_copy_max_partition_size = 1000000;
 
 	//! Callback to create a progress bar display
 	progress_bar_display_create_func_t display_create_func = nullptr;

@@ -732,6 +732,23 @@ Value MaximumMemorySetting::GetSetting(ClientContext &context) {
 }
 
 //===--------------------------------------------------------------------===//
+// Partitioned Copy Max Partition Size
+//===--------------------------------------------------------------------===//
+
+void PartitionedCopyMaxPartitionSize::ResetLocal(ClientContext &context) {
+	ClientConfig::GetConfig(context).partitioned_copy_max_partition_size = ClientConfig().partitioned_copy_max_partition_size;
+}
+
+void PartitionedCopyMaxPartitionSize::SetLocal(ClientContext &context, const Value &input) {
+	ClientConfig::GetConfig(context).partitioned_copy_max_partition_size = input.GetValue<int64_t>();
+}
+
+Value PartitionedCopyMaxPartitionSize::GetSetting(ClientContext &context) {
+	return Value::BIGINT(ClientConfig::GetConfig(context).perfect_ht_threshold);
+}
+
+
+//===--------------------------------------------------------------------===//
 // Password Setting
 //===--------------------------------------------------------------------===//
 void PasswordSetting::SetGlobal(DatabaseInstance *db, DBConfig &config, const Value &input) {
