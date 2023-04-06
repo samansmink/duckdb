@@ -115,9 +115,10 @@ void PartitionedColumnData::Append(PartitionedColumnDataAppendState &state, Data
 
 			// Append it to the partition directly
 			auto physical_partition_index = RegisterWrite(state, logical_partition_index, partition_length);
+			D_ASSERT(physical_partition_index < partitions.size());
+			D_ASSERT(physical_partition_index < state.partition_append_states.size());
 			auto &partition = *partitions[physical_partition_index];
 			auto &partition_append_state = state.partition_append_states[physical_partition_index];
-
 			partition.Append(*partition_append_state, state.slice_chunk);
 			FinishWrite(logical_partition_index, physical_partition_index, partition_length);
 		} else {
@@ -129,6 +130,8 @@ void PartitionedColumnData::Append(PartitionedColumnDataAppendState &state, Data
 			if (partition_buffer.size() >= HalfBufferSize()) {
 				// Next batch won't fit in the buffer, flush it to the partition
 				auto physical_partition_index = RegisterWrite(state, logical_partition_index, partition_buffer.size());
+				D_ASSERT(physical_partition_index < partitions.size());
+				D_ASSERT(physical_partition_index < state.partition_append_states.size());
 				auto &partition = *partitions[physical_partition_index];
 				auto &partition_append_state = state.partition_append_states[physical_partition_index];
 				partition.Append(*partition_append_state, partition_buffer);

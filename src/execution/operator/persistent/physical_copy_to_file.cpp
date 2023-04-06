@@ -146,10 +146,10 @@ unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContex
 			auto &g = (CopyToFunctionGlobalState &)*sink_state;
 			lock_guard<mutex> glock(g.lock);
 			state->writer_offset = g.last_file_offset++;
-			Printer::Print("Creating local state: " + to_string(state->writer_offset));
 			state->part_buffer = g.partitioning_manager->CreateNewPartitionedColumnData();
 			state->part_buffer_append_state = make_unique<PartitionedColumnDataAppendState>();
 			state->part_buffer->InitializeAppendState(*state->part_buffer_append_state);
+			state->part_buffer->Sync(*state->part_buffer_append_state);
 		}
 
 		string trimmed_path = file_path;
@@ -165,7 +165,7 @@ unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContex
 
 			string full_path = fs.JoinPath(hive_path, "data_" + to_string(local_state.writer_offset) + "_" + to_string(local_state.file_offset++) + "." + function.extension);
 
-			Printer::Print("Writing " + full_path);
+//			Printer::Print("Writing " + full_path);
 			if (fs.FileExists(full_path) && !allow_overwrite) {
 				throw IOException("failed to create " + full_path +
 								  ", file exists! Enable ALLOW_OVERWRITE option to force writing");
@@ -175,6 +175,7 @@ unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContex
 			auto fun_data_local = function.copy_to_initialize_local(context, *bind_data);
 
 			for (auto &chunk : data->Chunks()) {
+//				chunk.Print();
 				function.copy_to_sink(context, *bind_data, *fun_data_global, *fun_data_local, chunk);
 			}
 
@@ -230,6 +231,7 @@ unique_ptr<GlobalSinkState> PhysicalCopyToFile::GetGlobalSinkState(ClientContext
 		if (partition_output) {
 			state->partition_state = make_shared<GlobalHivePartitionState>();
 			state->partitioning_manager = make_unique<HivePartitionedColumnDataManager>(context, expected_types,partition_columns, state->partition_state);
+
 		}
 
 		return std::move(state);

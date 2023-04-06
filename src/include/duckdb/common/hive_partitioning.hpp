@@ -144,7 +144,7 @@ struct PartitionVersionStats {
 				return RegisterWriteResult::IS_FLUSHING;
 			}
 
-			if (started.compare_exchange_weak(current, NumericLimits<idx_t>::Maximum())) {
+			if (started.compare_exchange_weak(current, current + PARTITION_TUPLE_LIMIT)) {
 				return RegisterWriteResult::SHOULD_FLUSH;
 			}
 		}
@@ -175,7 +175,7 @@ public:
 	//! Maps logical partition idx to physical partition idx
 	vector<idx_t> version_map;
 
-	vector<HivePartitionedColumnData*> data_collections;
+//	vector<HivePartitionedColumnData*> data_collections;
 
 	atomic<idx_t> total_writers {0};
 	atomic<idx_t> finished_writers {0};
@@ -196,7 +196,7 @@ public:
 
 		if (global_state) {
 			// TODO:
-			global_state->data_collections.push_back(this);
+//			global_state->data_collections.push_back(this);
 			global_state->total_writers++;
 		}
 	}
@@ -211,6 +211,20 @@ public:
 
 	//! Flushes a partition from the PCD for ALL threads
 	hive_partition_flush_callback_t flush_callback;
+
+	unique_ptr<HivePartitionedColumnData> CreateShared() {
+		return make_unique<HivePartitionedColumnData>((HivePartitionedColumnData &)*this);
+	}
+
+	void Sync(PartitionedColumnDataAppendState &state) {
+		{
+			unique_lock<mutex>(global_state->lock);
+			SynchronizeLocalMap();
+		}
+		GrowAllocators();
+		GrowAppendState(state);
+		GrowPartitions(state);
+	}
 
 protected:
 	//! Create allocators for all currently registered partitions
@@ -251,16 +265,20 @@ class HivePartitionedColumnDataManager {
 public:
 	HivePartitionedColumnDataManager(ClientContext &context, vector<LogicalType> types, vector<idx_t> partition_by_cols,
 	                                 shared_ptr<GlobalHivePartitionState> global_state_p = nullptr) : context(context),
-	      types(types), partition_by_cols(partition_by_cols), global_state(global_state_p){};
+	      types(types), partition_by_cols(partition_by_cols), global_state(global_state_p){
+
+		if (global_state->manager) {
+			throw InternalException("State Already registered to a manager");
+		}
+
+		global_state->manager = this;
+	};
 
 	HivePartitionedColumnData* CreateNewPartitionedColumnData() {
-
 		if (column_data.empty()) {
 			column_data.emplace_back(make_unique<HivePartitionedColumnData>(context, types, partition_by_cols, global_state));
 		} else {
-			auto new_pcd = column_data.back().get()->CreateShared();
-
-			column_data.emplace_back();
+			column_data.emplace_back(column_data.back().get()->CreateShared());
 		}
 
 		return column_data.back().get();
