@@ -160,7 +160,7 @@ unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContex
 		StringUtil::RTrim(trimmed_path, fs.PathSeparator());
 
 		auto& local_state = *state;
-		hive_partition_flush_callback_t flush_callback = [&, trimmed_path](const HivePartitionKey& key, idx_t logical_idx, unique_ptr<ColumnDataCollection> data){
+		hive_partition_flush_callback_t flush_callback = [&, trimmed_path](const HivePartitionKey& key, unique_ptr<ColumnDataCollection> data){
 			if (!data) {
 				throw InternalException("NO DATA");
 			}
@@ -169,7 +169,6 @@ unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContex
 
 			string full_path = fs.JoinPath(hive_path, "data_" + to_string(local_state.writer_offset) + "_" + to_string(local_state.file_offset++) + "." + function.extension);
 
-//			Printer::Print("Writing " + full_path);
 			if (fs.FileExists(full_path) && !allow_overwrite) {
 				throw IOException("failed to create " + full_path +
 								  ", file exists! Enable ALLOW_OVERWRITE option to force writing");
@@ -179,7 +178,6 @@ unique_ptr<LocalSinkState> PhysicalCopyToFile::GetLocalSinkState(ExecutionContex
 			auto fun_data_local = function.copy_to_initialize_local(context, *bind_data);
 
 			for (auto &chunk : data->Chunks()) {
-//				chunk.Print();
 				function.copy_to_sink(context, *bind_data, *fun_data_global, *fun_data_local, chunk);
 			}
 

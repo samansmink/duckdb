@@ -165,14 +165,13 @@ void HivePartitionedColumnData::AssignNewPhysicalPartition(idx_t logical_partiti
 
 		// Create partition stats for the new partition
 		auto limit = global_state->manager->GetPartitionTupleLimit();
-		global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>(logical_partition_index, limit));
+		global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>(limit));
 
 		// TODO: we could consider first releasing and growing the allocators before doing this so other threads are
 		//       not blocked as long
 		SynchronizeLocalMap();
 	}
-
-	Grow(state);
+	GrowState(state);
 }
 
 void HivePartitionedColumnData::FlushPartition(idx_t logical_partition_index, idx_t physical_partition_index, idx_t count) {
@@ -253,7 +252,7 @@ void HivePartitionedColumnData::Finalize(PartitionedColumnDataAppendState& state
 
 		SynchronizeLocalMap();
 	}
-	Grow(state);
+	GrowState(state);
 
 	// Go over each partition and try to claim it for flushing; either we flush it, or another thread is already on it
 	for (idx_t logical_partition_idx = 0; logical_partition_idx < local_version_map.size(); logical_partition_idx++) {
@@ -303,9 +302,7 @@ idx_t HivePartitionedColumnData::RegisterWrite(PartitionedColumnDataAppendState&
 				}
 
 				if (found_new) {
-					GrowAllocators();
-					GrowAppendState(state);
-					GrowPartitions(state);
+					GrowState(state);
 					break;
 				} else {
 					// Here we need to wait for the other thread to
@@ -364,12 +361,11 @@ void HivePartitionedColumnData::ComputePartitionIndices(PartitionedColumnDataApp
 	}
 }
 
-std::map<idx_t, const HivePartitionKey *> HivePartitionedColumnData::GetReverseMap() {
-	std::map<idx_t, const HivePartitionKey *> ret;
-	for (const auto &pair : local_partition_map) {
-		ret[pair.second] = &(pair.first);
-	}
-	return ret;
+void HivePartitionedColumnData::GrowState(PartitionedColumnDataAppendState &state) {
+	GrowAllocators();
+	GrowAppendState(state);
+	GrowPartitionBuffers(state);
+	GrowPartitions(state);
 }
 
 // TODO: can make this lock less with atomic of total count, to allow only locking when growing
@@ -393,7 +389,9 @@ void HivePartitionedColumnData::GrowAppendState(PartitionedColumnDataAppendState
 	for (idx_t i = current_append_state_size; i < required_append_state_size; i++) {
 		state.partition_append_states.emplace_back(make_unique<ColumnDataAppendState>());
 	}
+}
 
+void HivePartitionedColumnData::GrowPartitionBuffers(PartitionedColumnDataAppendState &state) {
 	idx_t current_partition_buffers_size = state.partition_buffers.size();
 	idx_t required_partition_buffers_size = local_partition_map.size();
 	for (idx_t i = current_partition_buffers_size; i < required_partition_buffers_size; i++) {
@@ -411,7 +409,7 @@ void HivePartitionedColumnData::GrowPartitions(PartitionedColumnDataAppendState 
 	D_ASSERT(allocators->allocators.size() >= required_physical_partitions);
 	D_ASSERT(state.partition_append_states.size() >= required_physical_partitions);
 
-	// TODO: only initialize the partitions we actually need
+	// TODO: only initialize the partitions we actually need?
 	lock_guard<mutex> alloc_guard(allocators->lock); // need to lock allocators here, TODO: can we improve on holding 2 locks?
 	for (idx_t i = current_physical_partitions; i < required_physical_partitions; i++) {
 		if (allocators->allocators[i]){
@@ -446,7 +444,6 @@ void HivePartitionedColumnData::SynchronizeLocalMap() {
 	}
 }
 
-// TODO also register version
 idx_t HivePartitionedColumnData::RegisterNewPartition(HivePartitionKey key, PartitionedColumnDataAppendState &state) {
 	if (global_state) {
 		idx_t partition_id;
@@ -470,7 +467,7 @@ idx_t HivePartitionedColumnData::RegisterNewPartition(HivePartitionKey key, Part
 				global_state->partitions.emplace_back(res.first);
 
 				auto limit = global_state->manager->GetPartitionTupleLimit();
-				global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>(new_logical_idx,limit));
+				global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>(limit));
 
 				partition_id = new_logical_idx;
 			} else {
@@ -479,11 +476,11 @@ idx_t HivePartitionedColumnData::RegisterNewPartition(HivePartitionKey key, Part
 
 			SynchronizeLocalMap();
 		}
-		Grow(state);
+		GrowState(state);
 
 		return partition_id;
 	} else {
-		// TODO: non-shared is not working
+		// TODO: non-shared is not working?
 		return local_partition_map.emplace(std::make_pair(std::move(key), local_partition_map.size())).first->second;
 	}
 }

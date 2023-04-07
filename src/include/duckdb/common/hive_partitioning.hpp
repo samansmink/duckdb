@@ -67,36 +67,12 @@ struct HivePartitionKey {
 	};
 };
 
-//! To allow flushing, we will use the following trick:
-//! - a partition in the cdc is not actually a partition, but a single flush of a partition.
-
-//! Two layer lookup
-// 1: map<HivePartitionKey, idx_t> partition_map KEY -> PartitionIndex (same as the current partition indices, but idx it not used directly)
-// 2: map<idx_t,idx_t> partition_version_map PartitionIndex -> VersionedPartitionIndex (VersionedPartitionIndex is how it's seen by the base CDC) DO WE NEED THIS THOUGH?
-//! When in ComputePartitionIndices we look up a partition key, we need to check if its version matches
-//!
-
-// For all partitionIndices we find in ComputePartitionIndices:
-// - check if partition_end < limit
-// 		- if it is, update it with our count
-//			- if our count does not exceed the limit, we gud
-//			- if it does, we need to create the next version of this partition AND flush the existing one.
-//		- if it is not, we need to update the entry (how?)
-
-// How to flush the partition version:
-// - create a new partition so that other threads can continue writing
-//		- lock the global_state
-//			- A new partition (both for a new key and a new existing key version )
-//		- update partition_version_map for our partition
-//		- call GrowAllocators to ensure the new versioned_partition is available
-//		- call SynchronizeLocalMap() to ensure we're good to go locally
-
 //! Maps hive partitions to partition_ids
 typedef unordered_map<HivePartitionKey, idx_t, HivePartitionKey::Hash, HivePartitionKey::Equality> hive_partition_map_t;
 
 //! The version stats allow setting limits to how full a partition can actually be
 struct PartitionVersionStats {
-	PartitionVersionStats(idx_t logical_index_p, idx_t limit) : logical_index(logical_index_p), limit(limit) {};
+	PartitionVersionStats(idx_t limit) : limit(limit) {};
 	PartitionVersionStats() = delete;
 
 	//! the amount of tuples that have been written globally into this partition.
@@ -104,8 +80,7 @@ struct PartitionVersionStats {
 	//! the total amount of tuples that will be written into this partition
 	atomic<idx_t> started {0};
 
-	//! logical index of the physical partition
-	idx_t logical_index;
+	//! The limit for this partition
 	const idx_t limit;
 
 	enum class RegisterWriteResult {
@@ -152,32 +127,25 @@ struct PartitionVersionStats {
 	}
 };
 
-class HivePartitionedColumnData;
 class HivePartitionedColumnDataManager;
 
-//! class shared between HivePartitionColumnData classes that synchronizes partition discovery between threads.
-//! each HivePartitionedColumnData will hold a local copy of the key->partition map
-class GlobalHivePartitionState {
-public:
+//! Shared state for streaming parallel hive partitioning.
+struct GlobalHivePartitionState {
 	mutex lock;
-	//! Maps key to logical partition idx;
+	//! Map: hive key -> logical partition idx;
 	hive_partition_map_t partition_map;
-
-	//! Used for incremental updating local copies of the partition map;
-	std::vector<hive_partition_map_t::const_iterator> partitions;
-
-	//! maps physical partition idx to VersionInfo, needs to be shared because threads need their own thread-local
-	//! copy of this vector to be able to access it in a thread safe way.
-	vector<shared_ptr<PartitionVersionStats>> partition_info;
-
-	//! Updates to partitions are stored as updates to allow efficiently synchronizing local copies of the version map
-	vector<std::pair<idx_t, idx_t>> version_map_updates;
-
-	//! Maps logical partition idx to physical partition idx
+	//! Map: logical partition idx -> physical partition idx
 	vector<idx_t> version_map;
 
-//	vector<HivePartitionedColumnData*> data_collections;
+	//! PartitionVersionStats for each physical partition, allows enforcement of global partition tuple limits
+	vector<shared_ptr<PartitionVersionStats>> partition_info;
 
+	//! Allows incremental updates to local copies of the global partition map
+	std::vector<hive_partition_map_t::const_iterator> partitions;
+	//! Allows incremental updates to local copies of the global version map
+	vector<std::pair<idx_t, idx_t>> version_map_updates;
+
+	//! Synchronization for finalization
 	idx_t total_writers = 0;
 	idx_t finished_writers = 0;
 	std::condition_variable writer_cv;
@@ -186,8 +154,7 @@ public:
 };
 
 //! Callback for flushes
-//typedef void (*hive_partition_flush_callback_t)(HivePartitionKey& key, unique_ptr<ColumnDataCollection> data);
-typedef std::function<void(const HivePartitionKey& key, idx_t logical_idx, unique_ptr<ColumnDataCollection> data)> hive_partition_flush_callback_t;
+typedef std::function<void(const HivePartitionKey& key, unique_ptr<ColumnDataCollection> data)> hive_partition_flush_callback_t;
 
 class HivePartitionedColumnData : public PartitionedColumnData {
 public:
@@ -217,35 +184,35 @@ public:
 		return make_unique<HivePartitionedColumnData>((HivePartitionedColumnData &)*this);
 	}
 
-	//! Ensures there are enough allocators, append states and partitions
-	void Grow(PartitionedColumnDataAppendState &state) {
+	//! Synchronizes the local data with the global state
+	void Sync(PartitionedColumnDataAppendState &state) {
+		if(!global_state){
+			return;
+		}
+
 		{
-			unique_lock<mutex>(global_state->lock);
+			unique_lock<mutex> lck(global_state->lock);
 			SynchronizeLocalMap();
 		}
-		GrowAllocators();
-		GrowAppendState(state);
-		GrowPartitions(state);
+		GrowState(state);
 	}
 
-	void Sync(PartitionedColumnDataAppendState &state) {
-		{
-			unique_lock<mutex>(global_state->lock);
-			SynchronizeLocalMap();
-		}
-		Grow(state);
-	}
 protected:
 	//! Create allocators for all currently registered partitions
 	void GrowAllocators();
 	//! Create append states for all currently registered partitions
 	void GrowAppendState(PartitionedColumnDataAppendState &state);
+	//! Create partition buffers for all currently registered partitions
+	void GrowPartitionBuffers(PartitionedColumnDataAppendState &state);
 	//! Create and initialize partitions for all currently registered partitions
 	void GrowPartitions(PartitionedColumnDataAppendState &state);
 	//! Register a newly discovered partition
 	idx_t RegisterNewPartition(HivePartitionKey key, PartitionedColumnDataAppendState &state);
 	//! Copy the newly added entries in the global_state.map to the local_partition_map (requires lock!)
 	void SynchronizeLocalMap();
+
+	//! Ensures there are enough allocators, append states, partition buffers and partitions
+	void GrowState(PartitionedColumnDataAppendState &state);
 
 	//! Shared HivePartitionedColumnData should always have a global state to allow parallel key discovery
 	shared_ptr<GlobalHivePartitionState> global_state;
