@@ -427,37 +427,23 @@ void HivePartitionedColumnData::GrowPartitions(PartitionedColumnDataAppendState 
 
 // TODO requires lock, enforce through lock param, theres some other place this is done with the client context i think
 void HivePartitionedColumnData::SynchronizeLocalMap() {
-	local_partition_map = global_state->partition_map;
-	local_version_map = global_state->version_map;
-	local_partition_info = global_state->partition_info;
+	// Add missing keys to local partition map
+	for (auto it = global_state->partitions.begin() + partitions.size(); it < global_state->partitions.end();
+	     it++) {
+		local_partition_map[(*it)->first] = (*it)->second;
+	}
 
-	return;
+	// Sync partition info
+	for (idx_t i = local_partition_info.size(); i < global_state->partition_info.size(); i++) {
+		local_partition_info.push_back(global_state->partition_info[i]);
+	}
 
-	// TODO: after preliminary testing, we need to figure out is this actually need speeding up, there's some potentially
-	// high overhead code above with shared_ptr creation of O(t*p^2) with threads as t, partitions as p
-	// however it may also be fine as other bottlenecks kick in first for high partition counts
-
-//	// Synchronise global map into local, may contain changes from other threads too
-//	for (auto it = global_state->partitions.begin() + local_partition_info.size(); it < global_state->partitions.end();
-//	     it++) {
-//		local_partition_map[(*it)->first] = (*it)->second;
-//	}
-//
-//	// Synchronise version vector
-//	for (auto it = global_state->partition_info.begin() + local_partition_info.size(); it < global_state->partition_info.end();
-//	     it++) {
-//		local_partition_info.push_back(*it);
-//	}
-//
-//	// Update the local version map: note that we first resize then apply all updates. This means that when a partition
-//	// is added, we require adding a partition update.
-//	local_version_map.resize(local_partition_map.size());
-//
-//	// Apply all partition idx updates
-//	for (; applied_partition_update_idx < global_state->version_map_updates.size(); applied_partition_update_idx++) {
-//		auto update = global_state->version_map_updates[applied_partition_update_idx];
-//		local_version_map[update.first] = update.second;
-//	}
+	// Incrementally apply version map updates
+	local_version_map.resize(local_partition_map.size());
+	for (; applied_partition_update_idx < global_state->version_map_updates.size(); applied_partition_update_idx++) {
+		auto update = global_state->version_map_updates[applied_partition_update_idx];
+		local_version_map[update.first] = update.second;
+	}
 }
 
 // TODO also register version
@@ -476,10 +462,12 @@ idx_t HivePartitionedColumnData::RegisterNewPartition(HivePartitionKey key, Part
 				auto new_logical_idx = global_state->version_map.size();
 
 				// add the partition to the global partition map
-				global_state->partition_map.emplace(std::make_pair(std::move(key), new_logical_idx));
+				auto res = global_state->partition_map.emplace(std::make_pair(std::move(key), new_logical_idx));
 				// add the physical idx to the version map
 				global_state->version_map.push_back(new_physical_idx);
-				// add partition info for this partition
+				global_state->version_map_updates.push_back(make_pair<idx_t,idx_t>(new_logical_idx, new_physical_idx));
+				// Add iterator to vector to allow incrementally updating local states from global state
+				global_state->partitions.emplace_back(res.first);
 
 				auto limit = global_state->manager->GetPartitionTupleLimit();
 				global_state->partition_info.emplace_back(make_shared<PartitionVersionStats>(new_logical_idx,limit));
