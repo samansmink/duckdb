@@ -13,9 +13,7 @@ load
 CALL DBGEN(sf=1)
 
 run
-PRAGMA threads=8;
-SET max_copy_partition_size=120000;
 COPY lineitem TO '/tmp/experi/lineitem_partitioned_streaming' (FORMAT parquet, PARTITION_BY (l_returnflag), ALLOW_OVERWRITE TRUE);
 
 result I
-0
+6001215

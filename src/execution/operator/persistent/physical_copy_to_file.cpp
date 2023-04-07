@@ -64,6 +64,10 @@ SinkResultType PhysicalCopyToFile::Sink(ExecutionContext &context, GlobalSinkSta
 
 	if (partition_output) {
 		l.part_buffer->Append(*l.part_buffer_append_state, input);
+		{
+			lock_guard<mutex> glock(g.lock);
+			g.rows_copied += input.size();
+		}
 		return SinkResultType::NEED_MORE_INPUT;
 	}
 
