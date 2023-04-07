@@ -1,0 +1,42 @@
+# name: test/sql/copy/partitioned/hive_partitioned_write_streaming.test_slow
+# description: slow test for the hive partitioned write, focussing on the streaming aspect
+# group: [partitioned]
+
+require parquet
+
+# We limit the amount of memory available
+statement ok
+pragma memory_limit='100mb'
+
+# Ensure we cannot spill to disk -> we want to confirm the partitioning is actually streaming.
+statement ok
+PRAGMA temp_directory='';
+
+# 200MB worth of data over 2 partitions, does not fit in our memory limit.
+statement ok
+CREATE VIEW test_data AS SELECT i%2::INT32 as part_col, i::INT32 as val FROM range(0,25000000) tbl(i);
+
+# Default partition size should be small enough here
+statement ok
+COPY test_data TO '__TEST_DIR__/partitioned_memory_spill_streaming' (FORMAT parquet, PARTITION_BY part_col);
+
+# Now set limit way high to make it practically fully materializing,
+statement ok
+SET max_copy_partition_size=1000000000000
+
+# 200MB worth of data over 2 partitions. This will require the PartitionedColumnData to spill to disk
+statement error
+COPY test_data TO '__TEST_DIR__/partitioned_memory_spill_streaming_failing' (FORMAT parquet, PARTITION_BY part_col);
+----
+Out of Memory Error: could not allocate block of
+
+# Ensure results are correct
+query II
+SELECT avg(part_col), avg(val) from '__TEST_DIR__/partitioned_memory_spill_streaming/*/*.parquet';
+----
+0.5	12499999.5
+
+query I
+select count(*) from '__TEST_DIR__/partitioned_memory_spill_streaming/*/*.parquet';
+----
+25000000

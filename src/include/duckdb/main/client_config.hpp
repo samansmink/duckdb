@@ -76,7 +76,7 @@ struct ClientConfig {
 	//! elements)
 	idx_t perfect_ht_threshold = 12;
 	//! Maximum number of tuples per partition before flushing for a COPY with PARTITION_BY
-	idx_t partitioned_copy_max_partition_size = 1000000;
+	idx_t partitioned_copy_max_partition_size = 10 * STANDARD_ROW_GROUPS_SIZE;
 
 	//! Callback to create a progress bar display
 	progress_bar_display_create_func_t display_create_func = nullptr;

@@ -250,24 +250,10 @@ void HivePartitionedColumnData::Finalize(PartitionedColumnDataAppendState& state
 				return global_state->finished_writers == global_state->total_writers;
 			});
 		}
-	}
 
-	//	if (global_state->total_writers > global_state->finished_writers) {
-	//		return;
-	//	}
-
-	// Busy wait for all writers to finish TODO: GOOD ENOUGH?
-	while(global_state->total_writers != global_state->finished_writers) {
-	}
-
-	// TODO: This should be a method?
-	{
-		unique_lock<mutex> lck_gstate(global_state->lock);
 		SynchronizeLocalMap();
 	}
-	GrowAllocators();
-	GrowAppendState(state);
-	GrowPartitions(state);
+	Grow(state);
 
 	// Go over each partition and try to claim it for flushing; either we flush it, or another thread is already on it
 	for (idx_t logical_partition_idx = 0; logical_partition_idx < local_version_map.size(); logical_partition_idx++) {
@@ -398,7 +384,7 @@ void HivePartitionedColumnData::GrowAllocators() {
 		CreateAllocator();
 	}
 
-	D_ASSERT(allocators->allocators.size() == local_partition_info.size());
+	D_ASSERT(allocators->allocators.size() >= local_partition_info.size());
 }
 
 void HivePartitionedColumnData::GrowAppendState(PartitionedColumnDataAppendState &state) {
