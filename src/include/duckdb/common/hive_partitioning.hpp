@@ -19,6 +19,7 @@
 
 #include <sstream>
 #include <iostream>
+#include <condition_variable>
 
 namespace duckdb {
 
@@ -177,8 +178,9 @@ public:
 
 //	vector<HivePartitionedColumnData*> data_collections;
 
-	atomic<idx_t> total_writers {0};
-	atomic<idx_t> finished_writers {0};
+	idx_t total_writers = 0;
+	idx_t finished_writers = 0;
+	std::condition_variable writer_cv;
 
 	HivePartitionedColumnDataManager* manager;
 };
@@ -195,6 +197,7 @@ public:
 	      global_state(std::move(global_state_p)), group_by_columns(partition_by_cols) {
 
 		if (global_state) {
+			unique_lock<mutex> lck (global_state->lock);
 			global_state->total_writers++;
 		}
 	}

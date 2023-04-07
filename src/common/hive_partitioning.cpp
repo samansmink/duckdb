@@ -236,7 +236,25 @@ void HivePartitionedColumnData::Finalize(PartitionedColumnDataAppendState& state
 	// First we need to ensure our caches are flushed
 	FlushAppendState(state);
 
-	global_state->finished_writers++;
+	// Wait for all writers currently registered to be done. Note that theoretically, another writer could bes
+	// created after this point. This is still sortof fine: it would result in a few suboptimally filled partitions
+	// as this thread flushes partially filled partitions to which the newly added writer may still want to write.
+	{
+		unique_lock<mutex> lck_gstate(global_state->lock);
+		global_state->finished_writers++;
+
+		if (global_state->finished_writers == global_state->total_writers) {
+			global_state->writer_cv.notify_all();
+		} else {
+			global_state->writer_cv.wait(lck_gstate, [&] {
+				return global_state->finished_writers == global_state->total_writers;
+			});
+		}
+	}
+
+	//	if (global_state->total_writers > global_state->finished_writers) {
+	//		return;
+	//	}
 
 	// Busy wait for all writers to finish TODO: GOOD ENOUGH?
 	while(global_state->total_writers != global_state->finished_writers) {
