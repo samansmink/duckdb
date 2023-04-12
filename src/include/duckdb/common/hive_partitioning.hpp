@@ -185,11 +185,11 @@ public:
 	}
 
 	//! Synchronizes the local data with the global state
+	// TODO: can we call this from initialize append state?
 	void Sync(PartitionedColumnDataAppendState &state) {
 		if(!global_state){
 			return;
 		}
-
 		{
 			unique_lock<mutex> lck(global_state->lock);
 			SynchronizeLocalMap();
@@ -211,7 +211,7 @@ protected:
 	//! Copy the newly added entries in the global_state.map to the local_partition_map (requires lock!)
 	void SynchronizeLocalMap();
 
-	//! Ensures there are enough allocators, append states, partition buffers and partitions
+	//! Should be called after
 	void GrowState(PartitionedColumnDataAppendState &state);
 
 	//! Shared HivePartitionedColumnData should always have a global state to allow parallel key discovery
@@ -229,14 +229,13 @@ protected:
 	idx_t RegisterWrite(PartitionedColumnDataAppendState& state, idx_t logical_partition_index, idx_t count) override;
 	void FinishWrite(idx_t logical_index, idx_t physical_index, idx_t count) override;
 
-	// Maps logical partition idx to physical partition idx
+	// Maps logical parti tion idx to physical partition idx
 	vector<idx_t> local_version_map;
 
 	// Partition info for each physical partition
 	vector<shared_ptr<PartitionVersionStats>> local_partition_info;
 	idx_t applied_partition_update_idx = 0;
 };
-
 
 //! For streaming PartitionedColumnData, we need a global manager class to ensure correct ownership
 class HivePartitionedColumnDataManager {

@@ -219,7 +219,7 @@ void HivePartitionedColumnData::FlushPartition(idx_t logical_partition_index, id
 	// TODO improve over linear search here?
 	for (const auto& map_entry : local_partition_map) {
 		if (map_entry.second == logical_partition_index) {
-			flush_callback(map_entry.first, physical_partition_index, std::move(combined));
+			flush_callback(map_entry.first, std::move(combined));
 		}
 	}
 
@@ -235,8 +235,8 @@ void HivePartitionedColumnData::Finalize(PartitionedColumnDataAppendState& state
 	// First we need to ensure our caches are flushed
 	FlushAppendState(state);
 
-	// Wait for all writers currently registered to be done. Note that theoretically, another writer could bes
-	// created after this point. This is still sortof fine: it would result in a few suboptimally filled partitions
+	// Wait for all writers currently registered to be done. Note that theoretically, another writer could be
+	// created after this point. This is still sort of fine: it would result in a few suboptimally filled partitions
 	// as this thread flushes partially filled partitions to which the newly added writer may still want to write.
 	{
 		unique_lock<mutex> lck_gstate(global_state->lock);
