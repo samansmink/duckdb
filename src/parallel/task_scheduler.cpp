@@ -309,23 +309,12 @@ void TaskScheduler::RescheduleSleepingTasks() {
 	// Reschedule any tasks who have exceeded their sleep timer
 	for (auto it = sleeping_tasks.begin(); it != sleeping_tasks.end(); ) {
 		if (it->first < current_time) {
-//			Printer::Print("Rescheduled task with sleeping time " + to_string(it->first));
 			ScheduleTask(it->second->current_token, std::move(it->second));
 			it = sleeping_tasks.erase(it);
 		} else {
-//			Printer::Print("Did not reschedule: " + to_string(it->first));
 			++it;
 		}
 	}
-
-//	// DEBUG
-//	{
-//		unique_lock<mutex> lck(sleeping_task_lock);
-//		unique_lock<mutex> lck2(blocked_task_lock);
-//		Printer::Print("	> currently have: " + to_string(sleeping_tasks.size()) + " sleeping");
-//		Printer::Print("	> currently have: " + to_string(blocked_tasks.size()) + " Blocked");
-//		Printer::Print("\n");
-//	}
 
 	have_sleeping_tasks = !sleeping_tasks.empty();
 }
