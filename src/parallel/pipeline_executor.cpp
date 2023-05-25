@@ -267,8 +267,11 @@ void PipelineExecutor::ExecutePull(DataChunk &result) {
 	try {
 		D_ASSERT(!pipeline.sink);
 		auto &source_chunk = pipeline.operators.empty() ? result : *intermediate_chunks[0];
-		while (result.size() == 0 && !exhausted_source) {
+		while (result.size() == 0) {
 			if (in_process_operators.empty()) {
+				if (exhausted_source) {
+					break;
+				}
 				source_chunk.Reset();
 
 				auto done_signal = make_shared<InterruptDoneSignalState>();
