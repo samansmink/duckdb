@@ -605,3 +605,23 @@ TEST_CASE("Fuzzer 50 - Alter table heap-use-after-free", "[api]") {
 	con.SendQuery("CREATE TABLE t0(c0 INT);");
 	con.SendQuery("ALTER TABLE t0 ADD c1 TIMESTAMP_SEC;");
 }
+
+TEST_CASE("Streaming query result bug #7654", "[api]") {
+	DuckDB db(nullptr);
+	Connection con(db);
+
+	auto result = con.SendQuery("select (unnest(range(10000)))");
+
+	size_t current_row = 0;
+	size_t expected_rows = 10000;
+
+	while (true) {
+		auto chunk = result->Fetch();
+		if (!chunk || chunk->size() == 0) {
+			break;
+		}
+		current_row += chunk->size();
+	}
+
+	REQUIRE(current_row == expected_rows);
+}
