@@ -193,3 +193,23 @@ ORDER BY min_val
 7
 8
 9
+
+# Ensure we don't write files for empty partitions
+statement ok
+pragma threads=2
+
+statement ok
+CREATE TABLE test_11 AS SELECT 1 AS a
+
+statement ok
+INSERT INTO test_11 SELECT 2 FROM range(0,200000);
+
+statement ok
+COPY test_11 TO '__TEST_DIR__/partitioned11' (FORMAT PARQUET, PARTITION_BY a);
+
+query I
+SELECT split_part(replace(file, '\', '/'), '/', 4) from GLOB('__TEST_DIR__/partitioned11/*/*.parquet') ORDER BY ALL;
+----
+a=1
+a=2
+a=2
