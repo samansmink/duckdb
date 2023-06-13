@@ -111,6 +111,9 @@ void PhysicalCopyToFile::Combine(ExecutionContext &context, GlobalSinkState &gst
 		StringUtil::RTrim(trimmed_path, fs.PathSeparator());
 
 		for (idx_t i = 0; i < partitions.size(); i++) {
+			if (partitions[i]->Count() == 0) {
+				continue;
+			}
 			string hive_path =
 			    CreateDirRecursive(partition_columns, names, partition_key_map[i]->values, trimmed_path, fs);
 			string full_path(filename_pattern.CreateFilename(fs, hive_path, function.extension, l.writer_offset));
