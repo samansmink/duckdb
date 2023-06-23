@@ -35,6 +35,8 @@
 #include "duckdb/catalog/similar_catalog_entry.hpp"
 #include <algorithm>
 
+// FAKA MET JE BAKA
+
 namespace duckdb {
 
 Catalog::Catalog(AttachedDatabase &db) : db(db) {
