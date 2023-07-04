@@ -135,6 +135,8 @@ runs:
         echo "$USER"
         git config --global --add safe.directory '*'
         make
+        ls -al
+        pwd
 
     - name: Test statically linked extensions
       if: ${{ inputs.run_tests == 1 }}
