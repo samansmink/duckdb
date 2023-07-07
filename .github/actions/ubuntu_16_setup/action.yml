@@ -84,6 +84,13 @@ runs:
       run: |
         cd $VCPKG_ROOT && ./vcpkg install openssl --triplet=${{ inputs.aarch64_cross_compile == 1 && 'arm64-linux' || 'x64-linux' }}
 
+    - uses: chrislennon/action-aws-cli@v1.1
+
+    - name: Version AWS
+      shell: bash
+      run: |
+        aws --version
+
     - name: Install Python 3.7
       if: ${{ inputs.python }} == 1
       shell: bash
@@ -99,6 +106,5 @@ runs:
         make install
         python3.7 --version
         python3.7 -m pip install pip
-        python3.7 -m pip install requests awscli
-        aws --version
+        python3.7 -m pip install requests
         python3.7 --version
