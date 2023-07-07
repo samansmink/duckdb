@@ -58,26 +58,10 @@ runs:
         ./cmake-3.21.3-linux-x86_64.sh --skip-license --prefix=/usr/local
         cmake --version
 
-    - name: Install Python 3.7
-      if: ${{ inputs.python }} == 1
-      shell: bash
-      run: |
-        wget https://www.python.org/ftp/python/3.7.12/Python-3.7.12.tgz
-        tar xvf Python-3.7.12.tgz
-        cd Python-3.7.12
-        mkdir -p pythonbin
-        ./configure --with-ensurepip=install
-        make -j
-        make install
-        python3.7 --version
-        python3.7 -m pip install pip
-        python3.7 -m pip install requests awscli
-
     - name: Version Check
       shell: bash
       run: |
         ldd --version ldd
-        python3.7 --version
         git --version
         git log -1 --format=%h
         
@@ -99,3 +83,22 @@ runs:
       shell: bash
       run: |
         cd $VCPKG_ROOT && ./vcpkg install openssl --triplet=${{ inputs.aarch64_cross_compile == 1 && 'arm64-linux' || 'x64-linux' }}
+
+    - name: Install Python 3.7
+      if: ${{ inputs.python }} == 1
+      shell: bash
+      env:
+          OPENSSL_ROOT_DIR: ${{ env.VCPKG_ROOT }}/installed/x64-linux
+      run: |
+        wget https://www.python.org/ftp/python/3.7.12/Python-3.7.12.tgz
+        tar xvf Python-3.7.12.tgz
+        cd Python-3.7.12
+        mkdir -p pythonbin
+        ./configure --with-ensurepip=install
+        make -j
+        make install
+        python3.7 --version
+        python3.7 -m pip install pip
+        python3.7 -m pip install requests awscli
+        aws --version
+        python3.7 --version
