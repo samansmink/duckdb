@@ -1,0 +1,48 @@
+name: Main CI Pipeline
+on:
+  workflow_dispatch:
+  repository_dispatch:
+  push:
+    branches:
+      - '**'
+      - '!master'
+      - '!feature'
+    tags:
+      - '**'
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+    paths-ignore:
+      - '**.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/master' || github.sha }}
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+jobs:
+  pre-pipeline-job:
+    name: Pre-check for full pipeline
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_x86_64
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Pre pipeline step
+        shell: bash
+        run:
+          echo "BLEEP BLOOP I DO STUFF";
+
+  LinuxRelease:
+    needs: pre-pipeline-job
+    uses: .github/workflows/LinuxRelease.yml
+
+  Python:
+    needs: pre-pipeline-job
+    uses: .github/workflows/Python.yml
