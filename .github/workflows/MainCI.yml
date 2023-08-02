@@ -42,12 +42,12 @@ jobs:
 
   linux-release:
     needs: pre-pipeline-job
-    if: env.RUN_MAIN_PIPELINE
+    if: ${{ env.RUN_MAIN_PIPELINE }}
     uses: ./.github/workflows/LinuxRelease.yml
 
   python:
     needs: pre-pipeline-job
-    if: env.RUN_PYTHON_PIPELINE
+    if: ${{ env.RUN_PYTHON_PIPELINE }}
     uses: ./.github/workflows/Python.yml
 
   post-pipeline-job:
