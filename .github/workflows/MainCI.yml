@@ -41,8 +41,8 @@ jobs:
 
   LinuxRelease:
     needs: pre-pipeline-job
-    uses: .github/workflows/LinuxRelease.yml
+    uses: .github/workflows/LinuxRelease.yml@main
 
   Python:
     needs: pre-pipeline-job
-    uses: .github/workflows/Python.yml
+    uses: .github/workflows/Python.yml@main
