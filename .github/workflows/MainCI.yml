@@ -48,7 +48,7 @@ jobs:
     uses: ./.github/workflows/Python.yml
 
   post-pipeline-job:
-    name: Pre-check for full pipeline
+    name: Post-check for full pipeline
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux2014_x86_64
     needs: [linux-release, python]
