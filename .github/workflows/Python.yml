@@ -1,16 +1,6 @@
 name: Python
 on:
   workflow_call:
-    paths-ignore:
-      - '**.md'
-      - 'examples/**'
-      - 'test/**'
-      - 'tools/**'
-      - '!tools/pythonpkg/**'
-      - '.github/patches/duckdb-wasm/**'
-      - '.github/workflows/**'
-      - '!.github/workflows/Python.yml'
-      - '.github/config/uncovered_files.csv'
 #  workflow_dispatch:
 #  repository_dispatch:
 #  push:

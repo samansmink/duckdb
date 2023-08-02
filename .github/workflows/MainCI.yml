@@ -22,29 +22,32 @@ concurrency:
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  RUN_PYTHON_PIPELINE: 1
+  RUN_MAIN_PIPELINE: 1
 
 jobs:
-  pre-pipeline-job:
-    name: Pre-check for full pipeline
+  configure-pipeline:
+    name: Configures the pipeline based on which files were modified
     runs-on: ubuntu-latest
-    container: quay.io/pypa/manylinux2014_x86_64
-
     steps:
-      - uses: actions/checkout@v3
+      - uses: Ana06/get-changed-files@v2.2.0
         with:
-          fetch-depth: 0
+          format: 'json'
 
-      - name: Pre pipeline step
+      - name: Print changed files on which we want to base our pipeline scheduling logic
         shell: bash
         run:
-          echo "BLEEP BLOOP I DO STUFF";
+          echo "These are all the changed files in JSON format:"
+          echo "${{ steps.files.outputs.all }}"
 
   linux-release:
     needs: pre-pipeline-job
+    if: env.RUN_MAIN_PIPELINE
     uses: ./.github/workflows/LinuxRelease.yml
 
   python:
     needs: pre-pipeline-job
+    if: env.RUN_PYTHON_PIPELINE
     uses: ./.github/workflows/Python.yml
 
   post-pipeline-job:
@@ -52,7 +55,6 @@ jobs:
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux2014_x86_64
     needs: [linux-release, python]
-
     steps:
       - uses: actions/checkout@v3
         with:
