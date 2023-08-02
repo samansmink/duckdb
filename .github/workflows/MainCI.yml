@@ -39,10 +39,26 @@ jobs:
         run:
           echo "BLEEP BLOOP I DO STUFF";
 
-  LinuxRelease:
+  linux-release:
     needs: pre-pipeline-job
     uses: ./.github/workflows/LinuxRelease.yml
 
-  Python:
+  python:
     needs: pre-pipeline-job
     uses: ./.github/workflows/Python.yml
+
+  post-pipeline-job:
+    name: Pre-check for full pipeline
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_x86_64
+    needs: [linux-release, python]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Pre pipeline step
+        shell: bash
+        run:
+          echo "RINGALINGADING SHITS DONE";
