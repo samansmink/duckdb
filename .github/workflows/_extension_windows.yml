@@ -1,4 +1,5 @@
 # This is a reusable workflow to be used by extensions for CI
+# - called by .github/workflows/_extension_distribution.yml
 name: Windows
 on:
   workflow_call:

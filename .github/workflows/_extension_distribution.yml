@@ -1,0 +1,48 @@
+# This is a reusable workflow to be used by extensions for CI. It:
+#   - builds the extension using the CI workflow from the corresponding DuckDB version
+#   - runs the tests using `make test` in the extension repository
+#   - (optionally) deploys the binaries to S3
+
+name: Extension distribution
+on:
+  workflow_call:
+    inputs:
+      # The name with which the extension will be built
+      extension_name:
+        required: true
+        type: string
+      # Whether the extension is deployed to the specified s3 bucket TODO: replace with GHA deploy
+      release_s3:
+        required: false
+        type: boolean
+        default: true
+      # Json formatted list of excluded target architectures, e.g. "[ 'linux_amd64', 'linux_amd64_gcc4' ]"
+      exclude_archs:
+        required: false
+        type: string
+        default: "[]"
+
+jobs:
+  linux-build:
+    name: Linux
+    uses: ./.github/workflows/_extension_linux.yml
+    with:
+      extension_name: ${{ inputs.extension_name }}
+      excluded_archs: ${{ inputs.exclude_archs }}
+    secrets: inherit
+
+  macos-build:
+    name: MacOS
+    uses: ./.github/workflows/_extension_macos.yml
+    with:
+      extension_name: ${{ inputs.extension_name }}
+      excluded_archs: ${{ inputs.exclude_archs }}
+    secrets: inherit
+
+  windows-build:
+    name: Windows
+    uses: ./.github/workflows/_extension_windows.yml
+    with:
+      extension_name: ${{ inputs.extension_name }}
+      excluded_archs: ${{ inputs.exclude_archs }}
+    secrets: inherit
