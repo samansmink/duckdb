@@ -124,6 +124,7 @@ jobs:
             build/release/extension/${{ inputs.extension_name }}/${{ inputs.extension_name }}.duckdb_extension
 
       - name: Deploy
+        shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.S3_DEPLOY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_DEPLOY_KEY }}
@@ -135,6 +136,9 @@ jobs:
           git fetch --tags
           export DUCKDB_VERSION=`git tag --points-at HEAD`
           export DUCKDB_VERSION=${DUCKDB_VERSION:=`git log -1 --format=%h`}
+          echo "hi"
+          echo "$DUCKDB_VERSION"
+          echo "$BUCKET_NAME"
           cd ..
           if [[ "$AWS_ACCESS_KEY_ID" == "" ]] ; then
             echo 'No key set, skipping'
@@ -216,6 +220,7 @@ jobs:
 
       - name: Deploy
         if: ${{ inputs.release_s3 }}
+        shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.S3_DEPLOY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_DEPLOY_KEY }}
@@ -289,12 +294,14 @@ jobs:
 
       - name: Deploy
         if: ${{ inputs.release_s3 }}
+        shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.S3_DEPLOY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_DEPLOY_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.S3_REGION }}
           BUCKET_NAME: ${{ secrets.S3_BUCKET }}
         run: |
+          git config --global --add safe.directory '*'
           cd duckdb
           git fetch --tags
           export DUCKDB_VERSION=`git tag --points-at HEAD`
