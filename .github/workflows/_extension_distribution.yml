@@ -11,6 +11,10 @@ on:
       extension_name:
         required: true
         type: string
+      # GitHub ref of the extension repo
+      extension_ref:
+        required: true
+        type: string
       # Whether the extension is deployed to the specified s3 bucket
       release_s3:
         required: false
@@ -76,8 +80,6 @@ jobs:
 
       - name: Checkout DuckDB to version
         run: |
-          echo "$GITHUB_REF"
-          echo "hiii"
           cd duckdb
           git checkout ${{ inputs.duckdb_version }}
 
@@ -136,10 +138,10 @@ jobs:
           cd ..
           if [[ "$AWS_ACCESS_KEY_ID" == "" ]] ; then
             echo 'No key set, skipping'
-          elif [[ "$GITHUB_REF" =~ ^(refs/tags/v.+)$ ]] ; then
+          elif [[ "${{ inputs.extension_ref }}" =~ ^(refs/tags/v.+)$ ]] ; then
             python3 -m pip install pip awscli
-            ./scripts/extension-upload.sh ${{ inputs.extension_name }} ${{ github.ref_name }} $DUCKDB_VERSION ${{matrix.duckdb_arch}} $BUCKET_NAME true
-          elif [[ "$GITHUB_REF" =~ ^(refs/heads/main)$ ]] ; then
+            ./scripts/extension-upload.sh ${{ inputs.extension_name }} ${{ inputs.extension_ref }} $DUCKDB_VERSION ${{matrix.duckdb_arch}} $BUCKET_NAME true
+          elif [[ "${{ inputs.extension_ref }}" =~ ^(refs/heads/main)$ ]] ; then
             python3 -m pip install pip awscli
             ./scripts/extension-upload.sh ${{ inputs.extension_name }} `git log -1 --format=%h` $DUCKDB_VERSION ${{matrix.duckdb_arch}} $BUCKET_NAME false
           fi
@@ -229,10 +231,10 @@ jobs:
           cd ..
           if [[ "$AWS_ACCESS_KEY_ID" == "" ]] ; then
             echo 'No key set, skipping'
-          elif [[ "$GITHUB_REF" =~ ^(refs/tags/v.+)$ ]] ; then
+          elif [[ "${{ inputs.extension_ref }}" =~ ^(refs/tags/v.+)$ ]] ; then
             python3 -m pip install pip awscli
-            ./scripts/extension-upload.sh ${{ inputs.extension_name }} ${{ github.ref_name }} $DUCKDB_VERSION ${{matrix.duckdb_arch}} $BUCKET_NAME true
-          elif [[ "$GITHUB_REF" =~ ^(refs/heads/main)$ ]] ; then
+            ./scripts/extension-upload.sh ${{ inputs.extension_name }} ${{ inputs.extension_ref }} $DUCKDB_VERSION ${{matrix.duckdb_arch}} $BUCKET_NAME true
+          elif [[ "${{ inputs.extension_ref }}" =~ ^(refs/heads/main)$ ]] ; then
             python3 -m pip install pip awscli
             ./scripts/extension-upload.sh ${{ inputs.extension_name }} `git log -1 --format=%h` $DUCKDB_VERSION ${{matrix.duckdb_arch}} $BUCKET_NAME false
           fi
@@ -262,8 +264,6 @@ jobs:
 
       - name: Checkout DuckDB to version
         run: |
-          echo "$GITHUB_REF"
-          echo "hiii"
           cd duckdb
           git checkout ${{ inputs.duckdb_version }}
 
@@ -302,10 +302,10 @@ jobs:
           cd ..
           if [[ "$AWS_ACCESS_KEY_ID" == "" ]] ; then
             echo 'No key set, skipping'
-          elif [[ "$GITHUB_REF" =~ ^(refs/tags/v.+)$ ]] ; then
+          elif [[ "${{ inputs.extension_ref }}" =~ ^(refs/tags/v.+)$ ]] ; then
             python -m pip install awscli
-            ./scripts/extension-upload.sh ${{ inputs.extension_name }} ${{ github.ref_name }} $DUCKDB_VERSION ${{ matrix.duckdb_arch }} $BUCKET_NAME true 
-          elif [[ "$GITHUB_REF" =~ ^(refs/heads/main)$ ]] ; then
+            ./scripts/extension-upload.sh ${{ inputs.extension_name }} ${{ inputs.extension_ref }} $DUCKDB_VERSION ${{ matrix.duckdb_arch }} $BUCKET_NAME true 
+          elif [[ "${{ inputs.extension_ref }}" =~ ^(refs/heads/main)$ ]] ; then
             python -m pip install awscli
             ./scripts/extension-upload.sh ${{ inputs.extension_name }} `git log -1 --format=%h` $DUCKDB_VERSION ${{ matrix.duckdb_arch }} $BUCKET_NAME false 
           fi
