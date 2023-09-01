@@ -202,6 +202,26 @@ private:
 	                              const vector<string> &local_names, const vector<LogicalType> &global_types,
 	                              const vector<string> &global_names, const vector<column_t> &global_column_ids,
 	                              MultiFileReaderData &reader_data, const string &initial_file);
+
+	//! This function produces a list of files from a glob_pattern, making use of pushed down filters to prevent
+	//! unnecessary fs listing
+	static vector<string> GlobWithHiveFilterPushdown(ClientContext &context,
+	                                                 unordered_map<string, column_t> &column_map,
+	                                                 const string &glob_pattern, const string &first_file,
+	                                                 const MultiFileReaderOptions &options, LogicalGet &get,
+	                                                 vector<unique_ptr<Expression>> &filters);
+	//! Helper function to search directories for files matching the pattern
+	static void FindFiles(FileSystem &fs, const string &path, const vector<string> &pattern, vector<string> &result,
+	                      bool match_directory, bool partial_match_allowed);
+	//! Instead of fully expanding a glob, this function eagerly fetches a single file to be used for binding
+	static string GetOneFileFromGlob(FileSystem &fs, const string &path, MultiFileReaderOptions &mfr_options);
+
+	//! Matching functions for hive filter pushdown into globs
+	static bool Match(const string &key, const vector<string> &pattern, const string &path_separator,
+	                  const bool partial_match_allowed = false);
+	static bool MatchInternal(vector<string>::const_iterator key, vector<string>::const_iterator key_end,
+	                          vector<string>::const_iterator pattern, vector<string>::const_iterator pattern_end,
+	                          bool partial_match_allowed = false);
 };
 
 } // namespace duckdb

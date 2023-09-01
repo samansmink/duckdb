@@ -43,42 +43,59 @@ SELECT COUNT(*) FROM GLOB('__TEST_DIR__/filter_partition/**');
 
 # check amount of files (_year * 12 * 30)
 query I
-SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/*/*/*/*.parquet', hive_partitioning=1, hive_filter=1);
+SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/*/*/*/*.parquet', hive_partitioning=1, experimental_hive_filter=1);
 ----
 720
 
 query I
-SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**', hive_filter=1);
+SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**', experimental_hive_filter=1);
 ----
 720
 
 query I
-SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**', hive_filter=1) where year=1 and month>=1 and month<=12;
+SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**', experimental_hive_filter=1) where year=1 and month>=1 and month<=12;
 ----
 360
 
 query I
-SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**', hive_filter=1) where year=1 and month=10 and day=16;
+SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**', experimental_hive_filter=1) where year=1 and month=10 and day=16;
 ----
 1
 
 query I
-SELECT val FROM read_parquet('__TEST_DIR__/filter_partition/**', hive_filter=1) where year=1 and month=10 and day=16;
+SELECT val FROM read_parquet('__TEST_DIR__/filter_partition/**', experimental_hive_filter=1) where year=1 and month=10 and day=16;
 ----
 160
 
 # check pattern matching
 query I
-SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/year=*/month=*/day=*/*.parquet', hive_filter=1);
+SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/year=*/month=*/day=*/*.parquet', experimental_hive_filter=1);
 ----
 720
 
 query I
-SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**/*.parquet', hive_filter=1);
+SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/**/*.parquet', experimental_hive_filter=1);
 ----
 720
 
 query I
-SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/*/mon?h=1?/day=?/*.parquet', hive_filter=1);
+SELECT COUNT(*) FROM read_parquet('__TEST_DIR__/filter_partition/*/mon?h=1?/day=?/*.parquet', experimental_hive_filter=1);
 ----
 54
+
+# Test some wonky partitioning schemes
+query IIII
+select id, value, part, date from parquet_scan('data/parquet-testing/hive-partitioning/different_order/*/*/test.parquet', HIVE_PARTITIONING=1, experimental_hive_filter=1) where date='2012-01-01'
+----
+1	value1	a	2012-01-01
+
+query IIII
+select id, value, part, date from parquet_scan('data/parquet-testing/hive-partitioning/different_order/*/*/test.parquet', HIVE_PARTITIONING=1, experimental_hive_filter=1) where date='2013-01-01'
+----
+2	value2	b	2013-01-01
+
+# FIXME: Note that the filter currently has weird behaviour on broken schemes, this query should fail but it doesn't
+statement ok
+select * from parquet_scan('data/parquet-testing/hive-partitioning/mismatching_names/*/*/test.parquet', HIVE_PARTITIONING=1, experimental_hive_filter=1)
+
+# TODO: Add more tests for better error handling in corrupt datasets / parquet files.

@@ -34,6 +34,11 @@ public:
 	                                              unordered_map<string, column_t> &column_map, LogicalGet &get,
 	                                              bool hive_enabled, bool filename_enabled);
 
+	//! Get a list of the partition names
+	DUCKDB_API static vector<string> GetHivePartitions(FileSystem &fs, const string &path);
+	//! Get the root partition name
+	DUCKDB_API static string GetHivePartitionRoot(FileSystem &fs, const string &path);
+
 	//! Returns the compiled regex pattern to match hive partitions
 	DUCKDB_API static const string REGEX_STRING;
 };

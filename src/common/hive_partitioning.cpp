@@ -1,6 +1,7 @@
 #include "duckdb/common/hive_partitioning.hpp"
 
 #include "duckdb/execution/expression_executor.hpp"
+#include "duckdb/function/scalar/string_functions.hpp"
 #include "duckdb/optimizer/filter_combiner.hpp"
 #include "duckdb/planner/expression/bound_columnref_expression.hpp"
 #include "duckdb/planner/expression/bound_constant_expression.hpp"
@@ -81,6 +82,38 @@ std::map<string, string> HivePartitioning::Parse(const string &filename, duckdb_
 std::map<string, string> HivePartitioning::Parse(const string &filename) {
 	duckdb_re2::RE2 regex(REGEX_STRING);
 	return Parse(filename, regex);
+}
+
+vector<string> HivePartitioning::GetHivePartitions(FileSystem &fs, const string &path) {
+	const vector<string> chunks = StringUtil::Split(path, fs.PathSeparator(path));
+
+	vector<string> partitions;
+	for (auto &chunk : chunks) {
+		const vector<string> part = StringUtil::Split(chunk, "=");
+		if (part.size() == 2) {
+			partitions.push_back(part.front());
+		}
+	}
+	return partitions;
+}
+
+string HivePartitioning::GetHivePartitionRoot(FileSystem &fs, const string &path) {
+	const vector<string> chunks = StringUtil::Split(path, fs.PathSeparator(path));
+
+	string root;
+	for (auto &chunk : chunks) {
+		const vector<string> partition = StringUtil::Split(chunk, "=");
+		if (partition.size() == 2) {
+			break;
+		}
+		D_ASSERT(partition.size() == 1);
+		if (root.empty()) {
+			root = chunk;
+		} else {
+			root = fs.JoinPath(root, chunk);
+		}
+	}
+	return root;
 }
 
 // TODO: this can still be improved by removing the parts of filter expressions that are true for all remaining files.

@@ -17,48 +17,10 @@ void MultiFileReader::AddParameters(TableFunction &table_function) {
 	table_function.named_parameters["union_by_name"] = LogicalType::BOOLEAN;
 	table_function.named_parameters["hive_types"] = LogicalType::ANY;
 	table_function.named_parameters["hive_types_autocast"] = LogicalType::BOOLEAN;
-	table_function.named_parameters["hive_filter"] = LogicalType::BOOLEAN;
+	table_function.named_parameters["experimental_hive_filter"] = LogicalType::BOOLEAN;
 }
 
-static bool Match(vector<string>::const_iterator key, vector<string>::const_iterator key_end,
-                  vector<string>::const_iterator pattern, vector<string>::const_iterator pattern_end,
-                  bool partial_match_allowed = false) {
-
-	while (key != key_end && pattern != pattern_end) {
-		if (*pattern == "**") {
-			while (std::next(pattern) != pattern_end && *std::next(pattern) == "**") {
-				pattern++;
-			}
-			if (std::next(pattern) == pattern_end) {
-				return true;
-			}
-			while (key != key_end) {
-				if (Match(key, key_end, std::next(pattern), pattern_end)) {
-					return true;
-				}
-				key++;
-			}
-			break;
-		}
-		if (!LikeFun::Glob(key->data(), key->length(), pattern->data(), pattern->length())) {
-			break;
-		}
-		key++;
-		pattern++;
-	}
-	if (partial_match_allowed) {
-		return key == key_end;
-	}
-	return key == key_end && pattern == pattern_end;
-}
-
-static bool Match(const string &key, const vector<string> &pattern, const string &path_seperator,
-                  const bool partial_match_allowed = false) {
-	const vector<string> key_splits = StringUtil::Split(key, path_seperator);
-	return Match(key_splits.begin(), key_splits.end(), pattern.begin(), pattern.end(), partial_match_allowed);
-}
-
-static string GetOneFile(FileSystem &fs, const string &path, MultiFileReaderOptions &mfr_options) {
+string MultiFileReader::GetOneFileFromGlob(FileSystem &fs, const string &path, MultiFileReaderOptions &mfr_options) {
 	mfr_options.input_file_pattern = path;
 
 	if (fs.FileExists(path)) {
@@ -78,19 +40,18 @@ static string GetOneFile(FileSystem &fs, const string &path, MultiFileReaderOpti
 	}
 	const string partition_start = current;
 
-	// find a single file to parse the hive structure and complete the bind
-	vector<string> files;
-	while (files.empty()) {
+	while (true) {
 		vector<string> directories;
+		string file;
 		fs.ListFiles(current, [&](const string &fname, bool is_directory) {
 			if (is_directory) {
 				directories.push_back(fs.JoinPath(current, fname));
 			} else {
-				files.push_back(fs.JoinPath(current, fname));
+				file = fs.JoinPath(current, fname);
 			}
 		});
-		if (!files.empty()) {
-			break;
+		if (!file.empty()) {
+			return file;
 		}
 		if (directories.empty()) {
 			// this is not necessarily an error, but would be inconvenient nonetheless because no empty dirs are
@@ -100,11 +61,10 @@ static string GetOneFile(FileSystem &fs, const string &path, MultiFileReaderOpti
 		// continue with one directory (and ignore any other dirs)
 		current = std::move(directories.front());
 	}
-	return files.front();
 }
 
-static void FindFiles(FileSystem &fs, const string &path, const vector<string> &pattern, bool match_directory,
-                      vector<string> &result, bool partial_match_allowed) {
+void MultiFileReader::FindFiles(FileSystem &fs, const string &path, const vector<string> &pattern,
+                                vector<string> &result, bool match_directory, bool partial_match_allowed) {
 
 	fs.ListFiles(path, [&](const string &fname, bool is_directory) {
 		if (is_directory != match_directory) {
@@ -117,35 +77,42 @@ static void FindFiles(FileSystem &fs, const string &path, const vector<string> &
 	});
 }
 
-static vector<string> GetHivePartitions(FileSystem &fs, const string &path) {
-	const vector<string> chunks = StringUtil::Split(path, fs.PathSeparator(path));
+bool MultiFileReader::MatchInternal(vector<string>::const_iterator key, vector<string>::const_iterator key_end,
+                                    vector<string>::const_iterator pattern, vector<string>::const_iterator pattern_end,
+                                    bool partial_match_allowed) {
 
-	vector<string> partitions;
-	for (auto &chunk : chunks) {
-		const vector<string> part = StringUtil::Split(chunk, "=");
-		if (part.size() == 2) {
-			partitions.push_back(part.front());
-		}
-	}
-	return partitions;
-}
-static string GetHivePartitionRoot(FileSystem &fs, const string &path) {
-	const vector<string> chunks = StringUtil::Split(path, fs.PathSeparator(path));
-
-	string root;
-	for (auto &chunk : chunks) {
-		const vector<string> partition = StringUtil::Split(chunk, "=");
-		if (partition.size() == 2) {
+	while (key != key_end && pattern != pattern_end) {
+		if (*pattern == "**") {
+			while (std::next(pattern) != pattern_end && *std::next(pattern) == "**") {
+				pattern++;
+			}
+			if (std::next(pattern) == pattern_end) {
+				return true;
+			}
+			while (key != key_end) {
+				if (MatchInternal(key, key_end, std::next(pattern), pattern_end)) {
+					return true;
+				}
+				key++;
+			}
 			break;
 		}
-		D_ASSERT(partition.size() == 1);
-		if (root.empty()) {
-			root = chunk;
-		} else {
-			root = fs.JoinPath(root, chunk);
+		if (!LikeFun::Glob(key->data(), key->length(), pattern->data(), pattern->length())) {
+			break;
 		}
+		key++;
+		pattern++;
 	}
-	return root;
+	if (partial_match_allowed) {
+		return key == key_end;
+	}
+	return key == key_end && pattern == pattern_end;
+}
+
+bool MultiFileReader::Match(const string &key, const vector<string> &pattern, const string &path_separator,
+                            const bool partial_match_allowed) {
+	const vector<string> key_splits = StringUtil::Split(key, path_separator);
+	return MatchInternal(key_splits.begin(), key_splits.end(), pattern.begin(), pattern.end(), partial_match_allowed);
 }
 
 vector<string> MultiFileReader::GetFileList(ClientContext &context, const Value &input, const string &name,
@@ -162,7 +129,7 @@ vector<string> MultiFileReader::GetFileList(ClientContext &context, const Value 
 	if (input.type().id() == LogicalTypeId::VARCHAR) {
 		const string path = StringValue::Get(input);
 		if (mfr_options.hive_file_filter) {
-			files = {GetOneFile(fs, path, mfr_options)};
+			files = {GetOneFileFromGlob(fs, path, mfr_options)};
 		} else {
 			files = fs.GlobFiles(path, context, options);
 		}
@@ -194,7 +161,7 @@ bool MultiFileReader::ParseOption(const string &key, const Value &val, MultiFile
 	} else if (loption == "hive_partitioning") {
 		options.hive_partitioning = BooleanValue::Get(val);
 		options.auto_detect_hive_partitioning = false;
-	} else if (loption == "hive_filter") {
+	} else if (loption == "experimental_hive_filter") {
 		options.hive_file_filter = BooleanValue::Get(val);
 		options.hive_partitioning = options.hive_file_filter;
 	} else if (loption == "union_by_name") {
@@ -227,6 +194,38 @@ bool MultiFileReader::ParseOption(const string &key, const Value &val, MultiFile
 	return true;
 }
 
+vector<string> MultiFileReader::GlobWithHiveFilterPushdown(ClientContext &context,
+                                                           unordered_map<string, column_t> &column_map,
+                                                           const string &glob_pattern, const string &first_file,
+                                                           const MultiFileReaderOptions &options, LogicalGet &get,
+                                                           vector<unique_ptr<Expression>> &filters) {
+	FileSystem &fs = FileSystem::GetFileSystem(context);
+
+	const string partition_root = HivePartitioning::GetHivePartitionRoot(fs, first_file);
+	const vector<string> partitions = HivePartitioning::GetHivePartitions(fs, first_file);
+	const vector<string> pattern = StringUtil::Split(glob_pattern, fs.PathSeparator(glob_pattern));
+
+	vector<string> current_files;
+	current_files.push_back(partition_root);
+	for (idx_t i = 0; i < partitions.size(); i++) {
+		vector<string> dirs;
+		for (auto &file : current_files) {
+			FindFiles(fs, file, pattern, dirs, true, true);
+		}
+		HivePartitioning::ApplyFiltersToFileList(context, dirs, filters, column_map, get, options.hive_partitioning,
+		                                         options.filename);
+		current_files = std::move(dirs);
+	}
+
+	vector<string> result;
+	// find files in remaining directories
+	for (auto &file : current_files) {
+		FindFiles(fs, file, pattern, result, false, false);
+	}
+
+	return result;
+}
+
 bool MultiFileReader::ComplexFilterPushdown(ClientContext &context, vector<string> &files,
                                             const MultiFileReaderOptions &options, LogicalGet &get,
                                             vector<unique_ptr<Expression>> &filters) {
@@ -244,38 +243,9 @@ bool MultiFileReader::ComplexFilterPushdown(ClientContext &context, vector<strin
 
 	if (options.hive_file_filter) {
 		D_ASSERT(files.size() == 1);
-		FileSystem &fs = FileSystem::GetFileSystem(context);
-
-		const string partition_root = GetHivePartitionRoot(fs, files.front());
-		const vector<string> partitions = GetHivePartitions(fs, files.front());
-		const vector<string> pattern =
-		    StringUtil::Split(options.input_file_pattern, fs.PathSeparator(options.input_file_pattern));
-
-		// filter directories
-		files.clear();
-		files.push_back(partition_root);
-		bool pruned_files = false;
-		for (idx_t i = 0; i < partitions.size(); i++) {
-			vector<string> dirs;
-			for (auto &file : files) {
-				FindFiles(fs, file, pattern, true, dirs, true);
-			}
-			const size_t start_files = dirs.size();
-			HivePartitioning::ApplyFiltersToFileList(context, dirs, filters, column_map, get, options.hive_partitioning,
-			                                         options.filename);
-			if (!pruned_files) {
-				pruned_files = dirs.size() < start_files;
-			}
-			files = std::move(dirs);
-		}
-
-		vector<string> result;
-		// find files in remaining directories
-		for (auto &file : files) {
-			FindFiles(fs, file, pattern, false, result, false);
-		}
-		files = std::move(result);
-		return pruned_files;
+		files = GlobWithHiveFilterPushdown(context, column_map, options.input_file_pattern, files.front(), options, get,
+		                                   filters);
+		return true;
 	}
 
 	auto start_files = files.size();
@@ -283,9 +253,9 @@ bool MultiFileReader::ComplexFilterPushdown(ClientContext &context, vector<strin
 	                                         options.filename);
 
 	if (files.size() != start_files) {
-		// we have pruned files
 		return true;
 	}
+
 	return false;
 }
 
