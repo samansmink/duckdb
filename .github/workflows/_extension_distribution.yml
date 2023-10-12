@@ -34,7 +34,7 @@ on:
       vcpkg_commit:
         required: false
         type: string
-        default: "501db0f17ef6df184fcdbfbe0f87cde2313b6ab1"
+        default: "9edb1b8e590cc086563301d735cae4b6e732d2d2"
       # Override the default script producing the matrices. Allows specifying custom matrices.
       matrix_parse_script:
         required: false
