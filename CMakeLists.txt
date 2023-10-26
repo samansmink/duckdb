@@ -349,6 +349,7 @@ endif()
 
 if(EXTENSION_CONFIG_BUILD)
   set(BUILD_MAIN_DUCKDB_LIBRARY FALSE)
+  set(VCPKG_MANIFEST_DIR "${VCPKG_MANIFEST_DIR}")
 endif()
 
 if (NOT BUILD_MAIN_DUCKDB_LIBRARY)
@@ -935,9 +936,19 @@ foreach(EXT_NAME IN LISTS DUCKDB_EXTENSION_NAMES)
     continue()
   endif()
 
-  # Warning for trying to load vcpkg extensions without having VCPKG_BUILD SET
-  if (EXISTS "${DUCKDB_EXTENSION_${EXT_NAME_UPPERCASE}_PATH}/vcpkg.json" AND NOT DEFINED VCPKG_BUILD)
-    message(WARNING "Extension '${EXT_NAME}' has a vcpkg.json, but build was not run with VCPKG. If build fails, check out VCPKG build instructions in 'duckdb/extension/README.md' or try manually installing the dependencies in ${DUCKDB_EXTENSION_${EXT_NAME_UPPERCASE}_PATH}vcpkg.json")
+  if (EXISTS "${DUCKDB_EXTENSION_${EXT_NAME_UPPERCASE}_PATH}/vcpkg.json")
+    # Warning for trying to load vcpkg extensions without VCPKG
+    if (NOT DEFINED VCPKG_TARGET_TRIPLET)
+      message(WARNING "Extension '${EXT_NAME}' has a vcpkg.json, but build was not run with VCPKG. If build fails, check out VCPKG build instructions in 'duckdb/extension/README.md' or try manually installing the dependencies in ${DUCKDB_EXTENSION_${EXT_NAME_UPPERCASE}_PATH}vcpkg.json")
+    endif()
+
+    # Warning for trying to load vcpkg extensions without having an explicitly specified manifest path
+    # (which should be set because for extensions we need to produce a vcpkg.json with all merged dependencies)
+    if (EXISTS "${DUCKDB_EXTENSION_${EXT_NAME_UPPERCASE}_PATH}/vcpkg.json" AND "${VCPKG_MANIFEST_DIR}" STREQUAL "")
+      message(WARNING "Extension '${EXT_NAME}' has a vcpkg.json, but build was not run with the vcpkg manifest merging step. If the build fails, ensure the EXTENSION_CONFIG_BUILD step is being run.")
+    endif()
+  else()
+    message(WARNING "NOPE: ${EXT_NAME_UPPERCASE} ${VCPKG_MANIFEST_DIR}")
   endif()
 
   if (DEFINED DUCKDB_EXTENSION_${EXT_NAME_UPPERCASE}_PATH)
