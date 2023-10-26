@@ -152,8 +152,8 @@ results in:
 DuckDB extensions can use [VCPKG](https://vcpkg.io/en/) to manage their dependencies. Check out the [Extension Template](https://github.com/duckdb/extension-template) for an example
 on how to set up vcpkg in extensions. 
 
-## Building DuckDB with multiple extensions that use vcpkg
-To build duckdb with multiple extensions that all use vcpkg, some extra steps are required. This is due to the fact that each
+## Building DuckDB with extensions that use vcpkg
+To build duckdb with extensions that all use vcpkg, some extra steps are required. This is due to the fact that each
 extension will specify their own vcpkg.json manifest for their dependencies, but vcpkg allows only a single manifest. The workaround here
 is to merge the dependencies from the manifests of all extensions being built. This repo contains a script to do automatically perform this merge.
 
@@ -170,15 +170,13 @@ duckdb_extension_load(extension_2
     GIT_TAG some_git_hash
 )
 ```
-Now to merge the vcpkg.json manifests from these two extension run:
-```shell   
-make extension_configuration
-```
-This will create a merged manifest in `./build/extension_configuration/vcpkg.json`.
-
-Next, run:
+To build duckdb with the 2 extensions, simply run:
 ```shell
-USE_MERGED_VCPKG_MANIFEST=1 VCPKG_TOOLCHAIN_PATH="/path/to/your/vcpkg/installation" make
+USE_MERGED_VCPKG_MANIFEST=1 VCPKG_TOOLCHAIN_PATH="<your_path_to_vcpkg>/scripts/buildsystems/vcpkg.cmake" make
 ```
-which will use the merged manifest to install all required dependencies, build `extension_1` and `extension_2`, build DuckDB, 
+This build will run CMake twice. Firstly it will parse the extension config and create a merged manifest 
+in `./build/extension_configuration/vcpkg.json`. Then it will use the merged manifest to install all required dependencies, build `extension_1` and `extension_2`, build DuckDB, 
 and finally link both extensions into DuckDB.
+
+Note: you can leave the `USE_MERGED_VCPKG_MANIFEST` and `VCPKG_TOOLCHAIN_PATH` variables in your env by default to make life
+easy.
