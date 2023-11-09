@@ -181,7 +181,7 @@ unique_ptr<duckdb_httplib_openssl::Client> HTTPFileSystem::GetClient(const HTTPP
                                                                      const char *proto_host_port) {
 	auto client = make_uniq<duckdb_httplib_openssl::Client>(proto_host_port);
 	client->set_follow_location(true);
-	client->set_keep_alive(true);
+//	client->set_keep_alive(true);
 	client->enable_server_certificate_verification(false);
 	client->set_write_timeout(http_params.timeout);
 	client->set_read_timeout(http_params.timeout);
