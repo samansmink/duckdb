@@ -61,6 +61,7 @@ runs:
       run: |
         dnf install -y epel-release
         dnf install -y ccache
+        dnf install -y openssh-clients
 
     - name: Setup JDK
       if: ${{ inputs.jdk == 1 }}
