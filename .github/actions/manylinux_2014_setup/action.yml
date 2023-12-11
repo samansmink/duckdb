@@ -55,6 +55,13 @@ runs:
       shell: bash
       run: scripts/setup_manylinux2014.sh odbc
 
+    - name: Setup dependencies for ccache
+      if: ${{ inputs.ccache == 1 }}
+      shell: bash
+      run: |
+        dnf install -y epel-release
+        dnf install -y ccache
+
     - name: Setup JDK
       if: ${{ inputs.jdk == 1 }}
       shell: bash
