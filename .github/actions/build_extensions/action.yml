@@ -235,3 +235,21 @@ runs:
         if [[ "$GITHUB_REF" =~ ^(refs/heads/main|refs/tags/v.+)$ && "$GITHUB_REPOSITORY" = "duckdb/duckdb" ]] ; then
           ./scripts/extension-upload-test.sh
         fi
+
+    - name: print error messages
+      if: failure()
+      shell: bash
+      run: |
+        cat vcpkg/buildtrees/detect_compiler/config-x64-linux-rel-CMakeCache.txt.log
+
+    - name: print error messages
+      if: failure()
+      shell: bash
+      run: |
+        cat vcpkg/buildtrees/detect_compiler/config-x64-linux-rel-out.log
+
+    - name: print error messages
+      if: failure()
+      shell: bash
+      run: |
+        cat vcpkg/buildtrees/detect_compiler/config-x64-linux-rel-err.log
