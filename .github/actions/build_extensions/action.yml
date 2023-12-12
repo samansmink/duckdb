@@ -135,8 +135,8 @@ runs:
         OSX_BUILD_UNIVERSAL: ${{ inputs.osx_universal }}
         OSX_BUILD_ARCH: ${{ inputs.osx_arch }}
         DISABLE_BUILTIN_EXTENSIONS: ${{ inputs.no_static_linking}}
-        CC: ${{ inputs.aarch64_cross_compile == 1 && 'aarch64-linux-gnu-gcc' || inputs.override_cc }}
-        CXX: ${{ inputs.aarch64_cross_compile == 1 && 'aarch64-linux-gnu-g++' || inputs.override_cxx}}
+        CC: ${{ inputs.aarch64_cross_compile == 1 && 'aarch64-redhat-linux-gcc' || inputs.override_cc }}
+        CXX: ${{ inputs.aarch64_cross_compile == 1 && 'aarch64-redhat-linux-g++' || inputs.override_cxx}}
         LOCAL_EXTENSION_REPO: ${{ inputs.run_autoload_tests == 1 && github.workspace || ''}}
         GEN: ${{ inputs.ninja == 1 && 'ninja' || '' }}
         USE_MERGED_VCPKG_MANIFEST: 1
