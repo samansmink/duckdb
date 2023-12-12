@@ -22,7 +22,7 @@ install_deps() {
     git config --global --add safe.directory '*'
     $2 install -y curl zip unzip tar
     $2 install -y epel-release
-    $2 install -y ninja-build
+#    $2 install -y ninja-build
 
   elif [ "$1" = "aws-cli" ]; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"

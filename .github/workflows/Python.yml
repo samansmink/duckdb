@@ -60,6 +60,8 @@ jobs:
           ccache: 1
           ssh: 1
 
+      - uses: seanmiddleditch/gha-setup-ninja@master
+
       - uses: ./.github/actions/build_extensions
         with:
           vcpkg_target_triplet: arm64-linux
