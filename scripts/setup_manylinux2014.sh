@@ -20,9 +20,8 @@
 install_deps() {
   if [ "$1" = "general" ]; then
     git config --global --add safe.directory '*'
-    $2 install -y curl zip unzip tar
-    $2 install -y epel-release
-#    $2 install -y ninja-build
+    yum install -y curl zip unzip tar
+    yum install -y ninja-build
 
   elif [ "$1" = "aws-cli" ]; then
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -31,7 +30,7 @@ install_deps() {
     aws --version
 
   elif [ "$1" = "odbc" ]; then
-    $2 install -y unixODBC-devel
+    yum install -y unixODBC-devel
 
   elif [ "$1" = "vcpkg" ]; then
     # Note: it is preferred to use the lukka/run-vcpkg@v11 over this when running this
@@ -48,28 +47,28 @@ install_deps() {
     export VCPKG_ROOT=$VCPKG_TARGET_DIR/vcpkg
 
   elif [ "$1" = "openssl" ]; then
-    $2 install -y perl-IPC-Cmd
+    yum install -y perl-IPC-Cmd
 
   elif [ "$1" = "ccache" ]; then
-    $2 -y install ccache
+    yum -y install ccache
 
   elif [ "$1" = "python_alias" ]; then
     ln -fs /usr/local/bin/python3.9 /usr/local/bin/python3
 
   elif [ "$1" = "jdk" ]; then
-    $2 install -y java-11-openjdk-devel maven
+    yum install -y java-11-openjdk-devel maven
 
   elif [ "$1" = "ssh" ]; then
-    $2 install -y openssh-clients
+    yum install -y openssh-clients
 
   elif [ "$1" = "glibc32" ]; then
-    $2 install -y libgcc*i686 libstdc++*i686 glibc*i686 libgfortran*i686
+    yum install -y libgcc*i686 libstdc++*i686 glibc*i686 libgfortran*i686
 
   elif [ "$1" = "gcc_4_8" ]; then
-    $2 install -y gcc-c++
+    yum install -y gcc-c++
 
   elif [ "$1" = "nodejs" ]; then
-    $2 install -y nodejs
+    yum install -y nodejs
 
   else
       >&2 echo "unknown input for setup_manylinux2014.sh: '$1'"
@@ -79,7 +78,7 @@ install_deps() {
 
 for var in "$@"
 do
-    install_deps $var dnf
+    install_deps $var
 done
 
 
