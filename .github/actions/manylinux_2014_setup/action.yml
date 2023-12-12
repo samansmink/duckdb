@@ -58,8 +58,7 @@ runs:
     - name: Setup dependencies for ccache
       if: ${{ inputs.ccache == 1 }}
       shell: bash
-      run: |
-        run: scripts/setup_manylinux2014.sh ccache
+      run: scripts/setup_manylinux2014.sh ccache
 
     - name: Setup JDK
       if: ${{ inputs.jdk == 1 }}

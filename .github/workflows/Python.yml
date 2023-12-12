@@ -83,6 +83,7 @@ jobs:
   linux-python3:
     name: Python 3 Linux
     runs-on: ubuntu-20.04
+    needs: manylinux-extensions-aarch64
     strategy:
       matrix:
         arch: [aarch64]
