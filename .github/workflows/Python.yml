@@ -40,53 +40,52 @@ env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
 jobs:
-  manylinux-extensions-aarch64:
-    name: Linux Extensions (manylinux_2_28_aarch64)
-    runs-on: ubuntu-latest
-    container: quay.io/pypa/manylinux_2_28_x86_64
-    env:
-      GEN: ninja
-
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      # Should be good enough?
-      - uses: ./.github/actions/manylinux_2014_setup
-        with:
-          vcpkg: 1
-          openssl: 1
-          ccache: 1
-          ssh: 1
-
-      - uses: seanmiddleditch/gha-setup-ninja@master
-
-      - uses: ./.github/actions/build_extensions
-        with:
-          vcpkg_target_triplet: arm64-linux
-          post_install: rm build/release/src/libduckdb*
-          deploy_as: linux_arm64
-          s3_id: ${{ secrets.S3_ID }}
-          s3_key: ${{ secrets.S3_KEY }}
-          signing_pk: ${{ secrets.DUCKDB_EXTENSION_SIGNING_PK }}
-          run_tests: 0
-          run_autoload_tests: 0
-          treat_warn_as_error: 0
-          ninja: 1
-          override_cc: /opt/rh/gcc-toolset-12/root/usr/bin/aarch64-redhat-linux-gcc
-          override_cxx: /opt/rh/gcc-toolset-12/root/usr/bin/aarch64-redhat-linux-g++
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: manylinux-extensions-arm64
-          path: |
-            build/release/extension/*/*.duckdb_extension
+#  manylinux-extensions-aarch64:
+#    name: Linux Extensions (manylinux_2_28_aarch64)
+#    runs-on: ubuntu-latest
+#    container: quay.io/pypa/manylinux_2_28_x86_64
+#    env:
+#      GEN: ninja
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#        with:
+#          fetch-depth: 0
+#
+#      # Should be good enough?
+#      - uses: ./.github/actions/manylinux_2014_setup
+#        with:
+#          vcpkg: 1
+#          openssl: 1
+#          ccache: 1
+#          ssh: 1
+#
+#      - uses: seanmiddleditch/gha-setup-ninja@master
+#
+#      - uses: ./.github/actions/build_extensions
+#        with:
+#          vcpkg_target_triplet: arm64-linux
+#          post_install: rm build/release/src/libduckdb*
+#          deploy_as: linux_arm64
+#          s3_id: ${{ secrets.S3_ID }}
+#          s3_key: ${{ secrets.S3_KEY }}
+#          signing_pk: ${{ secrets.DUCKDB_EXTENSION_SIGNING_PK }}
+#          run_tests: 0
+#          run_autoload_tests: 0
+#          treat_warn_as_error: 0
+#          ninja: 1
+#          override_cc: /opt/rh/gcc-toolset-12/root/usr/bin/aarch64-redhat-linux-gcc
+#          override_cxx: /opt/rh/gcc-toolset-12/root/usr/bin/aarch64-redhat-linux-g++
+#
+#      - uses: actions/upload-artifact@v3
+#        with:
+#          name: manylinux-extensions-arm64
+#          path: |
+#            build/release/extension/*/*.duckdb_extension
 
   linux-python3:
     name: Python 3 Linux
     runs-on: ubuntu-20.04
-    needs: manylinux-extensions-aarch64
     strategy:
       matrix:
         arch: [aarch64]
@@ -143,6 +142,11 @@ jobs:
         fi
         cibuildwheel --output-dir wheelhouse --config-file cibw.toml duckdb_tarball
         ls wheelhouse
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: python-wheels-${{ matrix.arch }}-${{ matrix.python_build }}
+        path: tools/pythonpkg/wheelhouse/
 
     - name: Deploy
       env:
