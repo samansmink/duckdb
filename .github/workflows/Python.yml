@@ -74,8 +74,8 @@ jobs:
           run_autoload_tests: 0
           treat_warn_as_error: 0
           ninja: 1
-          override_cc: aarch64-redhat-linux-gcc
-          override_cxx: aarch64-redhat-linux-g++
+          override_cc: /opt/rh/gcc-toolset-12/root/usr/bin/aarch64-redhat-linux-gcc
+          override_cxx: /opt/rh/gcc-toolset-12/root/usr/bin/aarch64-redhat-linux-g++
 
       - uses: actions/upload-artifact@v3
         with:
