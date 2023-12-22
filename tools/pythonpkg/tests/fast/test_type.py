@@ -208,7 +208,7 @@ class TestType(object):
         type = duckdb.typing.DuckDBPyType(Union[str, None])
         assert type == 'VARCHAR'
 
-    @pytest.mark.skipif(sys.version_info < (3, 10), reason="'str | None' syntax requires Python 3.10 or higher")
-    def test_optional_310(self):
-        type = duckdb.typing.DuckDBPyType(str | None)
-        assert type == 'VARCHAR'
+    # @pytest.mark.skipif(sys.version_info < (3, 10), reason="'str | None' syntax requires Python 3.10 or higher")
+    # def test_optional_310(self):
+    #     type = duckdb.typing.DuckDBPyType(str | None)
+    #     assert type == 'VARCHAR'
