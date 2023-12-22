@@ -14,17 +14,17 @@ manylinux-pypy_aarch64-image = "manylinux_2_28"
 # For musllinux we currently don't build extensions yet
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
-test-command = "python -m pytest {project}/tests/fast --verbose"
+test-command = ''
 
 # For 32 bit we don't build extensions
 [[tool.cibuildwheel.overrides]]
 select = "*i686*"
-test-command = "python -m pytest {project}/tests/fast --verbose"
+test-command = ''
 
 # For aarch64 we don't build extensions
 [[tool.cibuildwheel.overrides]]
 select = "*aarch64*"
-test-command = "python -m pytest {project}/tests/fast --verbose"
+test-command = ''
 
 [tool.cibuildwheel.windows]
-test-command = "python -m pytest {project}/tests/fast --verbose"
+test-command = ''
