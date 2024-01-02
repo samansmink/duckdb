@@ -83,6 +83,7 @@ jobs:
 #          path: |
 #            build/release/extension/*/*.duckdb_extension
 
+
   linux-python3:
     name: Python 3 Linux
     runs-on: ubuntu-20.04

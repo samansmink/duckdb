@@ -40,7 +40,7 @@ jobs:
     # Builds extensions for linux_arm64
     name: Linux Extensions (aarch64)
     runs-on: ubuntu-latest
-    container: ubuntu:18.04
+    container: ubuntu:18.10
 
     steps:
       - uses: actions/checkout@v3
