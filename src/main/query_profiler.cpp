@@ -406,6 +406,38 @@ void QueryProfiler::QueryTreeToStream(std::ostream &ss) const {
 		ss << "└─────────────────────────────────────┘\n";
 	}
 
+	if (context.client_data->client_file_system_stats) {
+		for (const auto& stats : context.client_data->client_file_system_stats->GetAllStats()) {
+			auto &stat = stats.second;
+
+			if (!stat->HasStats()) {
+				continue;
+			}
+
+			string file_system_name = stats.first + " Stats:";
+			string read = "read: " + StringUtil::BytesToHumanReadableString(stat->read_bytes);
+			string read_calls = "read_calls: " + to_string(stat->read_calls);
+			string written = "written: " + StringUtil::BytesToHumanReadableString(stat->write_bytes);
+			string write_calls = "write_calls: " + to_string(stat->write_calls);
+			string total_opens = "files_opens: " + to_string(stat->file_opens);
+			string max_open_files = "max_open_files: " + to_string(stat->max_open_files);
+
+			constexpr idx_t TOTAL_BOX_WIDTH = 39;
+			ss << "┌─────────────────────────────────────┐\n";
+			ss << "│┌───────────────────────────────────┐│\n";
+			ss << "││" + DrawPadded(file_system_name, TOTAL_BOX_WIDTH - 4) + "││\n";
+			ss << "││                                   ││\n";
+			ss << "││" + DrawPadded(read, TOTAL_BOX_WIDTH - 4) + "││\n";
+			ss << "││" + DrawPadded(read_calls, TOTAL_BOX_WIDTH - 4) + "││\n";
+			ss << "││" + DrawPadded(written, TOTAL_BOX_WIDTH - 4) + "││\n";
+			ss << "││" + DrawPadded(write_calls, TOTAL_BOX_WIDTH - 4) + "││\n";
+			ss << "││" + DrawPadded(total_opens, TOTAL_BOX_WIDTH - 4) + "││\n";
+			ss << "││" + DrawPadded(max_open_files, TOTAL_BOX_WIDTH - 4) + "││\n";
+			ss << "│└───────────────────────────────────┘│\n";
+			ss << "└─────────────────────────────────────┘\n";
+		}
+	}
+
 	constexpr idx_t TOTAL_BOX_WIDTH = 39;
 	ss << "┌─────────────────────────────────────┐\n";
 	ss << "│┌───────────────────────────────────┐│\n";

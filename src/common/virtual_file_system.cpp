@@ -29,6 +29,18 @@ unique_ptr<FileHandle> VirtualFileSystem::OpenFile(const string &path, uint8_t f
 	}
 	// open the base file handle
 	auto file_handle = FindFileSystem(path).OpenFile(path, flags, lock, FileCompressionType::UNCOMPRESSED, opener);
+
+	// Pass stats pointer to file handle and register the openfile
+	auto stats_collector = FileSystemStatsCollector::TryGetFromOpener(opener);
+	if (stats_collector) {
+		auto stats = stats_collector->GetStats(file_handle->file_system.GetName());
+
+		if (stats) {
+			file_handle->stats = stats;
+			file_handle->stats->AddOpen();
+		}
+	}
+
 	if (file_handle->GetType() == FileType::FILE_TYPE_FIFO) {
 		file_handle = PipeFileSystem::OpenPipe(std::move(file_handle));
 	} else if (compression != FileCompressionType::UNCOMPRESSED) {
@@ -135,10 +147,11 @@ void VirtualFileSystem::RegisterSubSystem(FileCompressionType compression_type, 
 }
 
 vector<string> VirtualFileSystem::ListSubSystems() {
-	vector<string> names(sub_systems.size());
+	vector<string> names(sub_systems.size()+1);
 	for (idx_t i = 0; i < sub_systems.size(); i++) {
 		names[i] = sub_systems[i]->GetName();
 	}
+	names[sub_systems.size()] = default_fs->GetName();
 	return names;
 }
 

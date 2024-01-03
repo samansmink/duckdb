@@ -114,6 +114,10 @@ public:
 		return GetFileSystem().Glob(path, GetOpener().get());
 	}
 
+	vector<string> ListSubSystems() override {
+	    return GetFileSystem().ListSubSystems();
+	}
+
 	std::string GetName() const override {
 		return "OpenerFileSystem - " + GetFileSystem().GetName();
 	}

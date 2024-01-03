@@ -45,6 +45,84 @@ extern "C" WINBASEAPI BOOL WINAPI GetPhysicallyInstalledSystemMemory(PULONGLONG)
 
 namespace duckdb {
 
+bool FileSystemStats::HasStats() {
+	return read_calls | write_calls | file_opens;
+}
+
+void FileSystemStats::Reset() {
+	read_bytes = 0;
+	read_calls = 0;
+	write_bytes = 0;
+	write_calls = 0;
+	file_opens = 0;
+	max_open_files = 0;
+	currently_open_files = 0;
+}
+
+void FileSystemStats::AddRead(idx_t bytes) {
+	read_bytes += bytes;
+	read_calls += 1;
+}
+
+void FileSystemStats::AddWrite(idx_t bytes) {
+	write_bytes += bytes;
+	write_calls += 1;
+}
+
+void FileSystemStats::AddOpen() {
+	// Update total file opens
+	file_opens++;
+
+	// Update current open files
+	auto current_open_files = currently_open_files.fetch_add(1);
+	auto new_open_files = current_open_files + 1;
+
+	// Update max atomically with a CaS
+	idx_t prev_value = max_open_files;
+	while (prev_value < new_open_files && !max_open_files.compare_exchange_weak(prev_value, new_open_files)) {
+	}
+}
+
+void FileSystemStats::AddClose() {
+	currently_open_files--;
+}
+
+shared_ptr<FileSystemStatsCollector> FileSystemStatsCollector::TryGetFromOpener(FileOpener *opener) {
+	auto client_context = FileOpener::TryGetClientContext(opener);
+	if (client_context) {
+		return client_context->client_data->client_file_system_stats;
+	}
+	return nullptr;
+}
+
+FileSystemStatsCollector &FileSystemStatsCollector::Get(ClientContext &context) {
+	return *ClientData::Get(context).client_file_system_stats;
+}
+
+optional_ptr<FileSystemStats> FileSystemStatsCollector::GetStats(const string &fs_name) {
+	auto stats_lu = stats.find(fs_name);
+	if (stats_lu != stats.end()) {
+		return stats_lu->second.get();
+	}
+	return nullptr;
+}
+
+unordered_map<string, unique_ptr<FileSystemStats>>& FileSystemStatsCollector::GetAllStats() {
+	return stats;
+}
+
+void FileSystemStatsCollector::RegisterFileSystem(const string &fs_name) {
+	if (stats.find(fs_name) == stats.end()) {
+		stats[fs_name] = make_uniq<FileSystemStats>();
+	}
+}
+
+void FileSystemStatsCollector::Reset() {
+	for (const auto& stat : stats) {
+		stat.second->Reset();
+	}
+}
+
 FileSystem::~FileSystem() {
 }
 
@@ -471,21 +549,36 @@ FileHandle::FileHandle(FileSystem &file_system, string path_p) : file_system(fil
 }
 
 FileHandle::~FileHandle() {
+	if (DUCKDB_UNLIKELY(stats)) {
+		stats->AddClose();
+	}
 }
 
 int64_t FileHandle::Read(void *buffer, idx_t nr_bytes) {
+	if (DUCKDB_UNLIKELY(stats)) {
+		stats->AddRead(nr_bytes);
+	}
 	return file_system.Read(*this, buffer, nr_bytes);
 }
 
 int64_t FileHandle::Write(void *buffer, idx_t nr_bytes) {
+	if (DUCKDB_UNLIKELY(stats)) {
+		stats->AddWrite(nr_bytes);
+	}
 	return file_system.Write(*this, buffer, nr_bytes);
 }
 
 void FileHandle::Read(void *buffer, idx_t nr_bytes, idx_t location) {
+	if (DUCKDB_UNLIKELY(stats)) {
+		stats->AddRead(nr_bytes);
+	}
 	file_system.Read(*this, buffer, nr_bytes, location);
 }
 
 void FileHandle::Write(void *buffer, idx_t nr_bytes, idx_t location) {
+	if (DUCKDB_UNLIKELY(stats)) {
+		stats->AddWrite(nr_bytes);
+	}
 	file_system.Write(*this, buffer, nr_bytes, location);
 }
 

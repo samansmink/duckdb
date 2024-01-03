@@ -304,6 +304,13 @@ ClientContext::CreatePreparedStatement(ClientContextLock &lock, const string &qu
 	StatementType statement_type = statement->type;
 	auto result = make_shared<PreparedStatementData>(statement_type);
 
+	if (IsExplainAnalyze(statement.get()) && client_data->client_file_system) {
+		client_data->client_file_system_stats = make_shared<FileSystemStatsCollector>();
+
+		for (const auto &sub_system : client_data->client_file_system->ListSubSystems()) {
+			client_data->client_file_system_stats->RegisterFileSystem(sub_system);
+		}
+	}
 	auto &profiler = QueryProfiler::Get(*this);
 	profiler.StartQuery(query, IsExplainAnalyze(statement.get()), true);
 	profiler.StartPhase("planner");
@@ -316,6 +323,7 @@ ClientContext::CreatePreparedStatement(ClientContextLock &lock, const string &qu
 	}
 
 	client_data->http_state = make_shared<HTTPState>();
+
 	planner.CreatePlan(std::move(statement));
 	D_ASSERT(planner.plan || !planner.properties.bound_all_parameters);
 	profiler.EndPhase();
@@ -716,6 +724,15 @@ unique_ptr<PendingQueryResult> ClientContext::PendingStatementOrPreparedStatemen
 	} catch (std::exception &ex) {
 		return make_uniq<PendingQueryResult>(PreservedError(ex));
 	}
+
+	if (IsExplainAnalyze(statement.get()) && client_data->client_file_system) {
+		client_data->client_file_system_stats = make_shared<FileSystemStatsCollector>();
+
+		for (const auto &sub_system : client_data->client_file_system->ListSubSystems()) {
+			client_data->client_file_system_stats->RegisterFileSystem(sub_system);
+		}
+	}
+
 	// start the profiler
 	auto &profiler = QueryProfiler::Get(*this);
 	profiler.StartQuery(query, IsExplainAnalyze(statement ? statement.get() : prepared->unbound_statement.get()));

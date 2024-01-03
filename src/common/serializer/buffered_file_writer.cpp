@@ -40,7 +40,10 @@ void BufferedFileWriter::Flush() {
 	if (offset == 0) {
 		return;
 	}
-	fs.Write(*handle, data.get(), offset);
+	// TODO: this doesn't use stats
+//	fs.Write(*handle, data.get(), offset);
+	// TODO: but this does
+	handle->Write(data.get(), offset);
 	total_written += offset;
 	offset = 0;
 }

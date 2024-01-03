@@ -60,6 +60,9 @@ struct ClientData {
 	//! The clients' file system wrapper
 	unique_ptr<FileSystem> client_file_system;
 
+	//! The clients file system stats
+	shared_ptr<FileSystemStatsCollector> client_file_system_stats;
+
 	//! The file search path
 	string file_search_path;
 

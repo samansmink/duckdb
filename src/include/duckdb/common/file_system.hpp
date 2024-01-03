@@ -8,10 +8,13 @@
 
 #pragma once
 
+#include "duckdb/common/atomic.hpp"
 #include "duckdb/common/constants.hpp"
 #include "duckdb/common/enums/file_compression_type.hpp"
+#include "duckdb/common/enums/file_glob_options.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/file_buffer.hpp"
+#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/common/enums/file_glob_options.hpp"
@@ -28,6 +31,45 @@ class ClientContext;
 class DatabaseInstance;
 class FileOpener;
 class FileSystem;
+
+//! Thread-safe counter struct for filesystem stats
+struct FileSystemStats {
+	atomic<idx_t> read_bytes {0};
+	atomic<idx_t> read_calls {0};
+	atomic<idx_t> write_bytes {0};
+	atomic<idx_t> write_calls {0};
+	atomic<idx_t> file_opens {0};
+	atomic<idx_t> max_open_files {0};
+
+	// Used in calculating the max_open_files
+	atomic<idx_t> currently_open_files {0};
+
+	//! Whether any of the stats have been set
+	bool HasStats();
+
+	//! Reset stats
+	void Reset();
+
+	//! Add to stats
+	void AddRead(idx_t bytes);
+	void AddWrite(idx_t bytes);
+	void AddOpen();
+	void AddClose();
+};
+
+//! Collector for stats across multiple filesystems
+struct FileSystemStatsCollector {
+	static shared_ptr<FileSystemStatsCollector> TryGetFromOpener(FileOpener *opener);
+	FileSystemStatsCollector &Get(ClientContext &context);
+
+	optional_ptr<FileSystemStats> GetStats(const string &fs_name);
+	unordered_map<string, unique_ptr<FileSystemStats>>& GetAllStats();
+	void RegisterFileSystem(const string &fs_name);
+	void Reset();
+
+protected:
+	unordered_map<string, unique_ptr<FileSystemStats>> stats;
+};
 
 enum class FileType {
 	//! Regular file
@@ -91,6 +133,7 @@ public:
 
 public:
 	FileSystem &file_system;
+	optional_ptr<FileSystemStats> stats;
 	string path;
 };
 
