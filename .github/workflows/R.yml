@@ -55,6 +55,7 @@ jobs:
       - uses: ./.github/actions/build_extensions
         with:
           deploy_as: windows_amd64_rtools
+          vcpkg_target_triplet: x64-windows-static-md
           treat_warn_as_error: 0
           s3_id: ${{ secrets.S3_ID }}
           s3_key: ${{ secrets.S3_KEY }}
@@ -65,5 +66,5 @@ jobs:
           run_tests: 0
           run_autoload_tests: 0
           build_out_of_tree_extensions: 1
-          vcpkg_build: 0
-          no_static_linking: 1
+          vcpkg_build: 1
+          no_static_linking: 1s
