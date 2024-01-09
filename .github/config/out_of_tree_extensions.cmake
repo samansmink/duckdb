@@ -16,18 +16,18 @@ if (NOT WIN32)
 endif()
 
 ################# AWS
-#duckdb_extension_load(aws
-#        LOAD_TESTS
-#        GIT_URL https://github.com/duckdb/duckdb_aws
-#        GIT_TAG af729d027e57175c5496a2d7dfef68833e6d6cd3
-#        )
+duckdb_extension_load(aws
+        LOAD_TESTS
+        GIT_URL https://github.com/duckdb/duckdb_aws
+        GIT_TAG af729d027e57175c5496a2d7dfef68833e6d6cd3
+        )
 
 ################# AZURE
-duckdb_extension_load(azure
-        LOAD_TESTS
-        GIT_URL https://github.com/duckdb/duckdb_azure
-        GIT_TAG 10d4cf6a0ed00ea8aecb9bf1433fdfff166e6c44
-        )
+#duckdb_extension_load(azure
+#        LOAD_TESTS
+#        GIT_URL https://github.com/duckdb/duckdb_azure
+#        GIT_TAG 10d4cf6a0ed00ea8aecb9bf1433fdfff166e6c44
+#        )
 
 ################# ICEBERG
 # Windows tests for iceberg currently not working
