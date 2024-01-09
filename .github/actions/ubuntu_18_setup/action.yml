@@ -84,7 +84,7 @@ runs:
       if: ${{ inputs.vcpkg == 1 }}
       uses: lukka/run-vcpkg@v11.1
       with:
-        vcpkgGitCommitId: a42af01b72c28a8e1d7b48107b33e4f286a55ef6
+        vcpkgGitCommitId: c8696863d371ab7f46e213d8f5ca923c4aef2a00
 
     - name: Setup Ccache
       if: ${{ inputs.ccache == 1 }}
