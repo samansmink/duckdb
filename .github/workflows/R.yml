@@ -66,18 +66,18 @@ jobs:
 #          openssl_path: C:/rtools43/x86_64-w64-mingw32.static.posix # not sure if this is required, there seems to be an openssl there
           run_tests: 0
           run_autoload_tests: 0
-          build_out_of_tree_extensions: 0
+          build_out_of_tree_extensions: 1
           vcpkg_build: 1
           no_static_linking: 1
 
       - name: Log errors
-        if: always()
+        if: failure()
         shell: bash
         run: |
           cat vcpkg/buildtrees/aws-sdk-cpp/install-x64-mingw-static-dbg-out.log
 
       - name: Log errors
-        if: always()
+        if: failure()
         shell: bash
         run: |
           cat build/release/vcpkg-manifest-install.log

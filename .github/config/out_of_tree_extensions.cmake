@@ -6,21 +6,21 @@
 #
 
 ################# ARROW
-if (NOT WIN32)
-    duckdb_extension_load(arrow
-            LOAD_TESTS DONT_LINK
-            GIT_URL https://github.com/duckdb/arrow
-            GIT_TAG 1b5b9649d28cd7f79496fb3f2e4dd7b03bf90ac5
-            APPLY_PATCHES
-            )
-endif()
-
-################# AWS
-duckdb_extension_load(aws
-        LOAD_TESTS
-        GIT_URL https://github.com/duckdb/duckdb_aws
-        GIT_TAG af729d027e57175c5496a2d7dfef68833e6d6cd3
-        )
+#if (NOT WIN32)
+#    duckdb_extension_load(arrow
+#            LOAD_TESTS DONT_LINK
+#            GIT_URL https://github.com/duckdb/arrow
+#            GIT_TAG 1b5b9649d28cd7f79496fb3f2e4dd7b03bf90ac5
+#            APPLY_PATCHES
+#            )
+#endif()
+#
+################## AWS
+#duckdb_extension_load(aws
+#        LOAD_TESTS
+#        GIT_URL https://github.com/duckdb/duckdb_aws
+#        GIT_TAG af729d027e57175c5496a2d7dfef68833e6d6cd3
+#        )
 
 ################# AZURE
 #duckdb_extension_load(azure
@@ -46,12 +46,12 @@ endif()
 ################# POSTGRES_SCANNER
 # Note: tests for postgres_scanner are currently not run. All of them need a postgres server running. One test
 #       uses a remote rds server but that's not something we want to run here.
-duckdb_extension_load(postgres_scanner
-        DONT_LINK
-        GIT_URL https://github.com/duckdb/postgres_scanner
-        GIT_TAG 8c3e9624ee1d32f317e18136056dfca9fb97ee67
-        APPLY_PATCHES
-        )
+#duckdb_extension_load(postgres_scanner
+#        DONT_LINK
+#        GIT_URL https://github.com/duckdb/postgres_scanner
+#        GIT_TAG 8c3e9624ee1d32f317e18136056dfca9fb97ee67
+#        APPLY_PATCHES
+#        )
 
 ################# SPATIAL
 #duckdb_extension_load(spatial
@@ -79,10 +79,10 @@ duckdb_extension_load(sqlite_scanner
         )
 
 ################# SUBSTRAIT
-if (NOT WIN32)
-    duckdb_extension_load(substrait
-            LOAD_TESTS DONT_LINK
-            GIT_URL https://github.com/duckdb/substrait
-            GIT_TAG 52ff1cab21e97053999bfeec83d1da976b94ef57
-            )
-endif()
+#if (NOT WIN32)
+#    duckdb_extension_load(substrait
+#            LOAD_TESTS DONT_LINK
+#            GIT_URL https://github.com/duckdb/substrait
+#            GIT_TAG 52ff1cab21e97053999bfeec83d1da976b94ef57
+#            )
+#endif()
