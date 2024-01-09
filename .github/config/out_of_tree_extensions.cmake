@@ -37,11 +37,11 @@ else ()
     set(LOAD_ICEBERG_TESTS "")
 endif()
 
-duckdb_extension_load(iceberg
-        ${LOAD_ICEBERG_TESTS}
-        GIT_URL https://github.com/duckdb/duckdb_iceberg
-        GIT_TAG 7aa3d8e4cb7b513d35fdacfa28dc328771bc4047
-        )
+#duckdb_extension_load(iceberg
+#        ${LOAD_ICEBERG_TESTS}
+#        GIT_URL https://github.com/duckdb/duckdb_iceberg
+#        GIT_TAG 7aa3d8e4cb7b513d35fdacfa28dc328771bc4047
+#        )
 
 ################# POSTGRES_SCANNER
 # Note: tests for postgres_scanner are currently not run. All of them need a postgres server running. One test
