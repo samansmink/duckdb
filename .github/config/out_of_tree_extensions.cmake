@@ -6,21 +6,21 @@
 #
 
 ################# ARROW
-if (NOT WIN32)
-    duckdb_extension_load(arrow
-            LOAD_TESTS DONT_LINK
-            GIT_URL https://github.com/duckdb/arrow
-            GIT_TAG 1b5b9649d28cd7f79496fb3f2e4dd7b03bf90ac5
-            APPLY_PATCHES
-            )
-endif()
+#if (NOT WIN32)
+#    duckdb_extension_load(arrow
+#            LOAD_TESTS DONT_LINK
+#            GIT_URL https://github.com/duckdb/arrow
+#            GIT_TAG 1b5b9649d28cd7f79496fb3f2e4dd7b03bf90ac5
+#            APPLY_PATCHES
+#            )
+#endif()
 
 ################# AWS
-duckdb_extension_load(aws
-        LOAD_TESTS
-        GIT_URL https://github.com/duckdb/duckdb_aws
-        GIT_TAG af729d027e57175c5496a2d7dfef68833e6d6cd3
-        )
+#duckdb_extension_load(aws
+#        LOAD_TESTS
+#        GIT_URL https://github.com/duckdb/duckdb_aws
+#        GIT_TAG af729d027e57175c5496a2d7dfef68833e6d6cd3
+#        )
 
 ################# AZURE
 #duckdb_extension_load(azure
@@ -65,24 +65,24 @@ duckdb_extension_load(postgres_scanner
 
 ################# SQLITE_SCANNER
 # Static linking on windows does not properly work due to symbol collision
-if (WIN32)
-    set(STATIC_LINK_SQLITE "DONT_LINK")
-else ()
-    set(STATIC_LINK_SQLITE "")
-endif()
-
-duckdb_extension_load(sqlite_scanner
-        ${STATIC_LINK_SQLITE} LOAD_TESTS
-        GIT_URL https://github.com/duckdb/sqlite_scanner
-        GIT_TAG ef91604503e5c9ef0cf89db4a29f7c97e7ba1fb5
-        APPLY_PATCHES
-        )
+#if (WIN32)
+#    set(STATIC_LINK_SQLITE "DONT_LINK")
+#else ()
+#    set(STATIC_LINK_SQLITE "")
+#endif()
+#
+#duckdb_extension_load(sqlite_scanner
+#        ${STATIC_LINK_SQLITE} LOAD_TESTS
+#        GIT_URL https://github.com/duckdb/sqlite_scanner
+#        GIT_TAG ef91604503e5c9ef0cf89db4a29f7c97e7ba1fb5
+#        APPLY_PATCHES
+#        )
 
 ################# SUBSTRAIT
-if (NOT WIN32)
-    duckdb_extension_load(substrait
-            LOAD_TESTS DONT_LINK
-            GIT_URL https://github.com/duckdb/substrait
-            GIT_TAG 52ff1cab21e97053999bfeec83d1da976b94ef57
-            )
-endif()
+#if (NOT WIN32)
+#    duckdb_extension_load(substrait
+#            LOAD_TESTS DONT_LINK
+#            GIT_URL https://github.com/duckdb/substrait
+#            GIT_TAG 52ff1cab21e97053999bfeec83d1da976b94ef57
+#            )
+#endif()
