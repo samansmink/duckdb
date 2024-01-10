@@ -69,6 +69,7 @@ jobs:
           build_out_of_tree_extensions: 1
           vcpkg_build: 1
           no_static_linking: 1
+          unittest_script: python3 scripts/run_tests_one_by_one.py ./build/release/test/Release/unittest.exe
 
       - name: Log errors
         if: failure()
