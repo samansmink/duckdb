@@ -20,7 +20,7 @@ if (NOT MINGW)
     duckdb_extension_load(aws
             LOAD_TESTS
             GIT_URL https://github.com/duckdb/duckdb_aws
-            GIT_TAG af729d027e57175c5496a2d7dfef68833e6d6cd3
+            GIT_TAG a882a233abbef1d98277558074a90d3ff4b86ed4
             )
 endif()
 
@@ -29,7 +29,7 @@ if (NOT MINGW)
     duckdb_extension_load(azure
             LOAD_TESTS
             GIT_URL https://github.com/duckdb/duckdb_azure
-            GIT_TAG 10d4cf6a0ed00ea8aecb9bf1433fdfff166e6c44
+            GIT_TAG 03a0878ba8be1f4dbe385652bbf96f4d3feef05d
             )
 endif()
 
@@ -84,8 +84,7 @@ endif()
 duckdb_extension_load(sqlite_scanner
         ${STATIC_LINK_SQLITE} LOAD_TESTS
         GIT_URL https://github.com/duckdb/sqlite_scanner
-        GIT_TAG ef91604503e5c9ef0cf89db4a29f7c97e7ba1fb5
-        APPLY_PATCHES
+        GIT_TAG bff9c0075bb8c3b5b483a87baa4ccfc34266023c
         )
 
 ################# SUBSTRAIT
