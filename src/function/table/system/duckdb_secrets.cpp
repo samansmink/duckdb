@@ -15,6 +15,7 @@ struct DuckDBSecretsData : public GlobalTableFunctionState {
 	DuckDBSecretsData() : offset(0) {
 	}
 	idx_t offset;
+	vector<SecretEntry> secrets;
 };
 
 struct DuckDBSecretsBindData : public FunctionData {
@@ -74,6 +75,11 @@ static unique_ptr<FunctionData> DuckDBSecretsBind(ClientContext &context, TableF
 
 unique_ptr<GlobalTableFunctionState> DuckDBSecretsInit(ClientContext &context, TableFunctionInitInput &input) {
 	auto result = make_uniq<DuckDBSecretsData>();
+
+	auto transaction = CatalogTransaction::GetSystemCatalogTransaction(context);
+	auto &secret_manager = SecretManager::Get(context);
+	result->secrets = secret_manager.AllSecrets(transaction);
+
 	return std::move(result);
 }
 
@@ -81,20 +87,15 @@ void DuckDBSecretsFunction(ClientContext &context, TableFunctionInput &data_p, D
 	auto &data = data_p.global_state->Cast<DuckDBSecretsData>();
 	auto &bind_data = data_p.bind_data->Cast<DuckDBSecretsBindData>();
 
-	auto &secret_manager = SecretManager::Get(context);
-
-	auto transaction = CatalogTransaction::GetSystemCatalogTransaction(context);
-	auto secrets = secret_manager.AllSecrets(transaction);
-
-	if (data.offset >= secrets.size()) {
+	if (data.offset >= data.secrets.size()) {
 		// finished returning values
 		return;
 	}
 	// start returning values
 	// either fill up the chunk or return all the remaining columns
 	idx_t count = 0;
-	while (data.offset < secrets.size() && count < STANDARD_VECTOR_SIZE) {
-		auto &secret_entry = secrets[data.offset];
+	while (data.offset < data.secrets.size() && count < STANDARD_VECTOR_SIZE) {
+		auto &secret_entry = data.secrets[data.offset];
 
 		vector<Value> scope_value;
 		for (const auto &scope_entry : secret_entry.secret->GetScope()) {

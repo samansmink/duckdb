@@ -209,6 +209,7 @@ optional_ptr<CreateSecretFunction> SecretManager::LookupFunctionInternal(const s
 }
 
 unique_ptr<SecretEntry> SecretManager::CreateSecret(ClientContext &context, const CreateSecretInfo &info) {
+	printf("SecretManager::CreateSecret '%s'\n", info.name.c_str());
 	// Note that a context is required for CreateSecret, as the CreateSecretFunction expects one
 	auto transaction = CatalogTransaction::GetSystemCatalogTransaction(context);
 	InitializeSecrets(transaction);
@@ -430,6 +431,7 @@ SecretType SecretManager::LookupTypeInternal(const string &type) {
 }
 
 vector<SecretEntry> SecretManager::AllSecrets(CatalogTransaction transaction) {
+	printf("SecretManager::AllSecrets\n");
 	InitializeSecrets(transaction);
 
 	vector<SecretEntry> result;
@@ -627,6 +629,7 @@ SecretManager &SecretManager::Get(DatabaseInstance &db) {
 
 void SecretManager::DropSecretByName(ClientContext &context, const string &name, OnEntryNotFound on_entry_not_found,
                                      SecretPersistType persist_type, const string &storage) {
+	printf("SecretManager::DropSecretByName '%s'\n", name.c_str());
 	auto transaction = CatalogTransaction::GetSystemCatalogTransaction(context);
 	return DropSecretByName(transaction, name, on_entry_not_found, persist_type, storage);
 }
