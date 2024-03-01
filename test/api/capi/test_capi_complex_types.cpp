@@ -422,3 +422,84 @@ TEST_CASE("Binding values", "[capi]") {
 		duckdb_destroy_logical_type(&logical_type);
 	}
 }
+
+TEST_CASE("Test Infinite Dates", "[capi]") {
+	CAPITester tester;
+	REQUIRE(tester.OpenDatabase(nullptr));
+
+	{
+		auto result = tester.Query("SELECT '-infinity'::DATE, 'epoch'::DATE, 'infinity'::DATE");
+		REQUIRE(NO_FAIL(*result));
+		REQUIRE(result->ColumnCount() == 3);
+		REQUIRE(result->ErrorMessage() == nullptr);
+
+		auto d = result->Fetch<duckdb_date>(0, 0);
+		REQUIRE(!duckdb_is_finite_date(d));
+		REQUIRE(d.days < 0);
+
+		d = result->Fetch<duckdb_date>(1, 0);
+		REQUIRE(duckdb_is_finite_date(d));
+		REQUIRE(d.days == 0);
+
+		d = result->Fetch<duckdb_date>(2, 0);
+		REQUIRE(!duckdb_is_finite_date(d));
+		REQUIRE(d.days > 0);
+	}
+
+	{
+		auto result = tester.Query("SELECT '-infinity'::TIMESTAMP, 'epoch'::TIMESTAMP, 'infinity'::TIMESTAMP");
+		REQUIRE(NO_FAIL(*result));
+		REQUIRE(result->ColumnCount() == 3);
+		REQUIRE(result->ErrorMessage() == nullptr);
+
+		auto ts = result->Fetch<duckdb_timestamp>(0, 0);
+		REQUIRE(!duckdb_is_finite_timestamp(ts));
+		REQUIRE(ts.micros < 0);
+
+		ts = result->Fetch<duckdb_timestamp>(1, 0);
+		REQUIRE(duckdb_is_finite_timestamp(ts));
+		REQUIRE(ts.micros == 0);
+
+		ts = result->Fetch<duckdb_timestamp>(2, 0);
+		REQUIRE(!duckdb_is_finite_timestamp(ts));
+		REQUIRE(ts.micros > 0);
+	}
+}
+
+TEST_CASE("Array type construction") {
+	CAPITester tester;
+	REQUIRE(tester.OpenDatabase(nullptr));
+
+	auto child_type = duckdb_create_logical_type(DUCKDB_TYPE_INTEGER);
+	auto array_type = duckdb_create_array_type(child_type, 3);
+
+	REQUIRE(duckdb_array_type_array_size(array_type) == 3);
+
+	auto get_child_type = duckdb_array_type_child_type(array_type);
+	REQUIRE(duckdb_get_type_id(get_child_type) == DUCKDB_TYPE_INTEGER);
+	duckdb_destroy_logical_type(&get_child_type);
+
+	duckdb_destroy_logical_type(&child_type);
+	duckdb_destroy_logical_type(&array_type);
+}
+
+TEST_CASE("Array value construction") {
+	CAPITester tester;
+	REQUIRE(tester.OpenDatabase(nullptr));
+
+	auto child_type = duckdb_create_logical_type(DUCKDB_TYPE_INTEGER);
+
+	duckdb::vector<duckdb_value> values;
+	values.push_back(duckdb_create_int64(42));
+	values.push_back(duckdb_create_int64(43));
+	values.push_back(duckdb_create_int64(44));
+
+	auto array_value = duckdb_create_array_value(child_type, values.data(), values.size());
+	REQUIRE(array_value);
+
+	duckdb_destroy_logical_type(&child_type);
+	for (auto &val : values) {
+		duckdb_destroy_value(&val);
+	}
+	duckdb_destroy_value(&array_value);
+}

@@ -27,6 +27,9 @@ inputs:
     default: ''
 
   # Build config
+  duckdb_arch:
+    description: 'Provide DUCKDB_PLATFORM to build system for cross compilation'
+    default: ''
   static_link_build:
     description: 'Links DuckDB statically to the loadable extensions'
     default: 1
@@ -113,6 +116,17 @@ runs:
         ls -al
         pwd
 
+    - name: Fix for MSVC issue (see e.g. https://github.com/TileDB-Inc/TileDB/pull/4759)
+      shell: bash
+      if: inputs.deploy_as == 'windows_amd64'
+      env:
+        OVERLAY_TRIPLET_SRC:  ${{ github.workspace }}/vcpkg/triplets/community/x64-windows-static-md.cmake
+        OVERLAY_TRIPLET_DST:  ${{ github.workspace }}/overlay_triplets/x64-windows-static-md.cmake
+      run: |
+        mkdir overlay_triplets
+        cp $OVERLAY_TRIPLET_SRC $OVERLAY_TRIPLET_DST
+        echo "set(VCPKG_PLATFORM_TOOLSET_VERSION "14.38")" >> $OVERLAY_TRIPLET_DST
+
     - name: Set Openssl dir
       if: inputs.openssl_path != ''
       shell: bash
@@ -140,6 +154,8 @@ runs:
         LOCAL_EXTENSION_REPO: ${{ inputs.run_autoload_tests == 1 && github.workspace || ''}}
         GEN: ${{ inputs.ninja == 1 && 'ninja' || '' }}
         USE_MERGED_VCPKG_MANIFEST: 1
+        DUCKDB_PLATFORM: ${{ inputs.duckdb_arch }}
+        VCPKG_OVERLAY_TRIPLETS: "${{ github.workspace }}/overlay_triplets"
       run: |
         ls
         mkdir -p ~/.ssh

@@ -1,5 +1,5 @@
 #include "duckdb/storage/table/column_data.hpp"
-
+#include "duckdb/common/exception/transaction_exception.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "duckdb/function/compression_function.hpp"
 #include "duckdb/planner/table_filter.hpp"
@@ -23,7 +23,7 @@ namespace duckdb {
 ColumnData::ColumnData(BlockManager &block_manager, DataTableInfo &info, idx_t column_index, idx_t start_row,
                        LogicalType type_p, optional_ptr<ColumnData> parent)
     : start(start_row), count(0), block_manager(block_manager), info(info), column_index(column_index),
-      type(std::move(type_p)), parent(parent), version(0) {
+      type(std::move(type_p)), parent(parent), version(0), allocation_size(0) {
 	if (!parent) {
 		stats = make_uniq<SegmentStatistics>(type);
 	}
@@ -113,8 +113,15 @@ idx_t ColumnData::ScanVector(ColumnScanState &state, Vector &result, idx_t remai
 		idx_t scan_count = MinValue<idx_t>(remaining, state.current->start + state.current->count - state.row_index);
 		idx_t result_offset = initial_remaining - remaining;
 		if (scan_count > 0) {
-			state.current->Scan(state, scan_count, result, result_offset,
-			                    !has_updates && scan_count == initial_remaining);
+			if (state.scan_options && state.scan_options->force_fetch_row) {
+				for (idx_t i = 0; i < scan_count; i++) {
+					ColumnFetchState fetch_state;
+					state.current->FetchRow(fetch_state, state.row_index + i, result, result_offset + i);
+				}
+			} else {
+				state.current->Scan(state, scan_count, result, result_offset,
+				                    !has_updates && scan_count == initial_remaining);
+			}
 
 			state.row_index += scan_count;
 			remaining -= scan_count;
@@ -203,8 +210,10 @@ idx_t ColumnData::ScanCount(ColumnScanState &state, Vector &result, idx_t count)
 void ColumnData::Select(TransactionData transaction, idx_t vector_index, ColumnScanState &state, Vector &result,
                         SelectionVector &sel, idx_t &count, const TableFilter &filter) {
 	idx_t scan_count = Scan(transaction, vector_index, state, result);
-	result.Flatten(scan_count);
-	ColumnSegment::FilterSelection(sel, result, filter, count, FlatVector::Validity(result));
+
+	UnifiedVectorFormat vdata;
+	result.ToUnifiedFormat(scan_count, vdata);
+	ColumnSegment::FilterSelection(sel, result, vdata, filter, scan_count, count);
 }
 
 void ColumnData::FilterScan(TransactionData transaction, idx_t vector_index, ColumnScanState &state, Vector &result,
@@ -387,14 +396,19 @@ unique_ptr<BaseStatistics> ColumnData::GetUpdateStatistics() {
 }
 
 void ColumnData::AppendTransientSegment(SegmentLock &l, idx_t start_row) {
-	idx_t segment_size = Storage::BLOCK_SIZE;
+
+	idx_t vector_segment_size = Storage::BLOCK_SIZE;
 	if (start_row == idx_t(MAX_ROW_ID)) {
 #if STANDARD_VECTOR_SIZE < 1024
-		segment_size = 1024 * GetTypeIdSize(type.InternalType());
+		vector_segment_size = 1024 * GetTypeIdSize(type.InternalType());
 #else
-		segment_size = STANDARD_VECTOR_SIZE * GetTypeIdSize(type.InternalType());
+		vector_segment_size = STANDARD_VECTOR_SIZE * GetTypeIdSize(type.InternalType());
 #endif
 	}
+
+	// the segment size is bound by the block size, but can be smaller
+	idx_t segment_size = Storage::BLOCK_SIZE < vector_segment_size ? Storage::BLOCK_SIZE : vector_segment_size;
+	allocation_size += segment_size;
 	auto new_segment = ColumnSegment::CreateTransientSegment(GetDatabase(), type, start_row, segment_size);
 	data.AppendSegment(l, std::move(new_segment));
 }
@@ -413,7 +427,15 @@ unique_ptr<ColumnCheckpointState> ColumnData::CreateCheckpointState(RowGroup &ro
 
 void ColumnData::CheckpointScan(ColumnSegment &segment, ColumnScanState &state, idx_t row_group_start, idx_t count,
                                 Vector &scan_vector) {
-	segment.Scan(state, count, scan_vector, 0, true);
+	if (state.scan_options && state.scan_options->force_fetch_row) {
+		for (idx_t i = 0; i < count; i++) {
+			ColumnFetchState fetch_state;
+			segment.FetchRow(fetch_state, state.row_index + i, scan_vector, i);
+		}
+	} else {
+		segment.Scan(state, count, scan_vector, 0, true);
+	}
+
 	if (updates) {
 		scan_vector.Flatten(count);
 		updates->FetchCommittedRange(state.row_index - row_group_start, count, scan_vector);
@@ -447,7 +469,7 @@ unique_ptr<ColumnCheckpointState> ColumnData::Checkpoint(RowGroup &row_group,
 	return checkpoint_state;
 }
 
-void ColumnData::DeserializeColumn(Deserializer &deserializer) {
+void ColumnData::DeserializeColumn(Deserializer &deserializer, BaseStatistics &target_stats) {
 	// load the data pointers for the column
 	deserializer.Set<DatabaseInstance &>(info.db.GetDatabase());
 	deserializer.Set<LogicalType &>(type);
@@ -463,9 +485,11 @@ void ColumnData::DeserializeColumn(Deserializer &deserializer) {
 	for (auto &data_pointer : data_pointers) {
 		// Update the count and statistics
 		this->count += data_pointer.tuple_count;
-		if (stats) {
-			stats->statistics.Merge(data_pointer.statistics);
-		}
+
+		// Merge the statistics. If this is a child column, the target_stats reference will point into the parents stats
+		// otherwise if this is a top level column, `stats->statistics` == `target_stats`
+
+		target_stats.Merge(data_pointer.statistics);
 
 		// create a persistent segment
 		auto segment = ColumnSegment::CreatePersistentSegment(
@@ -478,12 +502,11 @@ void ColumnData::DeserializeColumn(Deserializer &deserializer) {
 }
 
 shared_ptr<ColumnData> ColumnData::Deserialize(BlockManager &block_manager, DataTableInfo &info, idx_t column_index,
-                                               idx_t start_row, ReadStream &source, const LogicalType &type,
-                                               optional_ptr<ColumnData> parent) {
-	auto entry = ColumnData::CreateColumn(block_manager, info, column_index, start_row, type, parent);
+                                               idx_t start_row, ReadStream &source, const LogicalType &type) {
+	auto entry = ColumnData::CreateColumn(block_manager, info, column_index, start_row, type, nullptr);
 	BinaryDeserializer deserializer(source);
 	deserializer.Begin();
-	entry->DeserializeColumn(deserializer);
+	entry->DeserializeColumn(deserializer, entry->stats->statistics);
 	deserializer.End();
 	return entry;
 }

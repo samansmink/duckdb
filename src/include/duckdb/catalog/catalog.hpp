@@ -16,6 +16,7 @@
 #include "duckdb/common/atomic.hpp"
 #include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/enums/on_entry_not_found.hpp"
+#include "duckdb/common/exception/catalog_exception.hpp"
 #include <functional>
 
 namespace duckdb {
@@ -190,6 +191,10 @@ public:
 	DUCKDB_API optional_ptr<SchemaCatalogEntry> GetSchema(ClientContext &context, const string &name,
 	                                                      OnEntryNotFound if_not_found,
 	                                                      QueryErrorContext error_context = QueryErrorContext());
+	//! Overloadable method for giving warnings on ambiguous naming id.tab due to a database and schema with name id
+	DUCKDB_API virtual bool CheckAmbiguousCatalogOrSchema(ClientContext &context, const string &name) {
+		return !!GetSchema(context, name, OnEntryNotFound::RETURN_NULL);
+	}
 	DUCKDB_API SchemaCatalogEntry &GetSchema(CatalogTransaction transaction, const string &name,
 	                                         QueryErrorContext error_context = QueryErrorContext());
 	DUCKDB_API virtual optional_ptr<SchemaCatalogEntry>
@@ -238,7 +243,7 @@ public:
 			return nullptr;
 		}
 		if (entry->type != T::Type) {
-			throw CatalogException(error_context.FormatError("%s is not an %s", name, T::Name));
+			throw CatalogException(error_context, "%s is not an %s", name, T::Name);
 		}
 		return &entry->template Cast<T>();
 	}
@@ -282,7 +287,7 @@ public:
 			return nullptr;
 		}
 		if (entry->type != T::Type) {
-			throw CatalogException(error_context.FormatError("%s is not an %s", name, T::Name));
+			throw CatalogException(error_context, "%s is not an %s", name, T::Name);
 		}
 		return &entry->template Cast<T>();
 	}
@@ -306,7 +311,7 @@ public:
 	//! Autoload the extension required for `configuration_name` or throw a CatalogException
 	static void AutoloadExtensionByConfigName(ClientContext &context, const string &configuration_name);
 	//! Autoload the extension required for `function_name` or throw a CatalogException
-	static bool AutoLoadExtensionByCatalogEntry(ClientContext &context, CatalogType type, const string &entry_name);
+	static bool AutoLoadExtensionByCatalogEntry(DatabaseInstance &db, CatalogType type, const string &entry_name);
 	DUCKDB_API static bool TryAutoLoad(ClientContext &context, const string &extension_name) noexcept;
 
 protected:
@@ -347,7 +352,7 @@ private:
 public:
 	template <class TARGET>
 	TARGET &Cast() {
-		D_ASSERT(dynamic_cast<TARGET *>(this));
+		DynamicCastCheck<TARGET>(this);
 		return reinterpret_cast<TARGET &>(*this);
 	}
 

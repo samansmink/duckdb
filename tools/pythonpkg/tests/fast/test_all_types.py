@@ -89,6 +89,14 @@ all_types = [
     "array_of_structs",
     "map",
     "union",
+    "fixed_int_array",
+    "fixed_varchar_array",
+    "fixed_nested_int_array",
+    "fixed_nested_varchar_array",
+    "fixed_struct_array",
+    "struct_of_fixed_array",
+    "fixed_array_of_int_list",
+    "list_of_fixed_int_array",
 ]
 
 
@@ -111,6 +119,7 @@ class TestAllTypes(object):
         }
         adjusted_values = {
             'time': """CASE WHEN "time" = '24:00:00'::TIME THEN '23:59:59.999999'::TIME ELSE "time" END AS "time" """,
+            'time_tz': """CASE WHEN time_tz = '24:00:00-1559'::TIMETZ THEN '23:59:59.999999-1559'::TIMETZ ELSE time_tz END AS "time_tz" """,
         }
         min_datetime = datetime.datetime.min
         min_datetime_with_utc = min_datetime.replace(tzinfo=pytz.UTC)
@@ -201,7 +210,11 @@ class TestAllTypes(object):
                 (None,),
             ],
             'array_of_structs': [([],), ([{'a': None, 'b': None}, {'a': 42, 'b': '🦆🦆🦆🦆🦆🦆'}, None],), (None,)],
-            'map': [({'key': [], 'value': []},), ({'key': ['key1', 'key2'], 'value': ['🦆🦆🦆🦆🦆🦆', 'goose']},), (None,)],
+            'map': [
+                ({'key': [], 'value': []},),
+                ({'key': ['key1', 'key2'], 'value': ['🦆🦆🦆🦆🦆🦆', 'goose']},),
+                (None,),
+            ],
             'time_tz': [(datetime.time(0, 0),), (datetime.time(23, 59, 59, 999999),), (None,)],
             'interval': [
                 (datetime.timedelta(0),),
@@ -215,6 +228,38 @@ class TestAllTypes(object):
             'timestamp_ms': [(datetime.datetime(1990, 1, 1, 0, 0),)],
             'timestamp_tz': [(datetime.datetime(1990, 1, 1, 0, 0, tzinfo=pytz.UTC),)],
             'union': [('Frank',), (5,), (None,)],
+            'fixed_int_array': [((None, 2, 3),), ((4, 5, 6),), (None,)],
+            'fixed_varchar_array': [(('a', None, 'c'),), (('d', 'e', 'f'),), (None,)],
+            'fixed_nested_int_array': [
+                (((None, 2, 3), None, (None, 2, 3)),),
+                (((4, 5, 6), (None, 2, 3), (4, 5, 6)),),
+                (None,),
+            ],
+            'fixed_nested_varchar_array': [
+                ((('a', None, 'c'), None, ('a', None, 'c')),),
+                ((('d', 'e', 'f'), ('a', None, 'c'), ('d', 'e', 'f')),),
+                (None,),
+            ],
+            'fixed_struct_array': [
+                (({'a': None, 'b': None}, {'a': 42, 'b': '🦆🦆🦆🦆🦆🦆'}, {'a': None, 'b': None}),),
+                (({'a': 42, 'b': '🦆🦆🦆🦆🦆🦆'}, {'a': None, 'b': None}, {'a': 42, 'b': '🦆🦆🦆🦆🦆🦆'}),),
+                (None,),
+            ],
+            'struct_of_fixed_array': [
+                ({'a': (None, 2, 3), 'b': ('a', None, 'c')},),
+                ({'a': (4, 5, 6), 'b': ('d', 'e', 'f')},),
+                (None,),
+            ],
+            'fixed_array_of_int_list': [
+                (([], [42, 999, None, None, -42], []),),
+                (([42, 999, None, None, -42], [], [42, 999, None, None, -42]),),
+                (None,),
+            ],
+            'list_of_fixed_int_array': [
+                ([(None, 2, 3), (4, 5, 6), (None, 2, 3)],),
+                ([(4, 5, 6), (None, 2, 3), (4, 5, 6)],),
+                (None,),
+            ],
         }
         if cur_type in replacement_values:
             result = conn.execute("select " + replacement_values[cur_type]).fetchall()

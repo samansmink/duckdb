@@ -9,7 +9,7 @@
 #pragma once
 
 #include "duckdb/common/atomic.hpp"
-#include "duckdb/common/constants.hpp"
+#include "duckdb/common/common.hpp"
 #include "duckdb/common/enums/file_compression_type.hpp"
 #include "duckdb/common/enums/file_glob_options.hpp"
 #include "duckdb/common/exception.hpp"
@@ -122,7 +122,7 @@ public:
 
 	template <class TARGET>
 	TARGET &Cast() {
-		D_ASSERT(dynamic_cast<TARGET *>(this));
+		DynamicCastCheck<TARGET>(this);
 		return reinterpret_cast<TARGET &>(*this);
 	}
 	template <class TARGET>

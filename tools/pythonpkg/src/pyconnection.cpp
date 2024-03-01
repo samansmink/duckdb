@@ -61,6 +61,14 @@ DBInstanceCache instance_cache;
 shared_ptr<PythonImportCache> DuckDBPyConnection::import_cache = nullptr;
 PythonEnvironmentType DuckDBPyConnection::environment = PythonEnvironmentType::NORMAL;
 
+DuckDBPyConnection::~DuckDBPyConnection() {
+	py::gil_scoped_release gil;
+	// Release any structures that do not need to hold the GIL here
+	database.reset();
+	connection.reset();
+	temporary_views.clear();
+}
+
 void DuckDBPyConnection::DetectEnvironment() {
 	// If __main__ does not have a __file__ attribute, we are in interactive mode
 	auto main_module = py::module_::import("__main__");
@@ -123,7 +131,7 @@ static void InitializeConnectionMethods(py::class_<DuckDBPyConnection, shared_pt
 
 	m.def("create_function", &DuckDBPyConnection::RegisterScalarUDF,
 	      "Create a DuckDB function out of the passing in Python function so it can be used in queries",
-	      py::arg("name"), py::arg("function"), py::arg("return_type") = py::none(), py::arg("parameters") = py::none(),
+	      py::arg("name"), py::arg("function"), py::arg("parameters") = py::none(), py::arg("return_type") = py::none(),
 	      py::kw_only(), py::arg("type") = PythonUDFType::NATIVE, py::arg("null_handling") = 0,
 	      py::arg("exception_handling") = 0, py::arg("side_effects") = false);
 
@@ -132,8 +140,11 @@ static void InitializeConnectionMethods(py::class_<DuckDBPyConnection, shared_pt
 
 	DefineMethod({"sqltype", "dtype", "type"}, m, &DuckDBPyConnection::Type,
 	             "Create a type object by parsing the 'type_str' string", py::arg("type_str"));
-	DefineMethod({"array_type", "list_type"}, m, &DuckDBPyConnection::ArrayType,
-	             "Create an array type object of 'type'", py::arg("type").none(false));
+
+	m.def("array_type", &DuckDBPyConnection::ArrayType, "Create an array type object of 'type'",
+	      py::arg("type").none(false), py::arg("size").none(false));
+	m.def("list_type", &DuckDBPyConnection::ListType, "Create a list type object of 'type'",
+	      py::arg("type").none(false));
 	m.def("union_type", &DuckDBPyConnection::UnionType, "Create a union type object from 'members'",
 	      py::arg("members").none(false))
 	    .def("string_type", &DuckDBPyConnection::StringType, "Create a string type with an optional collation",
@@ -379,8 +390,16 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::ExecuteMany(const string &que
 	return shared_from_this();
 }
 
+static std::function<bool(PendingExecutionResult)> FinishedCondition(PendingQueryResult &pending_query) {
+	if (pending_query.AllowStreamResult()) {
+		return PendingQueryResult::IsFinishedOrBlocked;
+	}
+	return PendingQueryResult::IsFinished;
+}
+
 unique_ptr<QueryResult> DuckDBPyConnection::CompletePendingQuery(PendingQueryResult &pending_query) {
 	PendingExecutionResult execution_result;
+	auto is_finished = FinishedCondition(pending_query);
 	do {
 		execution_result = pending_query.ExecuteTask();
 		{
@@ -389,7 +408,7 @@ unique_ptr<QueryResult> DuckDBPyConnection::CompletePendingQuery(PendingQueryRes
 				throw std::runtime_error("Query interrupted");
 			}
 		}
-	} while (!PendingQueryResult::IsFinished(execution_result));
+	} while (!is_finished(execution_result));
 	if (execution_result == PendingExecutionResult::EXECUTION_ERROR) {
 		pending_query.ThrowError();
 	}
@@ -611,6 +630,10 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::RegisterPythonObject(const st
 		RegisterArrowObject(arrow_object, name);
 	} else if (DuckDBPyRelation::IsRelation(python_object)) {
 		auto pyrel = py::cast<DuckDBPyRelation *>(python_object);
+		if (!pyrel->CanBeRegisteredBy(*connection)) {
+			throw InvalidInputException(
+			    "The relation you are attempting to register was not made from this connection");
+		}
 		pyrel->CreateView(name, true);
 	} else {
 		auto py_object_type = string(py::str(python_object.get_type().attr("__name__")));

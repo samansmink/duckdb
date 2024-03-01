@@ -56,6 +56,7 @@ OptionValueSet &GetValueForOption(const string &name) {
 	    {"debug_force_external", {Value(true)}},
 	    {"debug_force_no_cross_product", {Value(true)}},
 	    {"debug_force_external", {Value(true)}},
+	    {"old_implicit_casting", {Value(true)}},
 	    {"prefer_range_joins", {Value(true)}},
 	    {"allow_persistent_secrets", {Value(false)}},
 	    {"secret_directory", {"/tmp/some/path"}},
@@ -76,8 +77,8 @@ OptionValueSet &GetValueForOption(const string &name) {
 	    {"enable_object_cache", {true}},
 	    {"enable_profiling", {"json"}},
 	    {"enable_progress_bar", {true}},
+	    {"errors_as_json", {true}},
 	    {"explain_output", {{"all", "optimized_only", "physical_only"}}},
-	    {"external_threads", {8}},
 	    {"file_search_path", {"test"}},
 	    {"force_compression", {"uncompressed", "Uncompressed"}},
 	    {"home_directory", {"test"}},
@@ -127,8 +128,8 @@ bool OptionIsExcludedFromTest(const string &name) {
 	    "password",
 	    "username",
 	    "user",
+	    "external_threads", // tested in test_threads.cpp
 	    "profiling_output", // just an alias
-	    "profiler_history_size",
 	    "duckdb_api",
 	    "custom_user_agent"};
 	return excluded_options.count(name) == 1;

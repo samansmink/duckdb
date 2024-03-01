@@ -19,7 +19,8 @@ struct hash<duckdb::interval_t> {
 	inline size_t operator()(const duckdb::interval_t &val) const {
 		int64_t months, days, micros;
 		val.Normalize(months, days, micros);
-		return hash<int32_t> {}(days) ^ hash<int32_t> {}(months) ^ hash<int64_t> {}(micros);
+		return hash<int32_t> {}(duckdb::UnsafeNumericCast<int32_t>(days)) ^
+		       hash<int32_t> {}(duckdb::UnsafeNumericCast<int32_t>(months)) ^ hash<int64_t> {}(micros);
 	}
 };
 
@@ -312,7 +313,8 @@ template <typename INPUT_TYPE, typename KEY_TYPE, typename ASSIGN_OP = ModeAssig
 AggregateFunction GetTypedModeFunction(const LogicalType &type) {
 	using STATE = ModeState<KEY_TYPE>;
 	using OP = ModeFunction<KEY_TYPE, ASSIGN_OP>;
-	auto func = AggregateFunction::UnaryAggregateDestructor<STATE, INPUT_TYPE, INPUT_TYPE, OP>(type, type);
+	auto return_type = type.id() == LogicalTypeId::ANY ? LogicalType::VARCHAR : type;
+	auto func = AggregateFunction::UnaryAggregateDestructor<STATE, INPUT_TYPE, INPUT_TYPE, OP>(type, return_type);
 	func.window = AggregateFunction::UnaryWindow<STATE, INPUT_TYPE, INPUT_TYPE, OP>;
 	return func;
 }
@@ -349,7 +351,8 @@ AggregateFunction GetModeAggregate(const LogicalType &type) {
 		return GetTypedModeFunction<interval_t, interval_t>(type);
 
 	case PhysicalType::VARCHAR:
-		return GetTypedModeFunction<string_t, string, ModeAssignmentString>(type);
+		return GetTypedModeFunction<string_t, string, ModeAssignmentString>(
+		    LogicalType::ANY_PARAMS(LogicalType::VARCHAR, 150));
 
 	default:
 		throw NotImplementedException("Unimplemented mode aggregate");

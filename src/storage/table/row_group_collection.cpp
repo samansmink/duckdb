@@ -54,7 +54,7 @@ unique_ptr<RowGroup> RowGroupSegmentTree::LoadSegment() {
 RowGroupCollection::RowGroupCollection(shared_ptr<DataTableInfo> info_p, BlockManager &block_manager,
                                        vector<LogicalType> types_p, idx_t row_start_p, idx_t total_rows_p)
     : block_manager(block_manager), total_rows(total_rows_p), info(std::move(info_p)), types(std::move(types_p)),
-      row_start(row_start_p) {
+      row_start(row_start_p), allocation_size(0) {
 	row_groups = make_shared<RowGroupSegmentTree>(*this);
 }
 
@@ -345,7 +345,9 @@ bool RowGroupCollection::Append(DataChunk &chunk, TableAppendState &state) {
 		idx_t append_count =
 		    MinValue<idx_t>(remaining, Storage::ROW_GROUP_SIZE - state.row_group_append_state.offset_in_row_group);
 		if (append_count > 0) {
+			auto previous_allocation_size = current_row_group->GetAllocationSize();
 			current_row_group->Append(state.row_group_append_state, chunk, append_count);
+			allocation_size += current_row_group->GetAllocationSize() - previous_allocation_size;
 			// merge the stats
 			auto stats_lock = stats.GetLock();
 			for (idx_t i = 0; i < types.size(); i++) {
@@ -616,7 +618,7 @@ struct CollectionCheckpointState {
 	mutex write_lock;
 
 public:
-	void PushError(PreservedError error) {
+	void PushError(ErrorData error) {
 		error_manager.PushError(std::move(error));
 	}
 	bool HasError() {
@@ -642,6 +644,27 @@ public:
 		}
 		return false;
 	}
+	void CancelTasks() {
+		// This should only be called after an error has occurred, no other mechanism to cancel checkpoint tasks exists
+		// currently
+		D_ASSERT(error_manager.HasError());
+		// Give every pending task the chance to cancel
+		WorkOnTasks();
+		// Wait for all active tasks to realize they have been canceled
+		while (completed_tasks != total_tasks) {
+		}
+	}
+
+	void WorkOnTasks() {
+		shared_ptr<Task> task_from_producer;
+		while (scheduler.GetTaskFromProducer(*token, task_from_producer)) {
+			auto res = task_from_producer->Execute(TaskExecutionMode::PROCESS_ALL);
+			(void)res;
+			D_ASSERT(res != TaskExecutionResult::TASK_BLOCKED);
+			task_from_producer.reset();
+		}
+	}
+
 	bool GetTask(shared_ptr<Task> &task) {
 		return scheduler.GetTaskFromProducer(*token, task);
 	}
@@ -660,20 +683,22 @@ public:
 
 	virtual void ExecuteTask() = 0;
 	TaskExecutionResult Execute(TaskExecutionMode mode) override {
+		(void)mode;
+		D_ASSERT(mode == TaskExecutionMode::PROCESS_ALL);
 		if (checkpoint_state.HasError()) {
+			checkpoint_state.FinishTask();
 			return TaskExecutionResult::TASK_FINISHED;
 		}
 		try {
 			ExecuteTask();
 			checkpoint_state.FinishTask();
 			return TaskExecutionResult::TASK_FINISHED;
-		} catch (Exception &ex) {
-			checkpoint_state.PushError(PreservedError(ex));
 		} catch (std::exception &ex) {
-			checkpoint_state.PushError(PreservedError(ex));
+			checkpoint_state.PushError(ErrorData(ex));
 		} catch (...) { // LCOV_EXCL_START
-			checkpoint_state.PushError(PreservedError("Unknown exception during Checkpoint!"));
+			checkpoint_state.PushError(ErrorData("Unknown exception during Checkpoint!"));
 		} // LCOV_EXCL_STOP
+		checkpoint_state.FinishTask();
 		return TaskExecutionResult::TASK_ERROR;
 	}
 
@@ -753,11 +778,14 @@ public:
 		scan_state.Initialize(column_ids);
 		scan_state.table_state.Initialize(types);
 		scan_state.table_state.max_row = idx_t(-1);
-		idx_t next_idx = segment_idx + merge_count;
-		for (idx_t c_idx = segment_idx; c_idx < next_idx; c_idx++) {
+		idx_t merged_groups = 0;
+		idx_t total_row_groups = vacuum_state.row_group_counts.size();
+		for (idx_t c_idx = segment_idx; merged_groups < merge_count && c_idx < total_row_groups; c_idx++) {
 			if (vacuum_state.row_group_counts[c_idx] == 0) {
 				continue;
 			}
+			merged_groups++;
+
 			auto &current_row_group = *checkpoint_state.segments[c_idx].node;
 
 			current_row_group.InitializeScan(scan_state.table_state);
@@ -777,7 +805,9 @@ public:
 					                                           append_count);
 					append_counts[current_append_idx] += append_count;
 					remaining -= append_count;
-					if (remaining > 0) {
+					const bool row_group_full = append_counts[current_append_idx] == Storage::ROW_GROUP_SIZE;
+					const bool last_row_group = current_append_idx + 1 >= new_row_groups.size();
+					if (remaining > 0 || (row_group_full && !last_row_group)) {
 						// move to the next row group
 						current_append_idx++;
 						new_row_groups[current_append_idx]->InitializeAppend(append_state.row_group_append_state);
@@ -944,8 +974,10 @@ void RowGroupCollection::Checkpoint(TableDataWriter &writer, TableStatistics &gl
 	// check if we ran into any errors while checkpointing
 	if (checkpoint_state.HasError()) {
 		// throw the error
+		checkpoint_state.CancelTasks();
 		checkpoint_state.ThrowError();
 	}
+
 	// no errors - finalize the row groups
 	idx_t new_total_rows = 0;
 	for (idx_t segment_idx = 0; segment_idx < segments.size(); segment_idx++) {

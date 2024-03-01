@@ -54,7 +54,7 @@ unique_ptr<FunctionData> JSONReadFunctionData::Bind(ClientContext &context, Scal
                                                     vector<unique_ptr<Expression>> &arguments) {
 	D_ASSERT(bound_function.arguments.size() == 2);
 	bool constant = false;
-	string path = "";
+	string path;
 	size_t len = 0;
 	JSONPathType path_type = JSONPathType::REGULAR;
 	if (arguments[1]->IsFoldable()) {
@@ -62,6 +62,7 @@ unique_ptr<FunctionData> JSONReadFunctionData::Bind(ClientContext &context, Scal
 		const auto path_val = ExpressionExecutor::EvaluateScalar(context, *arguments[1]);
 		path_type = CheckPath(path_val, path, len);
 	}
+	bound_function.arguments[1] = LogicalType::VARCHAR;
 	if (path_type == JSONCommon::JSONPathType::WILDCARD) {
 		bound_function.return_type = LogicalType::LIST(bound_function.return_type);
 	}
@@ -223,8 +224,7 @@ static bool CastVarcharToJSON(Vector &source, Vector &result, idx_t count, CastP
 		    if (!doc) {
 			    mask.SetInvalid(idx);
 			    if (success) {
-				    HandleCastError::AssignError(JSONCommon::FormatParseError(data, length, error),
-				                                 parameters.error_message);
+				    HandleCastError::AssignError(JSONCommon::FormatParseError(data, length, error), parameters);
 				    success = false;
 			    }
 		    }
@@ -247,7 +247,7 @@ void JSONFunctions::RegisterSimpleCastFunctions(CastFunctionSet &casts) {
 
 	// Register NULL to JSON with a different cost than NULL to VARCHAR so the binder can disambiguate functions
 	auto null_to_json_cost = casts.ImplicitCastCost(LogicalType::SQLNULL, LogicalTypeId::VARCHAR) + 1;
-	casts.RegisterCastFunction(LogicalType::SQLNULL, LogicalType::JSON(), DefaultCasts::ReinterpretCast,
+	casts.RegisterCastFunction(LogicalType::SQLNULL, LogicalType::JSON(), DefaultCasts::TryVectorNullCast,
 	                           null_to_json_cost);
 }
 

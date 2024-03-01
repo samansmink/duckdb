@@ -111,7 +111,7 @@ interval_parse_number:
 				return false;
 			}
 			// finished the number, parse it from the string
-			string_t nr_string(str + start_pos, pos - start_pos);
+			string_t nr_string(str + start_pos, UnsafeNumericCast<uint32_t>(pos - start_pos));
 			number = Cast::Operation<string_t, int64_t>(nr_string);
 			fraction = 0;
 			if (c == '.') {
@@ -511,6 +511,10 @@ dtime_t Interval::Add(dtime_t left, interval_t right, date_t &date) {
 		date.days--;
 	}
 	return left;
+}
+
+dtime_tz_t Interval::Add(dtime_tz_t left, interval_t right, date_t &date) {
+	return dtime_tz_t(Interval::Add(left.time(), right, date), left.offset());
 }
 
 timestamp_t Interval::Add(timestamp_t left, interval_t right) {

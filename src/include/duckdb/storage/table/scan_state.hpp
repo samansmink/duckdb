@@ -31,6 +31,7 @@ class TableFilterSet;
 class ColumnData;
 class DuckTransaction;
 class RowGroupSegmentTree;
+struct TableScanOptions;
 
 struct SegmentScanState {
 	virtual ~SegmentScanState() {
@@ -38,7 +39,7 @@ struct SegmentScanState {
 
 	template <class TARGET>
 	TARGET &Cast() {
-		D_ASSERT(dynamic_cast<TARGET *>(this));
+		DynamicCastCheck<TARGET>(this);
 		return reinterpret_cast<TARGET &>(*this);
 	}
 	template <class TARGET>
@@ -54,7 +55,7 @@ struct IndexScanState {
 
 	template <class TARGET>
 	TARGET &Cast() {
-		D_ASSERT(dynamic_cast<TARGET *>(this));
+		DynamicCastCheck<TARGET>(this);
 		return reinterpret_cast<TARGET &>(*this);
 	}
 	template <class TARGET>
@@ -92,9 +93,11 @@ struct ColumnScanState {
 	vector<unique_ptr<SegmentScanState>> previous_states;
 	//! The last read offset in the child state (used for LIST columns only)
 	idx_t last_offset = 0;
+	//! Contains TableScan level config for scanning
+	optional_ptr<TableScanOptions> scan_options;
 
 public:
-	void Initialize(const LogicalType &type);
+	void Initialize(const LogicalType &type, optional_ptr<TableScanOptions> options);
 	//! Move the scan state forward by "count" rows (including all child states)
 	void Next(idx_t count);
 	//! Move ONLY this state forward by "count" rows (i.e. not the child states)
@@ -134,12 +137,18 @@ public:
 	const vector<storage_t> &GetColumnIds();
 	TableFilterSet *GetFilters();
 	AdaptiveFilter *GetAdaptiveFilter();
+	TableScanOptions &GetOptions();
 	bool Scan(DuckTransaction &transaction, DataChunk &result);
 	bool ScanCommitted(DataChunk &result, TableScanType type);
 	bool ScanCommitted(DataChunk &result, SegmentLock &l, TableScanType type);
 
 private:
 	TableScanState &parent;
+};
+
+struct TableScanOptions {
+	//! Test config that forces fetching rows one by one instead of regular scans
+	bool force_fetch_row = false;
 };
 
 class TableScanState {
@@ -150,6 +159,8 @@ public:
 	CollectionScanState table_state;
 	//! Transaction-local scan state
 	CollectionScanState local_state;
+	//! Options for scanning
+	TableScanOptions options;
 
 public:
 	void Initialize(vector<storage_t> column_ids, TableFilterSet *table_filters = nullptr);

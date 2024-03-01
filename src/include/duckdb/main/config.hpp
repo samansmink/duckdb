@@ -30,8 +30,10 @@
 #include "duckdb/planner/operator_extension.hpp"
 #include "duckdb/storage/compression/bitpacking.hpp"
 #include "duckdb/main/client_properties.hpp"
+#include "duckdb/execution/index/index_type_set.hpp"
 
 namespace duckdb {
+
 class BufferPool;
 class CastFunctionSet;
 class ClientContext;
@@ -110,12 +112,17 @@ struct DBConfigOptions {
 #else
 	bool autoinstall_known_extensions = false;
 #endif
+	//! Override for the default extension repository
+	string custom_extension_repo = "";
+	//! Override for the default autoload extensoin repository
+	string autoinstall_extension_repo = "";
 	//! The maximum memory used by the database system (in bytes). Default: 80% of System available memory
 	idx_t maximum_memory = (idx_t)-1;
 	//! The maximum amount of CPU threads used by the database system. Default: all available.
 	idx_t maximum_threads = (idx_t)-1;
-	//! The number of external threads that work on DuckDB tasks. Default: none.
-	idx_t external_threads = 0;
+	//! The number of external threads that work on DuckDB tasks. Default: 1.
+	//! Must be smaller or equal to maximum_threads.
+	idx_t external_threads = 1;
 	//! Whether or not to create and use a temporary directory to store intermediates that do not fit in memory
 	bool use_temporary_directory = true;
 	//! Directory to store temporary structures that do not fit in memory
@@ -181,6 +188,8 @@ struct DBConfigOptions {
 	string duckdb_api;
 	//! Metadata from DuckDB callers
 	string custom_user_agent;
+	//! Use old implicit casting style (i.e. allow everything to be implicitly casted to VARCHAR)
+	bool old_implicit_casting = false;
 
 	bool operator==(const DBConfigOptions &other) const;
 };
@@ -243,7 +252,6 @@ public:
 	DUCKDB_API static ConfigurationOption *GetOptionByIndex(idx_t index);
 	//! Fetch an option by name. Returns a pointer to the option, or nullptr if none exists.
 	DUCKDB_API static ConfigurationOption *GetOptionByName(const string &name);
-
 	DUCKDB_API void SetOption(const ConfigurationOption &option, const Value &value);
 	DUCKDB_API void SetOption(DatabaseInstance *db, const ConfigurationOption &option, const Value &value);
 	DUCKDB_API void SetOptionByName(const string &name, const Value &value);
@@ -265,8 +273,8 @@ public:
 	bool operator!=(const DBConfig &other);
 
 	DUCKDB_API CastFunctionSet &GetCastFunctions();
+	DUCKDB_API IndexTypeSet &GetIndexTypes();
 	static idx_t GetSystemMaxThreads(FileSystem &fs);
-	void SetDefaultMaxThreads();
 	void SetDefaultMaxMemory();
 
 	OrderType ResolveOrder(OrderType order_type) const;
@@ -276,6 +284,7 @@ public:
 private:
 	unique_ptr<CompressionFunctionSet> compression_functions;
 	unique_ptr<CastFunctionSet> cast_functions;
+	unique_ptr<IndexTypeSet> index_types;
 };
 
 } // namespace duckdb

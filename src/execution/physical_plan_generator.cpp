@@ -92,9 +92,6 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalOperator &
 	case LogicalOperatorType::LOGICAL_LIMIT:
 		plan = CreatePlan(op.Cast<LogicalLimit>());
 		break;
-	case LogicalOperatorType::LOGICAL_LIMIT_PERCENT:
-		plan = CreatePlan(op.Cast<LogicalLimitPercent>());
-		break;
 	case LogicalOperatorType::LOGICAL_SAMPLE:
 		plan = CreatePlan(op.Cast<LogicalSample>());
 		break;
@@ -158,9 +155,6 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalOperator &
 		break;
 	case LogicalOperatorType::LOGICAL_EXPLAIN:
 		plan = CreatePlan(op.Cast<LogicalExplain>());
-		break;
-	case LogicalOperatorType::LOGICAL_SHOW:
-		plan = CreatePlan(op.Cast<LogicalShow>());
 		break;
 	case LogicalOperatorType::LOGICAL_DISTINCT:
 		plan = CreatePlan(op.Cast<LogicalDistinct>());

@@ -26,7 +26,6 @@ add_library_unity(
   plan_get.cpp
   plan_insert.cpp
   plan_limit.cpp
-  plan_limit_percent.cpp
   plan_order.cpp
   plan_pivot.cpp
   plan_positional_join.cpp
@@ -37,7 +36,6 @@ add_library_unity(
   plan_set.cpp
   plan_reset.cpp
   plan_sample.cpp
-  plan_show_select.cpp
   plan_simple.cpp
   plan_top_n.cpp
   plan_update.cpp
