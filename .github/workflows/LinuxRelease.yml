@@ -91,6 +91,7 @@ jobs:
     - name: Test
       shell: bash
       run: |
-        python3 scripts/get_test_list.py --file-contains 'require httpfs' --list '"*"' > test.list
-        python3 scripts/run_tests_one_by_one.py ./build/release/test/unittest --time_execution '-f test.list'
-        python3 scripts/run_tests_one_by_one.py ./build/release/test/unittest --time_execution '[secret]'
+        for i in $(seq 1 1000);
+        do
+          ./build/release/test/unittest "*fully_qualified_s3_url*"
+        done

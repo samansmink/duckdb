@@ -24,6 +24,9 @@ require-env DUCKDB_S3_USE_SSL
 set ignore_error_messages
 
 statement ok
+SET http_retries 0
+
+statement ok
 CREATE TABLE test as SELECT * FROM range(0,10) tbl(i);
 
 #set some false credentials to verify query param override
