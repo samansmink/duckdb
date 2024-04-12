@@ -34,6 +34,8 @@ struct BaseCSVData : public TableFunctionData {
 	}
 	//! The file path of the CSV file to read or write
 	vector<string> files;
+    //! Multi-file reader options
+    MultiFileReader multi_file_reader;
 	//! The CSV reader options
 	CSVReaderOptions options;
 	//! Offsets for generated columns
@@ -95,7 +97,6 @@ struct ReadCSVData : public BaseCSVData {
 	vector<unique_ptr<CSVFileScan>> union_readers;
 	//! Reader bind data
 	MultiFileReaderBindData reader_bind;
-	unique_ptr<MultiFileReader> multi_file_reader;
 
 	vector<ColumnInfo> column_info;
 

@@ -17,7 +17,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, shared_ptr<CSVBufferManager> bu
 		names = union_reader.GetNames();
 		options = union_reader.options;
 		types = union_reader.GetTypes();
-		MultiFileReader::InitializeReader(multi_file_reader, *this, options.file_options, bind_data.reader_bind, bind_data.return_types,
+		MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 		                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 		InitializeFileNamesTypes();
 		return;
@@ -25,7 +25,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, shared_ptr<CSVBufferManager> bu
 		// Serialized Union By name
 		names = bind_data.column_info[0].names;
 		types = bind_data.column_info[0].types;
-		MultiFileReader::InitializeReader(multi_file_reader, *this, options.file_options, bind_data.reader_bind, bind_data.return_types,
+		MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 		                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 		InitializeFileNamesTypes();
 		return;
@@ -33,7 +33,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, shared_ptr<CSVBufferManager> bu
 	names = bind_data.return_names;
 	types = bind_data.return_types;
 	file_schema = bind_data.return_types;
-	MultiFileReader::InitializeReader(multi_file_reader, *this, options.file_options, bind_data.reader_bind, bind_data.return_types,
+	MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 	                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 
 	InitializeFileNamesTypes();
@@ -63,8 +63,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 			options = union_reader.options;
 			types = union_reader.GetTypes();
 			state_machine = union_reader.state_machine;
-			multi_file_reader = MultiFileReader();
-			MultiFileReader::InitializeReader(multi_file_reader, *this, options.file_options, bind_data.reader_bind,
+			MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind,
 			                                  bind_data.return_types, bind_data.return_names, column_ids, nullptr,
 			                                  file_path, context);
 
@@ -91,9 +90,9 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 			sniffer.SniffCSV();
 		}
 		state_machine = make_shared<CSVStateMachine>(
-		    state_machine_cache.Get(options.dialect_options.state_machine_options), options);
+		    state_machine_cache.Get(options.dialect_options.state_machine_options), options, multi_file_reader.options);
 
-		MultiFileReader::InitializeReader(multi_file_reader, *this, options.file_options, bind_data.reader_bind, bind_data.return_types,
+		MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 		                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 		InitializeFileNamesTypes();
 		return;
@@ -104,7 +103,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 		CSVSniffer sniffer(options, buffer_manager, state_machine_cache);
 		auto result = sniffer.SniffCSV();
 		if (!file_schema.empty()) {
-			if (!options.file_options.filename && !options.file_options.hive_partitioning &&
+			if (!multi_file_reader.options.filename && !multi_file_reader.options.hive_partitioning &&
 			    file_schema.size() != result.return_types.size()) {
 				throw InvalidInputException("Mismatch between the schema of different files");
 			}
@@ -122,9 +121,9 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 	names = bind_data.csv_names;
 	types = bind_data.csv_types;
 	state_machine =
-	    make_shared<CSVStateMachine>(state_machine_cache.Get(options.dialect_options.state_machine_options), options);
+	    make_shared<CSVStateMachine>(state_machine_cache.Get(options.dialect_options.state_machine_options), options, multi_file_reader.options);
 
-	MultiFileReader::InitializeReader(multi_file_reader, *this, options.file_options, bind_data.reader_bind, bind_data.return_types,
+	MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 	                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 	InitializeFileNamesTypes();
 }

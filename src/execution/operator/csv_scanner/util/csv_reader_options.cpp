@@ -378,9 +378,9 @@ void CSVReaderOptions::FromNamedParameters(named_parameter_map_t &in, ClientCont
                                            vector<LogicalType> &return_types, vector<string> &names) {
 	for (auto &kv : in) {
 		MultiFileReader multi_file_reader;
-		if (multi_file_reader.ParseOption(kv.first, kv.second, file_options, context)) {
-			continue;
-		}
+		if (multi_file_reader.ParseOption(kv.first, kv.second, context)) {
+            continue;
+        }
 		auto loption = StringUtil::Lower(kv.first);
 		// skip variables that are specific to auto detection
 		if (loption != "auto_detect" && loption != "auto_type_candidates") {

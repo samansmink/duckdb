@@ -17,6 +17,7 @@
 #include "duckdb/common/case_insensitive_map.hpp"
 #include "duckdb/common/types.hpp"
 #include "duckdb/common/multi_file_reader_options.hpp"
+#include "duckdb/common/multi_file_reader.hpp"
 
 namespace duckdb {
 
@@ -94,8 +95,6 @@ struct CSVReaderOptions {
 	bool auto_detect = true;
 	//! The file path of the CSV file to read
 	string file_path;
-	//! Multi-file reader options
-	MultiFileReaderOptions file_options;
 	//! Buffer Size (Parallel Scan)
 	idx_t buffer_size = CSVBuffer::CSV_BUFFER_SIZE;
 	//! Decimal separator when reading as numeric
