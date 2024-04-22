@@ -43,23 +43,6 @@
 
 namespace duckdb {
 
-//! The Parquet Bind State is state that is meant to be passed between the Bind phase and Execution phase of a query
-struct ParquetReadBindState {
-    bool is_moved = false;
-    unique_ptr<MultiFileReader> multi_file_reader;
-
-    ParquetReadBindState GetState() {
-        if (is_moved) {
-            throw InternalException("Attempted to move bind state twice");
-        }
-        is_moved = true;
-
-        ParquetReadBindState result;
-        result.multi_file_reader = std::move(multi_file_reader);
-        return result;
-    }
-};
-
 struct ParquetReadBindData : public TableFunctionData {
 	shared_ptr<ParquetReader> initial_reader;
 	atomic<idx_t> chunk_count;
@@ -75,11 +58,8 @@ struct ParquetReadBindData : public TableFunctionData {
 	idx_t initial_file_row_groups;
 	ParquetOptions parquet_options;
 
-    //! This is the MultiFileReader related bind data
+	unique_ptr<MultiFileReader> multi_file_reader;
 	MultiFileReaderBindData reader_bind;
-
-    //! The Bind state contains "special" state that is meant to be moved into the global state la
-    unique_ptr<ParquetReadBindState> bind_state;
 
 	void Initialize(shared_ptr<ParquetReader> reader) {
 		initial_reader = std::move(reader);
@@ -103,9 +83,6 @@ enum class ParquetFileState : uint8_t { UNOPENED, OPENING, OPEN, CLOSED };
 
 struct ParquetReadGlobalState : public GlobalTableFunctionState {
 	mutex lock;
-
-    //! The multifilereader object passed through
-    unique_ptr<MultiFileReader> multi_file_reader;
 
 	//! Currently opened readers
 	vector<shared_ptr<ParquetReader>> readers;
@@ -173,7 +150,7 @@ BindInfo ParquetGetBindInfo(const optional_ptr<FunctionData> bind_data) {
 	auto bind_info = BindInfo(ScanType::PARQUET);
 	auto &parquet_bind = bind_data->Cast<ParquetReadBindData>();
 
-	vector<string> file_list = parquet_bind.bind_state.multi_file_reader->files->GetRawList(); // TODO fix
+	vector<string> file_list = parquet_bind.multi_file_reader->files->GetRawList(); // TODO fix
 	vector<Value> file_path;
 	for (auto &path : file_list) {
 		file_path.emplace_back(path);
@@ -206,7 +183,7 @@ static MultiFileReaderBindData BindSchema(ClientContext &context, vector<Logical
 
 	// perform the binding on the obtained set of names + types
     MultiFileReaderBindData bind_data;
-	result.bind_state.multi_file_reader->BindOptions(schema_col_types, schema_col_names, bind_data);
+	result.multi_file_reader->BindOptions(schema_col_types, schema_col_names, bind_data);
 
 	names = schema_col_names;
 	return_types = schema_col_types;
@@ -226,21 +203,22 @@ static MultiFileReaderBindData BindSchema(ClientContext &context, vector<Logical
 	return bind_data;
 }
 
-static void InitializeParquetReader(ParquetReader &reader, const ParquetReadBindData &bind_data, MultiFileReader &multi_file_reader,
+static void InitializeParquetReader(ParquetReader &reader, const ParquetReadBindData &bind_data,
                                     const vector<column_t> &global_column_ids,
                                     optional_ptr<TableFilterSet> table_filters, ClientContext &context) {
 	auto &parquet_options = bind_data.parquet_options;
 	auto &reader_data = reader.reader_data;
 	if (bind_data.parquet_options.schema.empty()) {
-		MultiFileReader::InitializeReader(*bind_data.bind_state.multi_file_reader, reader, bind_data.reader_bind, bind_data.types,
-		                                  bind_data.names, global_column_ids, table_filters, multi_file_reader.files->GetFile(0), context);
+		MultiFileReader::InitializeReader(*bind_data.multi_file_reader, reader, bind_data.reader_bind, bind_data.types,
+		                                  bind_data.names, global_column_ids, table_filters, bind_data.multi_file_reader->files->GetFile(0),
+		                                  context);
 		return;
 	}
 
 	// a fixed schema was supplied, initialize the MultiFileReader settings here so we can read using the schema
 
 	// this deals with hive partitioning and filename=true
-	bind_data.bind_state.multi_file_reader->FinalizeBind(bind_data.reader_bind, reader.GetFileName(),
+	bind_data.multi_file_reader->FinalizeBind(bind_data.reader_bind, reader.GetFileName(),
 	                              reader.GetNames(), bind_data.types, bind_data.names, global_column_ids, reader_data,
 	                              context);
 
@@ -301,7 +279,7 @@ static void InitializeParquetReader(ParquetReader &reader, const ParquetReadBind
 	reader_data.empty_columns = reader_data.column_ids.empty();
 
 	// Finally, initialize the filters
-	multi_file_reader.CreateFilterMap(bind_data.types, table_filters, reader_data);
+	bind_data.multi_file_reader->CreateFilterMap(bind_data.types, table_filters, reader_data);
 	reader_data.filters = table_filters;
 }
 
@@ -388,7 +366,7 @@ public:
 		// NOTE: we do not want to parse the Parquet metadata for the sole purpose of getting column statistics
 
 		auto &config = DBConfig::GetConfig(context);
-		auto complete_file_list = bind_data.bind_state->multi_file_reader->files->GetRawList();
+		auto complete_file_list = bind_data.multi_file_reader->files->GetRawList();
 		if (complete_file_list.size() < 2) {
 			if (bind_data.initial_reader) {
 				// most common path, scanning single parquet file
@@ -491,7 +469,7 @@ public:
 			if (return_types.size() != result->types.size()) {
 				throw std::runtime_error(StringUtil::Format(
 				    "Failed to read file \"%s\" - column count mismatch: expected %d columns but found %d",
-				    result->files->GetFile(0), return_types.size(), result->types.size()));
+				    result->multi_file_reader->files->GetFile(0), return_types.size(), result->types.size()));
 			}
 			// expected types - overwrite the types we want to read instead
 			result->types = return_types;
@@ -514,7 +492,7 @@ public:
 		ParquetOptions parquet_options(context);
 		for (auto &kv : input.named_parameters) {
 			auto loption = StringUtil::Lower(kv.first);
-			if (multi_file_reader->ParseOption(kv.first, kv.second, parquet_options.file_options, context)) {
+			if (multi_file_reader->ParseOption(kv.first, kv.second, context)) {
 				continue;
 			}
 			if (loption == "binary_as_string") {
@@ -550,7 +528,7 @@ public:
 		auto &bind_data = bind_data_p->Cast<ParquetReadBindData>();
 		auto &gstate = global_state->Cast<ParquetReadGlobalState>();
 
-		auto full_file_list = bind_data.files->GetRawList();
+		auto full_file_list = bind_data.multi_file_reader->files->GetRawList();
 		if (full_file_list.empty()) {
 			return 100.0;
 		}
@@ -581,15 +559,13 @@ public:
 
 	static unique_ptr<GlobalTableFunctionState> ParquetScanInitGlobal(ClientContext &context,
 	                                                                  TableFunctionInitInput &input) {
-		auto &bind_data = input.bind_data->Cast<ParquetReadBindData>();
-        auto bind_state = bind_data.bind_state->GetState();
-
+		auto &bind_data = input.bind_data->CastNoConst<ParquetReadBindData>();
 		auto result = make_uniq<ParquetReadGlobalState>();
 
-		if (bind_data.files->GetFile(0).empty()) {
+		if (bind_data.multi_file_reader->files->GetFile(0).empty()) {
 			result->readers = {};
 		} else if (!bind_data.union_readers.empty()) {
-            vector<string> full_file_list = bind_data.files->GetRawList();
+            vector<string> full_file_list = bind_data.multi_file_reader->files->GetRawList();
             result->readers = std::move(bind_data.union_readers);
 			// TODO: wtf is this? it was copied from before refactor
             if (result->readers.size() != full_file_list.size()) {
@@ -597,7 +573,7 @@ public:
 			}
         } else if (bind_data.initial_reader) {
 			//! Ensure the initial reader was actually constructed from the first file
-			D_ASSERT(bind_data.initial_reader->file_name == bind_data.files->GetFile(0));
+			D_ASSERT(bind_data.initial_reader->file_name == bind_data.multi_file_reader->files->GetFile(0));
 			result->readers.push_back(bind_data.initial_reader);
 		}
 
@@ -608,7 +584,7 @@ public:
 			if (!reader) {
 				continue;
 			}
-			InitializeParquetReader(*reader, bind_data, bind_datainput.column_ids, input.filters, context);
+			InitializeParquetReader(*reader, bind_data, input.column_ids, input.filters, context);
 		}
 
 		result->column_ids = input.column_ids;
@@ -641,7 +617,7 @@ public:
 	static void ParquetScanSerialize(Serializer &serializer, const optional_ptr<FunctionData> bind_data_p,
 	                                 const TableFunction &function) {
 		auto &bind_data = bind_data_p->Cast<ParquetReadBindData>();
-		serializer.WriteProperty(100, "files", bind_data.files->GetRawList());
+		serializer.WriteProperty(100, "files", bind_data.multi_file_reader->files->GetRawList());
 		serializer.WriteProperty(101, "types", bind_data.types);
 		serializer.WriteProperty(102, "names", bind_data.names);
 		serializer.WriteProperty(103, "parquet_options", bind_data.parquet_options);
@@ -696,13 +672,13 @@ public:
 	static unique_ptr<NodeStatistics> ParquetCardinality(ClientContext &context, const FunctionData *bind_data) {
 		auto &data = bind_data->Cast<ParquetReadBindData>();
 		// TODO: clean this up
-		return make_uniq<NodeStatistics>(data.initial_file_cardinality * data.files->GetRawList().size());
+		return make_uniq<NodeStatistics>(data.initial_file_cardinality * data.multi_file_reader->files->GetRawList().size());
 	}
 
 	static idx_t ParquetScanMaxThreads(ClientContext &context, const FunctionData *bind_data) {
 		auto &data = bind_data->Cast<ParquetReadBindData>();
 
-		if (!data.files->GetFile(0).empty() && !data.files->GetFile(1).empty()) {
+		if (!data.multi_file_reader->files->GetFile(0).empty() && !data.multi_file_reader->files->GetFile(1).empty()) {
 			return TaskScheduler::GetScheduler(context).NumberOfThreads();
 		}
 
@@ -713,7 +689,7 @@ public:
 	// Returns true if resized
 	static bool ResizeFiles(const ParquetReadBindData &bind_data, ParquetReadGlobalState &parallel_state) {
 		// Check if the metadata provider has another file
-		auto maybe_file = bind_data.files->GetFile(parallel_state.readers.size());
+		auto maybe_file = bind_data.multi_file_reader->files->GetFile(parallel_state.readers.size());
 		if (maybe_file.empty()) {
 			return false;
 		}
@@ -782,13 +758,12 @@ public:
 	                                         vector<unique_ptr<Expression>> &filters) {
 		auto &data = bind_data_p->Cast<ParquetReadBindData>();
 
-		auto reset_reader = data.multi_file_reader->ComplexFilterPushdown(context, *data.files,
-		                                                           data.parquet_options.file_options, get, filters);
+		auto reset_reader = data.multi_file_reader->ComplexFilterPushdown(context, get, filters);
 		if (reset_reader) {
 
             if (!data.union_readers.empty()) { // TODO this if is just for testing
                 // TODO clean this up!
-                vector<string> files = data.files->GetRawList();
+                vector<string> files = data.multi_file_reader->files->GetRawList();
                 MultiFileReader::PruneReaders(data, files);
             }
 		}
@@ -826,7 +801,7 @@ public:
 
 		for (idx_t i = parallel_state.file_index; i < file_index_limit; i++) {
 			if (parallel_state.file_states[i] == ParquetFileState::UNOPENED) {
-				string file = bind_data.files->GetFile(i);
+				string file = bind_data.multi_file_reader->files->GetFile(i);
 				parallel_state.file_states[i] = ParquetFileState::OPENING;
 				auto pq_options = bind_data.parquet_options; // TODO: check if this runs into issues! This used to be the options from the initial reader
 

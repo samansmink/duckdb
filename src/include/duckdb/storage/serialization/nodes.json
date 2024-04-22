@@ -595,10 +595,6 @@
         "name": "buffer_size",
         "type": "idx_t"
       },
-      {"id": 115,
-        "name": "file_options",
-        "type": "MultiFileReaderOptions"
-      },
       {"id": 116,
         "name": "force_quote",
         "type": "vector<bool>"

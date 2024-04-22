@@ -76,10 +76,10 @@ class CSVStateMachine {
 public:
 	explicit CSVStateMachine(CSVReaderOptions &options_p, const CSVStateMachineOptions &state_machine_options,
 	                         CSVStateMachineCache &csv_state_machine_cache_p,
-                             const MultiFileReaderOptions &multi_file_reader_options_p);
+                             optional_ptr<MultiFileReaderOptions> mfr_options_p);
 
 	explicit CSVStateMachine(const StateMachine &transition_array, const CSVReaderOptions &options,
-                             const MultiFileReaderOptions &multi_file_reader_options_p);
+                             optional_ptr<MultiFileReaderOptions> mfr_options_p);
 
 	//! Transition all states to next state, that depends on the current char
 	inline void Transition(CSVStates &states, char current_char) const {
@@ -97,7 +97,7 @@ public:
 	//! Dialect options resulting from sniffing
 	DialectOptions dialect_options;
     //! The MultiFileReader options
-    const MultiFileReaderOptions &multi_file_reader_options;
+    optional_ptr<MultiFileReaderOptions> mfr_options;
 };
 
 } // namespace duckdb

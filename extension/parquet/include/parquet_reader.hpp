@@ -88,8 +88,6 @@ struct ParquetOptions {
 	bool binary_as_string = false;
 	bool file_row_number = false;
 	shared_ptr<ParquetEncryptionConfig> encryption_config;
-
-	MultiFileReaderOptions file_options;
 	vector<ParquetColumnDefinition> schema;
 
 public:
@@ -99,9 +97,9 @@ public:
 
 class ParquetReader {
 public:
-	ParquetReader(ClientContext &context, string file_name, ParquetOptions parquet_options);
+	ParquetReader(ClientContext &context, string file_name, ParquetOptions parquet_options, optional_ptr<MultiFileReaderOptions> mfr_options);
 	ParquetReader(ClientContext &context, ParquetOptions parquet_options,
-	              shared_ptr<ParquetFileMetadataCache> metadata);
+	              shared_ptr<ParquetFileMetadataCache> metadata, optional_ptr<MultiFileReaderOptions> mfr_options);
 	~ParquetReader();
 
 	FileSystem &fs;
@@ -118,6 +116,8 @@ public:
 	idx_t file_row_number_idx = DConstants::INVALID_INDEX;
 	//! Parquet schema for the generated columns
 	vector<duckdb_parquet::format::SchemaElement> generated_column_schema;
+
+    optional_ptr<MultiFileReaderOptions> mfr_options;
 
 public:
 	void InitializeScan(ParquetReaderScanState &state, vector<idx_t> groups_to_read);

@@ -342,7 +342,7 @@ bool compare_result(string csv, ColumnDataCollection &collection, vector<Logical
 
 	DuckDB db;
 	Connection con(db);
-	auto scanner_ptr = StringValueScanner::GetCSVScanner(*con.context, options);
+	auto scanner_ptr = StringValueScanner::GetCSVScanner(*con.context, options, nullptr);
 	auto &scanner = *scanner_ptr;
 	ColumnDataCollection csv_data_collection(*con.context, sql_types);
 	while (!scanner.FinishedIterator()) {

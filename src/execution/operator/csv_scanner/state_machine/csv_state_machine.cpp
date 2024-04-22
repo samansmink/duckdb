@@ -8,16 +8,16 @@ namespace duckdb {
 
 CSVStateMachine::CSVStateMachine(CSVReaderOptions &options_p, const CSVStateMachineOptions &state_machine_options_p,
                                  CSVStateMachineCache &csv_state_machine_cache,
-                                 const MultiFileReaderOptions &multi_file_reader_options_p)
+                                 optional_ptr<MultiFileReaderOptions> mfr_options_p)
     : transition_array(csv_state_machine_cache.Get(state_machine_options_p)),
-      state_machine_options(state_machine_options_p), options(options_p), multi_file_reader_options(multi_file_reader_options_p) {
+      state_machine_options(state_machine_options_p), options(options_p), mfr_options(mfr_options_p) {
 	dialect_options.state_machine_options = state_machine_options;
 }
 
 CSVStateMachine::CSVStateMachine(const StateMachine &transition_array_p, const CSVReaderOptions &options_p,
-                                 const MultiFileReaderOptions &multi_file_reader_options_p)
+                                 optional_ptr<MultiFileReaderOptions> mfr_options_p)
     : transition_array(transition_array_p), state_machine_options(options_p.dialect_options.state_machine_options),
-      options(options_p), dialect_options(options.dialect_options), multi_file_reader_options(multi_file_reader_options_p) {
+      options(options_p), dialect_options(options.dialect_options), mfr_options(mfr_options_p) {
 	dialect_options.state_machine_options = state_machine_options;
 }
 

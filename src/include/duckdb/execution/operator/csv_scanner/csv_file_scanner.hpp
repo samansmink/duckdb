@@ -28,8 +28,7 @@ public:
 	CSVFileScan(ClientContext &context, const string &file_path, const CSVReaderOptions &options, const idx_t file_idx,
 	            const ReadCSVData &bind_data, const vector<column_t> &column_ids,
 	            const vector<LogicalType> &file_schema);
-
-	CSVFileScan(ClientContext &context, const string &file_name, CSVReaderOptions &options);
+	CSVFileScan(ClientContext &context, const string &file_name, CSVReaderOptions &options, optional_ptr<MultiFileReaderOptions> mfr_options);
 
 	const string &GetFileName();
 	const vector<string> &GetNames();
@@ -57,7 +56,6 @@ public:
 	vector<string> names;
 	vector<LogicalType> types;
 	MultiFileReaderData reader_data;
-	MultiFileReader multi_file_reader; // TODO: this makes no sense?
 
 	vector<LogicalType> file_types;
 

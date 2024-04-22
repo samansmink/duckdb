@@ -32,13 +32,13 @@ public:
 struct BaseCSVData : public TableFunctionData {
 	virtual ~BaseCSVData() {
 	}
-	//! The file path of the CSV file to read or write
+	//! The file path of the CSV file to read or write TODO remove in favor of MultiFileReader object?
 	vector<string> files;
     //! Multi-file reader options
-    MultiFileReader multi_file_reader;
+    unique_ptr<MultiFileReader> multi_file_reader;
 	//! The CSV reader options
 	CSVReaderOptions options;
-	//! Offsets for generated columns
+	//! Offsets for generated columns TODO these are in multifilebinddata??
 	idx_t filename_col_idx;
 	idx_t hive_partition_col_idx;
 

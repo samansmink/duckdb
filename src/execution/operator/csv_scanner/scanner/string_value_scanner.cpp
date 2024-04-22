@@ -524,15 +524,17 @@ StringValueScanner::StringValueScanner(const shared_ptr<CSVBufferManager> &buffe
              buffer_manager->context.client_data->debug_set_max_line_length, csv_file_scan, lines_read, sniffing) {
 }
 
-unique_ptr<StringValueScanner> StringValueScanner::GetCSVScanner(ClientContext &context, CSVReaderOptions &options) {
+unique_ptr<StringValueScanner> StringValueScanner::GetCSVScanner(ClientContext &context, CSVReaderOptions &options, optional_ptr<MultiFileReaderOptions> mfr_options) {
+
+    MultiFileReader mfr;
 	auto state_machine = make_shared<CSVStateMachine>(options, options.dialect_options.state_machine_options,
-	                                                  CSVStateMachineCache::Get(context));
+	                                                  CSVStateMachineCache::Get(context), nullptr);
 
 	state_machine->dialect_options.num_cols = options.dialect_options.num_cols;
 	state_machine->dialect_options.header = options.dialect_options.header;
 	auto buffer_manager = make_shared<CSVBufferManager>(context, options, options.file_path, 0);
 	auto scanner = make_uniq<StringValueScanner>(buffer_manager, state_machine, make_shared<CSVErrorHandler>());
-	scanner->csv_file_scan = make_shared<CSVFileScan>(context, options.file_path, options);
+	scanner->csv_file_scan = make_shared<CSVFileScan>(context, options.file_path, options, mfr_options);
 	scanner->csv_file_scan->InitializeProjection();
 	return scanner;
 }

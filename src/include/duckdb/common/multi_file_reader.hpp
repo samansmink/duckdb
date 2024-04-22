@@ -104,9 +104,10 @@ struct MultiFileList {
 	//! (optional) Push down filters into the MultiFileList; sometimes the filters can be used to skip files completely
 	virtual bool ComplexFilterPushdown(ClientContext &context, const MultiFileReaderOptions &options, LogicalGet &get,
 	                                             vector<unique_ptr<Expression>> &filters);
+    virtual unique_ptr<MultiFileList> Copy() = 0;
 };
 
-//! Simplest implementation of a MultiFilelist with, you guessed it, a list of files
+//! Simplest implementation of a MultiFilelist with a list of files
 struct SimpleMultiFileList : public MultiFileList {
 	SimpleMultiFileList(vector<string> files);
 	//! TODO: remove as many of the GetRawList as possible
@@ -114,14 +115,22 @@ struct SimpleMultiFileList : public MultiFileList {
 	string GetFile(idx_t i) override;
 	bool ComplexFilterPushdown(ClientContext &context, const MultiFileReaderOptions &options, LogicalGet &get,
 	                                   vector<unique_ptr<Expression>> &filters) override;
+    unique_ptr<MultiFileList> Copy() override {
+        return make_uniq<SimpleMultiFileList>(files);
+    }
 protected:
 	vector<string> files;
 };
 
-// TODO: This API can be made simpler probably; its verbosity stems from the fact that this used to be all static.
-//       perhaps we can make all state related to the MultiFileReader just live in the MultiFileReader? That way it has access to
-//       everything and we solve the ugly dual ComplexFilterPushdown on the MultiFileList/MultiFileReader and the passing around
-//       of MultiFileReaderData
+// The MultiFileReader is the central structure in handling "Multi File Reads". Its main responsibilities are
+// - (lazily) iterating a list of files to be scanned
+// - pushing down filters into the filelist generation logic
+// - parsing options related to scanning from a list of files
+// - injecting extra (constant) values into scan chunks
+
+// Also, it provides an interface for extending "Multi File Read" functionality with:
+// - A `bind` method to completely replace the regular bind (replacing the default behaviour of binding on the first file)
+
 struct MultiFileReader {
 public:
     unique_ptr<MultiFileList> files;
@@ -129,6 +138,19 @@ public:
 
 public:
     virtual ~MultiFileReader();
+
+    //! Explicit copy to ensure optimal performance when copying
+    DUCKDB_API virtual unique_ptr<MultiFileReader> Copy() {
+        auto result = make_uniq<MultiFileReader>();
+        result->files = files->Copy();
+        result->options = options;
+        return result;
+    };
+
+    MultiFileReader() = default;
+    //! Disable copy constructors to prevent implicit copies
+    MultiFileReader(const MultiFileReader &other) = delete;
+    MultiFileReader &operator=(const MultiFileReader &) = delete;
 
     //! Initialize the MultiFileReader; the `input` variable contains the (list of) files (or globs or both) to be read.
     DUCKDB_API virtual void InitializeFiles(ClientContext &context, const Value &input, const string &parent_function, FileGlobOptions glob_options);
@@ -172,19 +194,17 @@ public:
 
 	template <class READER_CLASS, class RESULT_CLASS, class OPTIONS_CLASS>
 	static MultiFileReaderBindData BindUnionReader(ClientContext &context, MultiFileReader &multi_file_reader, vector<LogicalType> &return_types,
-	                                               vector<string> &names, vector<string> &files, RESULT_CLASS &result,
-	                                               OPTIONS_CLASS &options) {
-		D_ASSERT(options.file_options.union_by_name);
+	                                               vector<string> &names, RESULT_CLASS &result, OPTIONS_CLASS &options) {
+		D_ASSERT(multi_file_reader.options.union_by_name);
 		vector<string> union_col_names;
 		vector<LogicalType> union_col_types;
 		// obtain the set of union column names + types by unifying the types of all of the files
 		// note that this requires opening readers for each file and reading the metadata of each file
 		auto union_readers =
-		    UnionByName::UnionCols<READER_CLASS>(context, files, union_col_types, union_col_names, options);
+		    UnionByName::UnionCols<READER_CLASS>(context, multi_file_reader.files->GetRawList(), union_col_types, union_col_names, options, &multi_file_reader.options);
 
 		std::move(union_readers.begin(), union_readers.end(), std::back_inserter(result.union_readers));
 		// perform the binding on the obtained set of names + types
-		SimpleMultiFileList simple_multi_file_list(files); // TODO: this is a bit wonky now
         MultiFileReaderBindData bind_data;
 		multi_file_reader.BindOptions(union_col_types, union_col_names, bind_data);
 		names = union_col_names;
@@ -194,17 +214,16 @@ public:
 		return bind_data;
 	}
 
-	template <class READER_CLASS, class RESULT_CLASS>
+	template <class READER_CLASS, class RESULT_CLASS, class OPTIONS_CLASS>
 	static MultiFileReaderBindData BindReader(ClientContext &context, MultiFileReader &multi_file_reader, vector<LogicalType> &return_types,
-	                                          vector<string> &names, RESULT_CLASS &result) {
+	                                          vector<string> &names, RESULT_CLASS &result, OPTIONS_CLASS &options) {
 		if (multi_file_reader.options.union_by_name) {
 			//! Union by name requires reading all metadata (TODO: does it though?)
-			vector<string> complete_file_list = multi_file_reader.files->GetRawList();
-			return BindUnionReader<READER_CLASS>(context, multi_file_reader, return_types, names, complete_file_list, result);
+			return BindUnionReader<READER_CLASS>(context, multi_file_reader, return_types, names, result, options);
 		} else {
 			// Default behaviour: get the 1st file and use its schema for scanning all files
 			shared_ptr<READER_CLASS> reader;
-			reader = make_shared<READER_CLASS>(context, multi_file_reader.files->GetFile(0));
+			reader = make_shared<READER_CLASS>(context, multi_file_reader.files->GetFile(0), options);
 			return_types = reader->return_types;
 			names = reader->names;
 			result.Initialize(std::move(reader));

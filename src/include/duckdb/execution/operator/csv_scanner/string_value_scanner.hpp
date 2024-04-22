@@ -152,7 +152,7 @@ public:
 	void Flush(DataChunk &insert_chunk);
 
 	//! Function that creates and returns a non-boundary CSV Scanner, can be used for internal csv reading.
-	static unique_ptr<StringValueScanner> GetCSVScanner(ClientContext &context, CSVReaderOptions &options);
+	static unique_ptr<StringValueScanner> GetCSVScanner(ClientContext &context, CSVReaderOptions &options, optional_ptr<MultiFileReaderOptions> mfr_options);
 
 	bool FinishedIterator();
 

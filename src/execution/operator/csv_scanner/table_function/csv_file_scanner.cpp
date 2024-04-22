@@ -17,7 +17,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, shared_ptr<CSVBufferManager> bu
 		names = union_reader.GetNames();
 		options = union_reader.options;
 		types = union_reader.GetTypes();
-		MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
+		MultiFileReader::InitializeReader(*bind_data.multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 		                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 		InitializeFileNamesTypes();
 		return;
@@ -25,7 +25,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, shared_ptr<CSVBufferManager> bu
 		// Serialized Union By name
 		names = bind_data.column_info[0].names;
 		types = bind_data.column_info[0].types;
-		MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
+		MultiFileReader::InitializeReader(*bind_data.multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 		                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 		InitializeFileNamesTypes();
 		return;
@@ -33,7 +33,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, shared_ptr<CSVBufferManager> bu
 	names = bind_data.return_names;
 	types = bind_data.return_types;
 	file_schema = bind_data.return_types;
-	MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
+	MultiFileReader::InitializeReader(*bind_data.multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 	                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 
 	InitializeFileNamesTypes();
@@ -63,7 +63,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 			options = union_reader.options;
 			types = union_reader.GetTypes();
 			state_machine = union_reader.state_machine;
-			MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind,
+			MultiFileReader::InitializeReader(*bind_data.multi_file_reader, *this, bind_data.reader_bind,
 			                                  bind_data.return_types, bind_data.return_names, column_ids, nullptr,
 			                                  file_path, context);
 
@@ -86,13 +86,13 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 		types = bind_data.column_info[file_idx].types;
 		options.dialect_options.num_cols = names.size();
 		if (options.auto_detect) {
-			CSVSniffer sniffer(options, buffer_manager, state_machine_cache);
+			CSVSniffer sniffer(options, buffer_manager, state_machine_cache, &bind_data.multi_file_reader->options);
 			sniffer.SniffCSV();
 		}
 		state_machine = make_shared<CSVStateMachine>(
-		    state_machine_cache.Get(options.dialect_options.state_machine_options), options, multi_file_reader.options);
+		    state_machine_cache.Get(options.dialect_options.state_machine_options), options, &bind_data.multi_file_reader->options);
 
-		MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
+		MultiFileReader::InitializeReader(*bind_data.multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 		                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 		InitializeFileNamesTypes();
 		return;
@@ -100,10 +100,10 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 	// Sniff it (We only really care about dialect detection, if types or number of columns are different this will
 	// error out during scanning)
 	if (options.auto_detect && file_idx > 0) {
-		CSVSniffer sniffer(options, buffer_manager, state_machine_cache);
+		CSVSniffer sniffer(options, buffer_manager, state_machine_cache, &bind_data.multi_file_reader->options);
 		auto result = sniffer.SniffCSV();
 		if (!file_schema.empty()) {
-			if (!multi_file_reader.options.filename && !multi_file_reader.options.hive_partitioning &&
+			if (!bind_data.multi_file_reader->options.filename && !bind_data.multi_file_reader->options.hive_partitioning &&
 			    file_schema.size() != result.return_types.size()) {
 				throw InvalidInputException("Mismatch between the schema of different files");
 			}
@@ -121,14 +121,14 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_path_p, cons
 	names = bind_data.csv_names;
 	types = bind_data.csv_types;
 	state_machine =
-	    make_shared<CSVStateMachine>(state_machine_cache.Get(options.dialect_options.state_machine_options), options, multi_file_reader.options);
+	    make_shared<CSVStateMachine>(state_machine_cache.Get(options.dialect_options.state_machine_options), options, &bind_data.multi_file_reader->options);
 
-	MultiFileReader::InitializeReader(multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
+	MultiFileReader::InitializeReader(*bind_data.multi_file_reader, *this, bind_data.reader_bind, bind_data.return_types,
 	                                  bind_data.return_names, column_ids, nullptr, file_path, context);
 	InitializeFileNamesTypes();
 }
 
-CSVFileScan::CSVFileScan(ClientContext &context, const string &file_name, CSVReaderOptions &options_p)
+CSVFileScan::CSVFileScan(ClientContext &context, const string &file_name, CSVReaderOptions &options_p, optional_ptr<MultiFileReaderOptions> mfr_options_p)
     : file_path(file_name), file_idx(0), error_handler(make_shared<CSVErrorHandler>(options_p.ignore_errors)),
       options(options_p) {
 	buffer_manager = make_shared<CSVBufferManager>(context, options, file_path, file_idx);
@@ -139,7 +139,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_name, CSVRea
 	// error out during scanning)
 	auto &state_machine_cache = CSVStateMachineCache::Get(context);
 	if (options.auto_detect && options.dialect_options.num_cols == 0) {
-		CSVSniffer sniffer(options, buffer_manager, state_machine_cache);
+		CSVSniffer sniffer(options, buffer_manager, state_machine_cache, mfr_options_p);
 		auto sniffer_result = sniffer.SniffCSV();
 		if (names.empty()) {
 			names = sniffer_result.names;
@@ -152,7 +152,7 @@ CSVFileScan::CSVFileScan(ClientContext &context, const string &file_name, CSVRea
 	}
 	// Initialize State Machine
 	state_machine =
-	    make_shared<CSVStateMachine>(state_machine_cache.Get(options.dialect_options.state_machine_options), options);
+	    make_shared<CSVStateMachine>(state_machine_cache.Get(options.dialect_options.state_machine_options), options, mfr_options_p);
 }
 
 void CSVFileScan::InitializeFileNamesTypes() {

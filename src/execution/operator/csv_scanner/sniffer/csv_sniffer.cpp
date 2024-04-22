@@ -3,8 +3,8 @@
 namespace duckdb {
 
 CSVSniffer::CSVSniffer(CSVReaderOptions &options_p, shared_ptr<CSVBufferManager> buffer_manager_p,
-                       CSVStateMachineCache &state_machine_cache_p, SetColumns set_columns_p)
-    : state_machine_cache(state_machine_cache_p), options(options_p), buffer_manager(std::move(buffer_manager_p)),
+                       CSVStateMachineCache &state_machine_cache_p, optional_ptr<MultiFileReaderOptions> mfr_options, SetColumns set_columns_p)
+    : state_machine_cache(state_machine_cache_p), mfr_options(mfr_options), options(options_p), buffer_manager(std::move(buffer_manager_p)),
       set_columns(set_columns_p) {
 	// Initialize Format Candidates
 	for (const auto &format_template : format_template_candidates) {

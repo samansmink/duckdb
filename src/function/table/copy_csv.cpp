@@ -127,9 +127,8 @@ static unique_ptr<FunctionData> ReadCSVBind(ClientContext &context, CopyInfo &in
 	bind_data->csv_names = expected_names;
 	bind_data->return_types = expected_types;
 	bind_data->return_names = expected_names;
-	MultiFileReader multi_file_reader;
-    multi_file_reader.InitializeFiles(context, Value(info.file_path), "CSV", FileGlobOptions::DISALLOW_EMPTY);
-	bind_data->files = multi_file_reader.files->GetRawList();
+    bind_data->multi_file_reader->InitializeFiles(context, Value(info.file_path), "CSV", FileGlobOptions::DISALLOW_EMPTY);
+	bind_data->files = bind_data->multi_file_reader->files->GetRawList();
 
 	auto &options = bind_data->options;
 
@@ -159,7 +158,7 @@ static unique_ptr<FunctionData> ReadCSVBind(ClientContext &context, CopyInfo &in
 
 	if (options.auto_detect) {
 		auto buffer_manager = make_shared<CSVBufferManager>(context, options, bind_data->files[0], 0);
-		CSVSniffer sniffer(options, buffer_manager, CSVStateMachineCache::Get(context),
+		CSVSniffer sniffer(options, buffer_manager, CSVStateMachineCache::Get(context), &bind_data->multi_file_reader->options,
 		                   {&expected_types, &expected_names});
 		sniffer.SniffCSV();
 	}

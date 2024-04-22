@@ -78,7 +78,7 @@ struct SetColumns {
 class CSVSniffer {
 public:
 	explicit CSVSniffer(CSVReaderOptions &options_p, shared_ptr<CSVBufferManager> buffer_manager_p,
-	                    CSVStateMachineCache &state_machine_cache, SetColumns set_columns = {});
+	                    CSVStateMachineCache &state_machine_cache, optional_ptr<MultiFileReaderOptions> mfr_options, SetColumns set_columns = {});
 
 	//! Main method that sniffs the CSV file, returns the types, names and options as a result
 	//! CSV Sniffing consists of five steps:
@@ -94,6 +94,8 @@ public:
 private:
 	//! CSV State Machine Cache
 	CSVStateMachineCache &state_machine_cache;
+    //! MultiFileReader Options
+    optional_ptr<MultiFileReaderOptions> mfr_options;
 	//! Highest number of columns found
 	idx_t max_columns_found = 0;
 	//! Current Candidates being considered
