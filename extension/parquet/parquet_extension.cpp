@@ -248,6 +248,12 @@ static void InitializeParquetReader(ParquetReader &reader, const ParquetReadBind
 		bind_data.multi_file_reader->InitializeReader(reader, parquet_options.file_options, bind_data.reader_bind,
 		                                              bind_data.types, bind_data.names, global_column_ids,
 		                                              table_filters, bind_data.file_list->GetFirstFile(), context);
+
+        if (bind_data.reader_bind.multi_file_reader_needs_file_row_number) {
+            reader_data.column_mapping.push_back(reader_data.column_ids.size());
+            reader_data.column_ids.push_back(reader.names.size()-1);
+        }
+
 		return;
 	}
 
@@ -480,10 +486,17 @@ public:
 			result->multi_file_reader->BindOptions(parquet_options.file_options, *result->file_list, result->types,
 			                                       result->names, result->reader_bind);
 			bound_on_first_file = false;
+            // The multifilereader has indicated that it requires the file_row_number column. This means we should enable the
+            // options from now on
+            if (result->reader_bind.multi_file_reader_needs_file_row_number) {
+                parquet_options.file_row_number = true;
+            }
 		} else if (!parquet_options.schema.empty()) {
+            parquet_options.file_options.AutoDetectHivePartitioning(*result->file_list, context);
 			// A schema was suppliedParquetProgress
 			result->reader_bind = BindSchema(context, result->types, result->names, *result, parquet_options);
 		} else {
+            parquet_options.file_options.AutoDetectHivePartitioning(*result->file_list, context);
 			// Default bind
 			result->reader_bind = result->multi_file_reader->BindReader<ParquetReader>(
 			    context, result->types, result->names, *result->file_list, *result, parquet_options);
@@ -543,7 +556,7 @@ public:
 		}
 
 		auto file_list = multi_file_reader->CreateFileList(context, input.inputs[0]);
-		parquet_options.file_options.AutoDetectHivePartitioning(*file_list, context);
+//		parquet_options.file_options.AutoDetectHivePartitioning(*file_list, context);
 
 		return ParquetScanBindInternal(context, std::move(multi_file_reader), std::move(file_list), return_types, names,
 		                               parquet_options);
@@ -576,7 +589,7 @@ public:
 		result->batch_index = 0;
 
 		// TODO: needs lock?
-		if (input.CanRemoveFilterColumns()) {
+		if (input.CanRemoveFilterColumns() || bind_data.reader_bind.multi_file_reader_needs_file_row_number) {
 			result->all_columns.Initialize(context.client, gstate.scanned_types);
 		}
 		if (!ParquetParallelStateNext(context.client, bind_data, *result, gstate)) {
@@ -590,6 +603,8 @@ public:
 		auto &bind_data = input.bind_data->CastNoConst<ParquetReadBindData>();
 		auto result = make_uniq<ParquetReadGlobalState>();
 		bind_data.file_list->InitializeScan(result->file_list_scan);
+
+        printf("============ Scanning %lld files =============\n", bind_data.file_list->GetTotalFileCount());
 
 		if (bind_data.file_list->IsEmpty()) {
 			result->readers = {};
@@ -632,7 +647,9 @@ public:
 		result->file_index = 0;
 		result->batch_index = 0;
 		result->max_threads = ParquetScanMaxThreads(context, input.bind_data.get());
-		if (input.CanRemoveFilterColumns()) {
+
+
+		if (input.CanRemoveFilterColumns() || bind_data.reader_bind.multi_file_reader_needs_file_row_number) {
 			result->projection_ids = input.projection_ids;
 			const auto table_types = bind_data.types;
 			for (const auto &col_idx : input.column_ids) {
@@ -642,7 +659,15 @@ public:
 					result->scanned_types.push_back(table_types[col_idx]);
 				}
 			}
+
+            if (bind_data.reader_bind.multi_file_reader_needs_file_row_number) {
+                result->scanned_types.push_back(LogicalType::BIGINT);
+            }
 		}
+
+        // We could be scanning more here due to the multifilereader requiring extra columns for internal use that
+        // are immediately projected out (row_id) mostly
+
 		return std::move(result);
 	}
 
@@ -691,7 +716,7 @@ public:
 		auto &bind_data = data_p.bind_data->CastNoConst<ParquetReadBindData>();
 
 		do {
-			if (gstate.CanRemoveFilterColumns()) {
+			if (gstate.CanRemoveFilterColumns() || bind_data.reader_bind.multi_file_reader_needs_file_row_number) {
 				data.all_columns.Reset();
 				data.reader->Scan(data.scan_state, data.all_columns);
 				bind_data.multi_file_reader->FinalizeChunk(context, bind_data.reader_bind, data.reader->reader_data,

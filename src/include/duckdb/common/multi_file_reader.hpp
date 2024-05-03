@@ -44,6 +44,12 @@ struct MultiFileReaderBindData {
 	//! The index of the file_row_number column (if any)
 	idx_t file_row_number_idx = DConstants::INVALID_INDEX;
 
+    //! The MultiFileReader can set this during binding to indicate that the file readers should emit file_row_numbers
+    bool multi_file_reader_needs_file_row_number;
+
+    //! Custom Bind Data to be used by extensions extending multifilereaders
+    case_insensitive_map_t<Value> custom_data;
+
 	DUCKDB_API void Serialize(Serializer &serializer) const;
 	DUCKDB_API static MultiFileReaderBindData Deserialize(Deserializer &deserializer);
 };
