@@ -27,6 +27,7 @@ void BaseSecret::SerializeBaseSecret(Serializer &serializer) const {
 	serializer.WriteProperty(102, "name", name);
 	serializer.WriteList(103, "scope", prefix_paths.size(),
 	                     [&](Serializer::List &list, idx_t i) { list.WriteElement(prefix_paths[i]); });
+	serializer.WriteProperty(104, "physical_type", physical_type);
 }
 
 string BaseSecret::ToString(SecretDisplayType display_type) const {

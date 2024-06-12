@@ -86,15 +86,25 @@ unique_ptr<BaseSecret> SecretManager::DeserializeSecret(Deserializer &deserializ
 	vector<string> scope;
 	deserializer.ReadList(103, "scope",
 	                      [&](Deserializer::List &list, idx_t i) { scope.push_back(list.ReadElement<string>()); });
+	auto physical_type = deserializer.ReadProperty<string>(104, "physical_type");
 
-	auto secret_type = LookupTypeInternal(type);
+	secret_deserializer_t deserialize_function;
 
-	if (!secret_type.deserializer) {
-		throw InternalException(
-		    "Attempted to deserialize secret type '%s' which does not have a deserialization method", type);
+	if (physical_type == KeyValueSecret::PHYSICAL_TYPE) {
+		// For secrets serialized as key values we don't need to look up their types for deserialization
+		deserialize_function = KeyValueSecret::Deserialize<KeyValueSecret>;
+	} else {
+		auto secret_type = LookupTypeInternal(type);
+
+		if (!secret_type.deserializer) {
+			throw InternalException(
+				"Attempted to deserialize secret type '%s' which does not have a deserialization method", type);
+		}
+
+		deserialize_function = secret_type.deserializer;
 	}
 
-	return secret_type.deserializer(deserializer, {scope, type, provider, name});
+	return deserialize_function(deserializer, {scope, type, provider, name});
 }
 
 void SecretManager::RegisterSecretType(SecretType &type) {

@@ -72,7 +72,7 @@ enum class SecretDisplayType : uint8_t { REDACTED, UNREDACTED };
 struct SecretType {
 	//! Unique name identifying the secret type
 	string name;
-	//! The deserialization function for the type
+	//! The custom deserialization function for the type
 	secret_deserializer_t deserializer;
 	//! Provider to use when non is specified
 	string default_provider;
@@ -83,14 +83,16 @@ class BaseSecret {
 	friend class SecretManager;
 
 public:
+	static constexpr const char* PHYSICAL_TYPE = "base_secret";
+
 	BaseSecret(vector<string> prefix_paths_p, string type_p, string provider_p, string name_p)
 	    : prefix_paths(std::move(prefix_paths_p)), type(std::move(type_p)), provider(std::move(provider_p)),
-	      name(std::move(name_p)), serializable(false) {
+	      name(std::move(name_p)), serializable(false), physical_type(PHYSICAL_TYPE) {
 		D_ASSERT(!type.empty());
 	}
 	BaseSecret(const BaseSecret &other)
 	    : prefix_paths(other.prefix_paths), type(other.type), provider(other.provider), name(other.name),
-	      serializable(other.serializable) {
+	      serializable(other.serializable), physical_type(PHYSICAL_TYPE) {
 		D_ASSERT(!type.empty());
 	}
 	virtual ~BaseSecret() = default;
@@ -144,26 +146,33 @@ protected:
 	string name;
 	//! Whether the secret can be serialized/deserialized
 	bool serializable;
+	//! The physical type determines the deserialization method
+	string physical_type;
 };
 
 //! The KeyValueSecret is a class that implements a Secret as a set of key -> values. This class can be used
 //! for most use-cases of secrets as secrets generally tend to fit in a key value map.
 class KeyValueSecret : public BaseSecret {
 public:
+	static constexpr const char* PHYSICAL_TYPE = "key_value_secret";
+
 	KeyValueSecret(const vector<string> &prefix_paths, const string &type, const string &provider, const string &name)
 	    : BaseSecret(prefix_paths, type, provider, name) {
 		D_ASSERT(!type.empty());
 		serializable = true;
+		physical_type = PHYSICAL_TYPE;
 	}
 	explicit KeyValueSecret(const BaseSecret &secret)
 	    : BaseSecret(secret.GetScope(), secret.GetType(), secret.GetProvider(), secret.GetName()) {
 		serializable = true;
+		physical_type = PHYSICAL_TYPE;
 	};
 	KeyValueSecret(const KeyValueSecret &secret)
 	    : BaseSecret(secret.GetScope(), secret.GetType(), secret.GetProvider(), secret.GetName()) {
 		secret_map = secret.secret_map;
 		redact_keys = secret.redact_keys;
 		serializable = true;
+		physical_type = PHYSICAL_TYPE;
 	};
 	KeyValueSecret(KeyValueSecret &&secret) noexcept
 	    : BaseSecret(std::move(secret.prefix_paths), std::move(secret.type), std::move(secret.provider),
@@ -171,6 +180,7 @@ public:
 		secret_map = std::move(secret.secret_map);
 		redact_keys = std::move(secret.redact_keys);
 		serializable = true;
+		physical_type = PHYSICAL_TYPE;
 	};
 	//! Returns the secret as a Map Value. Used in printing the secret
 	Value ToMapValue(SecretDisplayType mode = SecretDisplayType::REDACTED) const override;
