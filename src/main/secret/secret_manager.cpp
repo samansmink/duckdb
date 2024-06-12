@@ -98,7 +98,7 @@ unique_ptr<BaseSecret> SecretManager::DeserializeSecret(Deserializer &deserializ
 
 		if (!secret_type.deserializer) {
 			throw InternalException(
-				"Attempted to deserialize secret type '%s' which does not have a deserialization method", type);
+			    "Attempted to deserialize secret type '%s' which does not have a deserialization method", type);
 		}
 
 		deserialize_function = secret_type.deserializer;

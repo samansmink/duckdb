@@ -83,7 +83,7 @@ class BaseSecret {
 	friend class SecretManager;
 
 public:
-	static constexpr const char* PHYSICAL_TYPE = "base_secret";
+	static constexpr const char *PHYSICAL_TYPE = "base_secret";
 
 	BaseSecret(vector<string> prefix_paths_p, string type_p, string provider_p, string name_p)
 	    : prefix_paths(std::move(prefix_paths_p)), type(std::move(type_p)), provider(std::move(provider_p)),
@@ -154,7 +154,7 @@ protected:
 //! for most use-cases of secrets as secrets generally tend to fit in a key value map.
 class KeyValueSecret : public BaseSecret {
 public:
-	static constexpr const char* PHYSICAL_TYPE = "key_value_secret";
+	static constexpr const char *PHYSICAL_TYPE = "key_value_secret";
 
 	KeyValueSecret(const vector<string> &prefix_paths, const string &type, const string &provider, const string &name)
 	    : BaseSecret(prefix_paths, type, provider, name) {
