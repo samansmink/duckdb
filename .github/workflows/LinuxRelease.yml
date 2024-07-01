@@ -77,7 +77,7 @@ jobs:
         sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
         yum-config-manager --disable centos-sclo-rh
-        yum install zip tar perl-IPC-Cmd curl
+        yum install zip tar perl-IPC-Cmd curl -y
         ln -fs /usr/local/bin/python3.9 /usr/local/bin/python3
 
     - name: Install pytest
