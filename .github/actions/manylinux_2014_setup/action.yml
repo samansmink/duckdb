@@ -41,9 +41,9 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Setup general dependencies
-      shell: bash
-      run: scripts/setup_manylinux2014.sh general
+#    - name: Setup general dependencies
+#      shell: bash
+#      run: scripts/setup_manylinux2014.sh general
 
     - name: Install AWS CLI
       if: ${{ inputs.aws-cli == 1 }}

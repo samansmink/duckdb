@@ -68,16 +68,6 @@ jobs:
         fetch-depth: 0
         ref: ${{ inputs.git_ref }}
 
-    - uses: ./.github/actions/manylinux_2014_setup
-      with:
-        aws-cli: 1
-        ninja-build: 1
-        ccache: 1
-        nodejs: 1
-        ssh: 1
-        python_alias: 1
-        openssl: 1
-
     - uses: ./.github/actions/build_extensions
       with:
         vcpkg_target_triplet: x64-linux
