@@ -83,7 +83,8 @@ runs:
     - name: Setup python3 as python3.9
       if: ${{ inputs.python_alias == 1 }}
       shell: bash
-      run: scripts/setup_manylinux2014.sh python_alias
+      run: |
+        ln -fs /usr/local/bin/python3.9 /usr/local/bin/python3
 
     - name: Setup old (GCC 4.8) compiler
       if: ${{ inputs.gcc_4_8 == 1 }}
