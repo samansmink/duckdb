@@ -6,7 +6,7 @@ find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-add_library(duckdb_fsst STATIC libfsst.cpp)
+add_library(duckdb_fsst OBJECT libfsst.cpp)
 
 target_include_directories(duckdb_fsst PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 set_target_properties(duckdb_fsst PROPERTIES EXPORT_NAME duckdb_fsst)

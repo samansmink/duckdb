@@ -7,7 +7,7 @@ project(Snowball)
 include_directories(libstemmer runtime src_c)
 
 add_library(
-  snowball STATIC
+  snowball OBJECT
   libstemmer/libstemmer.c
   runtime/utilities.c
   runtime/api.c

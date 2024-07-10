@@ -2,7 +2,7 @@ if(POLICY CMP0063)
     cmake_policy(SET CMP0063 NEW)
 endif()
 
-add_library(duckdb_skiplistlib STATIC SkipList.cpp)
+add_library(duckdb_skiplistlib OBJECT SkipList.cpp)
 
 target_include_directories(
   duckdb_skiplistlib
