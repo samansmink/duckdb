@@ -1,0 +1,59 @@
+# This reusable workflow is a test for a next-gen extension building toolchain that will allow:
+# - Faster extension building using a pre-built static duckdb library
+# - Testing extensions using DuckDB's unittest binary without needing to build DuckDB
+
+name: Client Tests
+on:
+  workflow_dispatch:
+  repository_dispatch:
+  push:
+
+jobs:
+  linux-static-binary-release:
+    # Builds binaries for linux_amd64_gcc4
+    name: Build a static library
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_x86_64
+    env:
+      EXTENSION_CONFIGS: '${GITHUB_WORKSPACE}/.github/config/bundled_extensions.cmake'
+      ENABLE_EXTENSION_AUTOLOADING: 1
+      ENABLE_EXTENSION_AUTOINSTALL: 1
+      GEN: ninja
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/manylinux_2014_setup
+        with:
+          ninja-build: 1
+          ccache: 1
+          python_alias: 1
+          aws-cli: 1
+
+      - name: Build
+        shell: bash
+        run: make
+
+      - name: Wrap up duckdb library
+        shell: bash
+        run: |
+          zip -j libduckdb-linux-amd64.zip build/release/src/libduckdb*.*
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: duckdb-library-linux_amd64_gcc4
+          path: |
+            libduckdb-linux-amd64.zip
+
+  build-extension-using-prebuilt-duckdb:
+    name: Build quack extension using the pre-built duckdb binary
+    needs: linux-static-binary-release
+    uses: ./.github/workflows/_extension_distribution.yml
+    with:
+      extension_name: quack
+      override_repository: 'duckdb/extension-template'
+      override_ref: 'main'
+      duckdb_version: ${{ github.sha }}
+      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64;linux_arm64;linux_amd64;macos_arm64;macos_amd64'

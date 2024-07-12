@@ -397,7 +397,7 @@ option(CLANG_TIDY "Enable build for clang-tidy, this disables all source files e
 option(BUILD_UNITTESTS "Build the C++ Unit Tests." TRUE)
 option(EXTENSION_CONFIG_BUILD "Produce extension configuration artifacts instead of building. (such as shared vcpkg.json, extensions.txt)" FALSE)
 option(CUSTOM_LINKER "Use a custom linker program" "")
-option(PREBUILT_DUCKDB_LIB "Use a prebuilt duckdb libary" "${CMAKE_SOURCE_DIR}/buildcache/debug/src/libduckdb_static.a")
+option(PREBUILT_DUCKDB_LIB "Use a prebuilt duckdb libary" "")
 option(
   ASSERT_EXCEPTION
   "Throw an exception on an assert failing, instead of triggering a sigabort"
@@ -413,7 +413,7 @@ if(${BUILD_RDTSC})
   add_compile_definitions(RDTSC)
 endif()
 
-if(NOT PREBUILT_DUCKDB_LIB STREQUAL "")
+if(PREBUILT_DUCKDB_LIB)
   set(BUILD_MAIN_DUCKDB_LIBRARY FALSE)
   set(BUILD_UNITTESTS FALSE)
   set(BUILD_SHELL FALSE)
@@ -1175,13 +1175,13 @@ foreach(EXT_NAME IN LISTS DUCKDB_EXTENSION_NAMES)
   endif()
 endforeach()
 
-if (BUILD_MAIN_DUCKDB_LIBRARY AND PREBUILT_DUCKDB_LIB STREQUAL "")
+if (BUILD_MAIN_DUCKDB_LIBRARY AND NOT PREBUILT_DUCKDB_LIB)
   add_subdirectory(src)
   add_subdirectory(tools)
 endif()
 
 # We're using a prebuilt library instead of building duckdb all over
-if (NOT PREBUILT_DUCKDB_LIB STREQUAL "")
+if (PREBUILT_DUCKDB_LIB)
   add_library(duckdb_static STATIC IMPORTED GLOBAL)
   set_target_properties( duckdb_static PROPERTIES IMPORTED_LOCATION ${PREBUILT_DUCKDB_LIB})
 endif()
@@ -1350,7 +1350,7 @@ else()
           )
 endif()
 
-if(NOT CLANG_TIDY AND AND PREBUILT_DUCKDB_LIB STREQUAL "")
+if(NOT CLANG_TIDY AND NOT PREBUILT_DUCKDB_LIB)
   if(${BUILD_UNITTESTS})
     add_subdirectory(test)
     if(NOT WIN32
