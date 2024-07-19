@@ -78,8 +78,7 @@ jobs:
 
     - name: Configure OpenSSL for Rust
       run: |
-        echo "OPENSSL_ROOT_DIR=`pwd`/build/release/vcpkg_installed/${{ matrix.vcpkg_triplet }}" >> $GITHUB_ENV
-        echo "OPENSSL_DIR=`pwd`/build/release/vcpkg_installed/${{ matrix.vcpkg_triplet }}" >> $GITHUB_ENV
+        echo "OPENSSL_ROOT_DIR=`pwd`/build/release/vcpkg_installed/x64-linux" >> $GITHUB_ENV
         echo "OPENSSL_USE_STATIC_LIBS=true" >> $GITHUB_ENV
 
     - uses: ./.github/actions/build_extensions
@@ -135,8 +134,7 @@ jobs:
 
       - name: Configure OpenSSL for Rust
         run: |
-          echo "OPENSSL_ROOT_DIR=`pwd`/build/release/vcpkg_installed/${{ matrix.vcpkg_triplet }}" >> $GITHUB_ENV
-          echo "OPENSSL_DIR=`pwd`/build/release/vcpkg_installed/${{ matrix.vcpkg_triplet }}" >> $GITHUB_ENV
+          echo "OPENSSL_ROOT_DIR=`pwd`/build/release/vcpkg_installed/arm64-linux" >> $GITHUB_ENV
           echo "OPENSSL_USE_STATIC_LIBS=true" >> $GITHUB_ENV
 
       - uses: ./.github/actions/build_extensions
