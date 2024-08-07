@@ -93,3 +93,12 @@ jobs:
         python3 scripts/get_test_list.py --file-contains 'require httpfs' --list '"*"' > test.list
         python3 scripts/run_tests_one_by_one.py ./build/release/test/unittest '-f test.list'
         python3 scripts/run_tests_one_by_one.py ./build/release/test/unittest '[secret]'
+
+    - name: print logs
+      if: always()
+      shell: bash
+      run: |
+        cat ./squid_logs/*
+        cat ./squid_auth_logs/*
+        tree ./squid_logs
+        tree ./squid_auth_logs
