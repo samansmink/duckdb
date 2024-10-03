@@ -78,7 +78,7 @@ vector<string> MultiFileReader::ParsePaths(const Value &input) {
 	}
 }
 
-unique_ptr<MultiFileList> MultiFileReader::CreateFileList(ClientContext &context, const vector<string> &paths,
+shared_ptr<MultiFileList> MultiFileReader::CreateFileList(ClientContext &context, const vector<string> &paths,
                                                           FileGlobOptions options) {
 	auto &config = DBConfig::GetConfig(context);
 	if (!config.options.enable_external_access) {
@@ -86,14 +86,14 @@ unique_ptr<MultiFileList> MultiFileReader::CreateFileList(ClientContext &context
 	}
 	vector<string> result_files;
 
-	auto res = make_uniq<GlobMultiFileList>(context, paths, options);
+	auto res = make_shared_ptr<GlobMultiFileList>(context, paths, options);
 	if (res->GetExpandResult() == FileExpandResult::NO_FILES && options == FileGlobOptions::DISALLOW_EMPTY) {
 		throw IOException("%s needs at least one file to read", function_name);
 	}
 	return std::move(res);
 }
 
-unique_ptr<MultiFileList> MultiFileReader::CreateFileList(ClientContext &context, const Value &input,
+shared_ptr<MultiFileList> MultiFileReader::CreateFileList(ClientContext &context, const Value &input,
                                                           FileGlobOptions options) {
 	auto paths = ParsePaths(input);
 	return CreateFileList(context, paths, options);

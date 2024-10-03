@@ -103,7 +103,7 @@ struct DeltaMultiFileReaderGlobalState : public MultiFileReaderGlobalState {
 struct DeltaMultiFileReader : public MultiFileReader {
 	static unique_ptr<MultiFileReader> CreateInstance();
 	//! Return a DeltaSnapshot
-	unique_ptr<MultiFileList> CreateFileList(ClientContext &context, const vector<string> &paths,
+	shared_ptr<MultiFileList> CreateFileList(ClientContext &context, const vector<string> &paths,
 	                                         FileGlobOptions options) override;
 
 	//! Override the regular parquet bind using the MultiFileReader Bind. The bind from these are what DuckDB's file
