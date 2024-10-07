@@ -8,8 +8,10 @@
 #include "duckdb/main/extension_entries.hpp"
 #include "duckdb/main/extension_helper.hpp"
 #include "sqllogic_parser.hpp"
-#include "test_helpers.hpp"
 #include "sqllogic_test_logger.hpp"
+#include "test_helpers.hpp"
+
+#include <duckdb/common/local_file_system.hpp>
 
 #ifdef DUCKDB_OUT_OF_TREE
 #include DUCKDB_EXTENSION_HEADER
@@ -452,6 +454,15 @@ RequireResult SQLLogicTestRunner::CheckRequire(SQLLogicParser &parser, const vec
 			excluded_from_autoloading = false;
 			break;
 		}
+	}
+
+	const auto &external_extensions = GetExternalExtensions();
+	const auto& external_extension_lookup = external_extensions.find(param);
+	if (external_extension_lookup != external_extensions.end()) {
+		LocalFileSystem local_fs;
+		ExtensionHelper::LoadExternalExtension(*db->instance, local_fs, external_extension_lookup->second);
+		extensions.insert(param);
+		return RequireResult::PRESENT;
 	}
 
 	if (!config->options.autoload_known_extensions) {

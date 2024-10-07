@@ -13,6 +13,9 @@
 
 #include "pid.hpp"
 #include "duckdb/function/table/read_csv.hpp"
+#include "duckdb/common/local_file_system.hpp"
+#include "duckdb/main/extension_helper.hpp"
+
 #include <cmath>
 #include <fstream>
 
@@ -21,6 +24,7 @@ using namespace std;
 #define TESTING_DIRECTORY_NAME "duckdb_unittest_tempdir"
 
 namespace duckdb {
+static unordered_map<string, string> external_extensions;
 static string custom_test_directory;
 static int debug_initialize_value = -1;
 static bool single_threaded = false;
@@ -66,6 +70,10 @@ string TestGetCurrentDirectory() {
 	return FileSystem::GetWorkingDirectory();
 }
 
+unordered_map<string, string>& GetExternalExtensions() {
+	return external_extensions;
+}
+
 void DeleteDatabase(string path) {
 	if (!custom_test_directory.empty()) {
 		return;
@@ -81,6 +89,43 @@ void TestCreateDirectory(string path) {
 
 void SetTestDirectory(string path) {
 	custom_test_directory = path;
+}
+
+void RegisterExternalExtension(const string &extension_path) {
+	auto local_fs = LocalFileSystem();
+
+	if (!StringUtil::EndsWith(extension_path, ".duckdb_extension")) {
+		if (StringUtil::Contains(extension_path, local_fs.PathSeparator(extension_path))) {
+			throw InvalidInputException("External extension '%s' looks like a path but does not end in .duckdb_extension. Either pass an extension name to be loaded from the duckdb directory OR pass a full path to the duckdb extension binary")
+		}
+	}
+
+	auto paths_components = StringUtil::Split(extension_path, local_fs.PathSeparator(extension_path));
+
+	if (paths_components.empty()) {
+		throw InvalidInputException("Empty external extension passed to unittester");
+	}
+
+	auto &extension_filename = paths_components.back();
+
+	string extension_name = StringUtil::Split(extension_filename, ".")[0];
+	external_extensions[extension_name]  = extension_path;
+}
+
+void RegisterExternalExtensionDir(const string &extension_dir) {
+	auto local_fs = LocalFileSystem();
+
+	auto full_glob = local_fs.JoinPath(extension_dir,  ExtensionHelper::GetVersionDirectoryName());
+	full_glob = local_fs.JoinPath(full_glob, DuckDB::Platform());
+	full_glob = local_fs.JoinPath(full_glob, "*.duckdb_extension");
+
+	auto glob_result = local_fs.Glob(full_glob);
+	printf("Loading external extensions from %s\n", full_glob.c_str());
+
+	for (const auto& path: glob_result) {
+		printf("Registering %s\n", path.c_str());
+		RegisterExternalExtension(path);
+	}
 }
 
 void SetDebugInitialize(int value) {

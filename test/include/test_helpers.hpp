@@ -32,6 +32,9 @@ bool TestForceReload();
 bool TestMemoryLeaks();
 void RegisterSqllogictests();
 
+void RegisterExternalExtension(const string &extension_path);
+void RegisterExternalExtensionDir(const string &extension_dir);
+unordered_map<string, string>& GetExternalExtensions();
 void DeleteDatabase(string path);
 void TestDeleteDirectory(string path);
 void TestCreateDirectory(string path);

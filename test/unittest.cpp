@@ -29,6 +29,7 @@ bool TestMemoryLeaks() {
 int main(int argc, char *argv[]) {
 	duckdb::unique_ptr<FileSystem> fs = FileSystem::CreateLocal();
 	string test_directory = DUCKDB_ROOT_DIRECTORY;
+	vector<string> external_extensions;
 	bool delete_test_path = true;
 
 	int new_argc = 0;
@@ -43,6 +44,10 @@ int main(int argc, char *argv[]) {
 			test_memory_leaks = true;
 		} else if (string(argv[i]) == "--test-dir") {
 			test_directory = string(argv[++i]);
+		} else if (string(argv[i]) == "--external-extension") {
+			RegisterExternalExtension(string(argv[++i]));
+		} else if (string(argv[i]) == "--external-extension-dir") {
+			RegisterExternalExtensionDir(string(argv[++i]));
 		} else if (string(argv[i]) == "--test-temp-dir") {
 			delete_test_path = false;
 			auto test_dir = string(argv[++i]);
