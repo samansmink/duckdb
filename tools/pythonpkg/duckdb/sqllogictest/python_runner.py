@@ -148,8 +148,9 @@ class SQLLogicPythonRunner:
         )
         args = arg_parser.parse_args()
 
-        executor = SQLLogicTestExecutor(args.build_dir, self.default_test_directory)
-        if os.path.exists(self.default_test_directory):
+        executor = SQLLogicTestExecutor(args.build_dir, args.test_dir if args.test_dir else self.default_test_directory)
+
+        if self.default_test_directory and os.path.exists(self.default_test_directory):
             shutil.rmtree(self.default_test_directory)
 
         if args.external_extension:
@@ -168,6 +169,8 @@ class SQLLogicPythonRunner:
             file_paths = glob.iglob(args.test_dir + '/**/*.test', recursive=True)
             file_paths = [os.path.relpath(path, test_directory) for path in file_paths]
         else:
+            if not self.default_test_directory:
+                raise Exception("Did not provide a test directory, nor was a default directory set!")
             test_directory = self.default_test_directory
             file_paths = glob.iglob(test_directory + '/test/**/*.test', recursive=True)
             file_paths = [os.path.relpath(path, test_directory) for path in file_paths]
