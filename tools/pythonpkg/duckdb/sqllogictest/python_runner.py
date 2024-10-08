@@ -5,6 +5,8 @@ from typing import Any, Generator, Optional
 import shutil
 import gc
 
+import duckdb
+
 from duckdb.sqllogictest import (
     SQLParserException,
     SQLLogicParser,
@@ -141,6 +143,9 @@ class SQLLogicPythonRunner:
         arg_parser.add_argument('--file-path', type=str, help='Path to the test file')
         arg_parser.add_argument('--test-dir', type=str, help='Path to the test directory holding the test files')
         arg_parser.add_argument('--external-extension', type=str, help='Path to an extra extension file to test')
+        arg_parser.add_argument(
+            '--preinstall-extensions', type=str, help='Comma-separated list of extensions to preinstall during testing'
+        )
         arg_parser.add_argument('--file-list', type=str, help='Path to the file containing a list of tests to run')
         arg_parser.add_argument('--start-offset', '-s', type=int, help='Start offset for the tests', default=0)
         arg_parser.add_argument(
@@ -155,6 +160,10 @@ class SQLLogicPythonRunner:
 
         if args.external_extension:
             executor.register_external_extension(args.external_extension)
+
+        if args.preinstall_extensions:
+            for ext in args.preinstall_extensions.split(','):
+                duckdb.query(f'INSTALL {ext}')
 
         test_directory = None
         if args.file_path:
