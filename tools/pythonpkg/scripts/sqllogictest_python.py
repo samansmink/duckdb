@@ -27,6 +27,7 @@ TEST_DIRECTORY_PATH = os.path.join(script_path, 'duckdb_unittest_tempdir')
 # This is pretty much just a VM
 class SQLLogicTestExecutor(SQLLogicRunner):
     def __init__(self, build_directory: Optional[str] = None):
+        print(super().__init__)
         super().__init__(build_directory)
         self.SKIPPED_TESTS = set(
             [
@@ -70,6 +71,7 @@ class SQLLogicTestExecutor(SQLLogicRunner):
             # "spatial",
             # TODO: table function isnt always autoloaded so test fails
         ]
+
         self.skip_log = []
 
     def get_test_directory(self) -> str:
@@ -134,12 +136,13 @@ class SQLLogicTestExecutor(SQLLogicRunner):
 
 import argparse
 
-
 def main():
     sql_parser = SQLLogicParser()
 
     arg_parser = argparse.ArgumentParser(description='Execute SQL logic tests.')
     arg_parser.add_argument('--file-path', type=str, help='Path to the test file')
+    arg_parser.add_argument('--test-dir', type=str, help='Path to the test directory holding the test files')
+    arg_parser.add_argument('--external-extension', type=str, help='Path to an extra extension file to test')
     arg_parser.add_argument('--file-list', type=str, help='Path to the file containing a list of tests to run')
     arg_parser.add_argument('--start-offset', '-s', type=int, help='Start offset for the tests', default=0)
     arg_parser.add_argument(
@@ -151,6 +154,9 @@ def main():
     if os.path.exists(TEST_DIRECTORY_PATH):
         shutil.rmtree(TEST_DIRECTORY_PATH)
 
+    if args.external_extension:
+        executor.register_external_extension(args.external_extension)
+
     test_directory = None
     if args.file_path:
         if args.file_list:
@@ -160,6 +166,9 @@ def main():
         if args.file_path:
             raise Exception("Can not provide both a file-path and a file-list")
         file_paths = open(args.file_list).read().split()
+    elif args.test_dir:
+        file_paths = glob.iglob(args.test_dir + '/**/*.test', recursive=True)
+        file_paths = [os.path.relpath(path, test_directory) for path in file_paths]
     else:
         test_directory = os.path.join(script_path, '..', '..', '..')
         file_paths = glob.iglob(test_directory + '/test/**/*.test', recursive=True)

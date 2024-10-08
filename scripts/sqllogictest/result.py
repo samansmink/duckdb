@@ -1,4 +1,5 @@
 from hashlib import md5
+from pathlib import Path
 import gc
 
 from .base_statement import BaseStatement
@@ -414,6 +415,7 @@ class SQLLogicDatabase:
             for extension in context.runner.extensions:
                 self.load_extension(context, extension)
 
+
     def reset(self):
         self.database: Optional[duckdb.DuckDBPyConnection] = None
         self.config: Dict[str, Any] = {
@@ -669,6 +671,7 @@ class SQLLogicRunner:
     def __init__(self, build_directory: Optional[str] = None):
         self.reset()
         self.build_directory = build_directory
+        self.extension_map = {}
 
     def skip(self):
         self.skip_level += 1
@@ -681,6 +684,20 @@ class SQLLogicRunner:
 
     def is_required(self, param):
         return param in self.required_requires
+
+    def register_external_extension(self, path):
+        self.extension_map[Path(path).stem] = path
+
+    def get_extension_path(self, extension: str):
+        if extension in self.extension_map:
+            return self.extension_map[extension]
+
+        if self.build_directory is None:
+            return None
+
+        root = self.build_directory
+        path = os.path.join(root, "extension", extension, f"{extension}.duckdb_extension")
+        return path
 
 
 class SQLLogicContext:
@@ -712,11 +729,10 @@ class SQLLogicContext:
         return input
 
     def get_extension_path(self, extension: str):
-        if self.runner.build_directory is None:
-            self.skiptest("Tried to load an extension, but --build-dir was not set!")
-        root = self.runner.build_directory
-        path = os.path.join(root, "extension", extension, f"{extension}.duckdb_extension")
-        return path
+        result = self.runner.get_extension_path(extension)
+        if result is None:
+            self.skiptest("Tried to load an extension that is not in the extension map, but --build-dir was not set!")
+        return result
 
     def __init__(
         self,
@@ -1047,7 +1063,7 @@ class SQLLogicContext:
         if param in self.runner.extensions:
             return RequireResult.PRESENT
 
-        if self.runner.build_directory is None:
+        if self.runner.get_extension_path(param) is None:
             return RequireResult.MISSING
 
         connection = self.pool.get_connection()
@@ -1065,6 +1081,11 @@ class SQLLogicContext:
             if ext == param:
                 excluded_from_autoloading = False
                 break
+
+        if param in self.runner.extension_map:
+            self.runner.database.load_extension(self, param)
+            self.runner.extensions.add(param)
+            return RequireResult.PRESENT
 
         if autoload_known_extensions == False:
             try:
