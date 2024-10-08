@@ -3,6 +3,7 @@ _exported_symbols = []
 # Modules
 import duckdb.functional as functional
 import duckdb.typing as typing
+
 import functools
 
 _exported_symbols.extend([

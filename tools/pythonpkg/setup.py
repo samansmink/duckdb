@@ -371,7 +371,6 @@ packages = [
     'duckdb-stubs.value',
     'duckdb-stubs.value.constant',
     'adbc_driver_duckdb',
-    'sqllogictest'
 ]
 
 spark_packages = [
@@ -382,7 +381,15 @@ spark_packages = [
     'duckdb.experimental.spark.errors.exceptions',
 ]
 
+sqlogictest_packages = [
+    'duckdb.sqllogictest',
+    'duckdb.sqllogictest.decorator',
+    'duckdb.sqllogictest.parser',
+    'duckdb.sqllogictest.statement'
+]
+
 packages.extend(spark_packages)
+packages.extend(sqlogictest_packages)
 
 setup(
     name=lib_name,
