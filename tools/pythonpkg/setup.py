@@ -371,6 +371,7 @@ packages = [
     'duckdb-stubs.value',
     'duckdb-stubs.value.constant',
     'adbc_driver_duckdb',
+    'sqllogictest'
 ]
 
 spark_packages = [
