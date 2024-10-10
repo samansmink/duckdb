@@ -12,7 +12,7 @@
 namespace duckdb {
 
 TransactionContext::TransactionContext(ClientContext &context)
-    : context(context), auto_commit(true), current_transaction(nullptr) {
+    : context(context), auto_commit(true), requires_explicit_auto_commit(false), current_transaction(nullptr) {
 }
 
 TransactionContext::~TransactionContext() {
@@ -62,6 +62,13 @@ void TransactionContext::SetAutoCommit(bool value) {
 	if (!auto_commit && !current_transaction) {
 		BeginTransaction();
 	}
+
+	// Reset requires explicit auto_commit: this option can only be enabled when auto commit is on
+	requires_explicit_auto_commit = false;
+}
+
+void TransactionContext::SetRequiresExplicitAutoCommit(bool value) {
+	requires_explicit_auto_commit = value;
 }
 
 void TransactionContext::SetReadOnly() {

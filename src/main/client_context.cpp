@@ -41,9 +41,32 @@
 #include "duckdb/planner/pragma_handler.hpp"
 #include "duckdb/storage/data_table.hpp"
 #include "duckdb/transaction/meta_transaction.hpp"
+#include "duckdb/transaction/transaction_context.hpp"
 #include "duckdb/transaction/transaction_manager.hpp"
 
 namespace duckdb {
+
+AutoCommitState::AutoCommitState(ClientContext &context_p, MetaTransaction *transaction_p) :
+	context(context_p.shared_from_this()), result(AutoCommitResult::STARTED), transaction(transaction_p)  {
+
+}
+AutoCommitState::AutoCommitState(AutoCommitResult result_p) :
+	context(nullptr), result(result_p), transaction(nullptr)  {
+	D_ASSERT(result_p != AutoCommitResult::STARTED);
+}
+
+AutoCommitState::~AutoCommitState() {
+ 	if (result == AutoCommitResult::STARTED && context) {
+ 		// we started a transaction so we may need to clean it up
+ 		if (context->transaction.HasActiveTransaction() &&
+ 			&context->transaction.ActiveTransaction() == transaction) {
+ 			context->transaction.Rollback(nullptr);
+ 		}
+
+ 		// TODO: Do I need context-lock? Or should it be an atomic value?
+ 		context->transaction.SetRequiresExplicitAutoCommit(false);
+ 	}
+}
 
 struct ActiveQueryContext {
 public:
@@ -187,9 +210,15 @@ void ClientContext::BeginQueryInternal(ClientContextLock &lock, const string &qu
 		throw ErrorManager::InvalidatedDatabase(*this, ValidChecker::InvalidatedMessage(db_inst));
 	}
 	active_query = make_uniq<ActiveQueryContext>();
-	if (transaction.IsAutoCommit()) {
+	if (transaction.IsAutoCommit() && !transaction.RequiresExplicitAutoCommit()) {
+		// TODO: what happens if a transaction is started in an autocommit sesh? W either need to disable explicit auto-commit
+		//       or we also need to go into here
 		transaction.BeginTransaction();
+	} else if (transaction.RequiresExplicitAutoCommit() && !transaction.HasActiveTransaction()) {
+		// TODO: can this happen?
+		throw InternalException("Query started in explicit auto-commit mode without an active transaction!");
 	}
+
 	transaction.SetActiveQuery(db->GetDatabaseManager().GetNewQueryNumber());
 	LogQueryInternal(lock, query);
 	active_query->query = query;
@@ -217,7 +246,7 @@ ErrorData ClientContext::EndQueryInternal(ClientContextLock &lock, bool success,
 	try {
 		if (transaction.HasActiveTransaction()) {
 			transaction.ResetActiveQuery();
-			if (transaction.IsAutoCommit()) {
+			if (transaction.IsAutoCommit() && !transaction.RequiresExplicitAutoCommit()) {
 				if (success) {
 					transaction.Commit();
 				} else {
@@ -1100,6 +1129,43 @@ void ClientContext::RunFunctionInTransactionInternal(ClientContextLock &lock, co
 	if (require_new_transaction) {
 		transaction.Commit();
 	}
+}
+
+unique_ptr<AutoCommitState> ClientContext::StartExplicitAutoCommit() {
+	if (transaction.HasActiveTransaction() && !transaction.IsAutoCommit()) {
+		return make_uniq<AutoCommitState>(AutoCommitResult::ALREADY_IN_TRANSACTION);
+	}
+
+	// TODO: What if this is called when autocommit is disabled? do we enable or ignore?
+
+	bool require_new_transaction = transaction.IsAutoCommit() && !transaction.HasActiveTransaction();
+	if (require_new_transaction) {
+		transaction.BeginTransaction();
+		transaction.SetRequiresExplicitAutoCommit(true);
+		return make_uniq<AutoCommitState>(*this, &transaction.ActiveTransaction());
+	}
+
+	return make_uniq<AutoCommitState>(AutoCommitResult::NOT_STARTED);
+}
+
+void ClientContext::FinishExplicitAutoCommit(AutoCommitState &state, TransactionType type) {
+	if (type != TransactionType::COMMIT && type != TransactionType::ROLLBACK) {
+		throw InternalException("Invalid transaction type passed to ClientContext::FinishExplicitAutoCommit: %s", EnumUtil::ToString(type));
+	}
+
+	if (state.result == AutoCommitResult::STARTED &&
+		transaction.HasActiveTransaction() &&
+		transaction.IsAutoCommit() &&
+		transaction.RequiresExplicitAutoCommit() &&
+		state.transaction == &transaction.ActiveTransaction()
+		) {
+		if (type == TransactionType::COMMIT) {
+			transaction.Commit();
+		} else {
+			transaction.Rollback(nullptr);
+		}
+	}
+	transaction.SetRequiresExplicitAutoCommit(false);
 }
 
 void ClientContext::RunFunctionInTransaction(const std::function<void(void)> &fun, bool requires_valid_transaction) {

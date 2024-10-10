@@ -57,6 +57,8 @@ struct sqlite3_stmt {
 	duckdb::unique_ptr<QueryResult> result;
 	//! The current chunk that we are iterating over
 	duckdb::unique_ptr<DataChunk> current_chunk;
+	//! The AutoCommitState state: ensures we can run prepare + execute in the same transaction
+	duckdb::unique_ptr<AutoCommitState> auto_commit_state;
 	//! The current row into the current chunk that we are iterating over
 	int64_t current_row;
 	//! Bound values, used for binding to the prepared statement
@@ -200,6 +202,8 @@ int sqlite3_prepare_v2(sqlite3 *db,           /* Database handle */
 			}
 		}
 
+		auto autocommit_state = db->con->context->StartExplicitAutoCommit();
+
 		// now prepare the query
 		auto prepared = db->con->Prepare(std::move(statements.back()));
 		if (prepared->HasError()) {
@@ -213,6 +217,7 @@ int sqlite3_prepare_v2(sqlite3 *db,           /* Database handle */
 		stmt->db = db;
 		stmt->query_string = query;
 		stmt->prepared = std::move(prepared);
+		stmt->auto_commit_state = std::move(autocommit_state);
 		stmt->current_row = -1;
 		for (idx_t i = 0; i < stmt->prepared->named_param_map.size(); i++) {
 			stmt->bound_names.push_back("$" + to_string(i + 1));
@@ -247,6 +252,9 @@ char *sqlite3_print_duckbox(sqlite3_stmt *pStmt, size_t max_rows, size_t max_wid
 			return nullptr;
 		}
 		pStmt->result = pStmt->prepared->Execute(pStmt->bound_values, false);
+		if (pStmt->auto_commit_state) {
+			pStmt->db->con->context->FinishExplicitAutoCommit(*pStmt->auto_commit_state, TransactionType::COMMIT);
+		}
 		if (pStmt->result->HasError()) {
 			// error in execute: clear prepared statement
 			pStmt->db->last_error = pStmt->result->GetErrorObject();
@@ -301,6 +309,9 @@ int sqlite3_step(sqlite3_stmt *pStmt) {
 	if (!pStmt->result) {
 		// no result yet! call Execute()
 		pStmt->result = pStmt->prepared->Execute(pStmt->bound_values, true);
+		if (pStmt->auto_commit_state) {
+			pStmt->db->con->context->FinishExplicitAutoCommit(*pStmt->auto_commit_state, TransactionType::COMMIT);
+		}
 		if (pStmt->result->HasError()) {
 			// error in execute: clear prepared statement
 			pStmt->db->last_error = pStmt->result->GetErrorObject();
