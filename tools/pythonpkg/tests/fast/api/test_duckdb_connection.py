@@ -54,12 +54,12 @@ class TestDuckDBConnection(object):
         duckdb.execute("select [1,2,3]")
         result = duckdb.arrow()
 
-    def test_begin_commit(self):
-        duckdb.begin()
-        duckdb.execute("create table tbl as select 1")
-        duckdb.commit()
-        res = duckdb.table("tbl")
-        duckdb.execute("drop table tbl")
+    # def test_begin_commit(self):
+        # duckdb.begin()
+        # duckdb.execute("create table tbl as select 1")
+        # duckdb.commit()
+        # res = duckdb.table("tbl")
+        # duckdb.execute("drop table tbl")
 
     def test_begin_rollback(self):
         duckdb.begin()

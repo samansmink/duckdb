@@ -30,6 +30,8 @@
 #include "duckdb/planner/expression/bound_parameter_data.hpp"
 #include "duckdb/transaction/transaction_context.hpp"
 
+#include <duckdb/parser/parsed_data/transaction_info.hpp>
+
 namespace duckdb {
 class Appender;
 class Catalog;
@@ -58,6 +60,23 @@ struct PendingQueryParameters {
 	optional_ptr<case_insensitive_map_t<BoundParameterData>> parameters;
 	//! Whether or not a stream result should be allowed
 	bool allow_stream_result = false;
+};
+
+enum class AutoCommitResult : uint8_t { NOT_STARTED = 0, STARTED = 1, ALREADY_IN_TRANSACTION = 2 };
+struct AutoCommitState {
+	AutoCommitState(ClientContext &context, MetaTransaction *transaction);
+	AutoCommitState(AutoCommitResult result);
+
+	// Copy not allowed since destructor ends transaction
+	AutoCommitState (const AutoCommitState&) = delete;
+	AutoCommitState& operator= (const AutoCommitState&) = delete;
+
+	~AutoCommitState();
+
+	//! AutoCommitState needs to keep the context alive to avoid lifetime issues
+	shared_ptr<ClientContext> context;
+	AutoCommitResult result;
+	MetaTransaction *transaction;
 };
 
 //! The ClientContext holds information relevant to the current client session
@@ -178,6 +197,12 @@ public:
 	//! Same as RunFunctionInTransaction, but does not obtain a lock on the client context or check for validation
 	DUCKDB_API void RunFunctionInTransactionInternal(ClientContextLock &lock, const std::function<void(void)> &fun,
 	                                                 bool requires_valid_transaction = true);
+
+	//! Starts an explicit auto-commit. In explicit auto-commit, the auto-commit transaction will not be commited on query end.
+	//! This allows running multiple queries in the same auto-commit transactions. Should be followed by FinishExplicitAutoCommit
+	DUCKDB_API unique_ptr<AutoCommitState> StartExplicitAutoCommit();
+	//! Ends the explicit auto-commit, committing/rolling back the auto-commit transaction (if there is any)
+	DUCKDB_API void FinishExplicitAutoCommit(AutoCommitState &state, TransactionType type = TransactionType::COMMIT);
 
 	//! Equivalent to CURRENT_SETTING(key) SQL function.
 	DUCKDB_API SettingLookupResult TryGetCurrentSetting(const std::string &key, Value &result) const;

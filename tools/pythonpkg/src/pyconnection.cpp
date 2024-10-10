@@ -434,6 +434,7 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::ExecuteMany(const py::object 
 	// FIXME: DBAPI says to not accept an 'executemany' call with multiple statements
 	ExecuteImmediately(std::move(statements));
 
+	auto state = con.GetConnection().context->StartExplicitAutoCommit();
 	auto prep = PrepareQuery(std::move(last_statement));
 
 	if (!py::is_list_like(params_p)) {
@@ -450,6 +451,7 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::ExecuteMany(const py::object 
 		auto params = py::reinterpret_borrow<py::object>(parameters);
 		query_result = ExecuteInternal(*prep, std::move(params));
 	}
+	con.GetConnection().context->FinishExplicitAutoCommit(*state);
 	// Set the internal 'result' object
 	if (query_result) {
 		auto py_result = make_uniq<DuckDBPyResult>(std::move(query_result));
@@ -616,8 +618,10 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::Execute(const py::object &que
 	// FIXME: SQLites implementation says to not accept an 'execute' call with multiple statements
 	ExecuteImmediately(std::move(statements));
 
+	auto state = con.GetConnection().context->StartExplicitAutoCommit();
 	auto prep = PrepareQuery(std::move(last_statement));
 	auto res = ExecuteInternal(*prep, std::move(params));
+	con.GetConnection().context->FinishExplicitAutoCommit(*state);
 
 	// Set the internal 'result' object
 	if (res) {
@@ -1467,8 +1471,11 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::RunQuery(const py::object &quer
 
 	if (!relation) {
 		// Could not create a relation, resort to direct execution
+		auto state = con.GetConnection().context->StartExplicitAutoCommit();
 		auto prep = PrepareQuery(std::move(last_statement));
 		auto res = ExecuteInternal(*prep, std::move(params));
+		con.GetConnection().context->FinishExplicitAutoCommit(*state);
+
 		if (!res) {
 			return nullptr;
 		}
