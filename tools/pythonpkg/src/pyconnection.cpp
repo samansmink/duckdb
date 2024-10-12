@@ -603,6 +603,7 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::ExecuteFromString(const strin
 }
 
 shared_ptr<DuckDBPyConnection> DuckDBPyConnection::Execute(const py::object &query, py::object params) {
+//	printf("000\n");
 	py::gil_scoped_acquire gil;
 	con.SetResult(nullptr);
 
@@ -616,7 +617,9 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::Execute(const py::object &que
 	statements.pop_back();
 	// First immediately execute any preceding statements (if any)
 	// FIXME: SQLites implementation says to not accept an 'execute' call with multiple statements
+//	printf("111\n");
 	ExecuteImmediately(std::move(statements));
+//	printf("222\n");
 
 	auto state = con.GetConnection().context->StartExplicitAutoCommit();
 	auto prep = PrepareQuery(std::move(last_statement));

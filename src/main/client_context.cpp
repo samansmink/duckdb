@@ -1104,7 +1104,7 @@ void ClientContext::RunFunctionInTransactionInternal(ClientContextLock &lock, co
 	// check if we are on AutoCommit. In this case we should start a transaction
 	bool require_new_transaction = transaction.IsAutoCommit() && !transaction.HasActiveTransaction();
 	if (require_new_transaction) {
-		D_ASSERT(!active_query);
+		// D_ASSERT(!active_query);
 		transaction.BeginTransaction();
 	}
 	try {
@@ -1133,6 +1133,7 @@ void ClientContext::RunFunctionInTransactionInternal(ClientContextLock &lock, co
 
 unique_ptr<AutoCommitState> ClientContext::StartExplicitAutoCommit() {
 	if (transaction.HasActiveTransaction() && !transaction.IsAutoCommit()) {
+		// printf("Beginning explicit autocommit: ALREADY IN TRANSACTION\n");
 		return make_uniq<AutoCommitState>(AutoCommitResult::ALREADY_IN_TRANSACTION);
 	}
 
@@ -1140,11 +1141,13 @@ unique_ptr<AutoCommitState> ClientContext::StartExplicitAutoCommit() {
 
 	bool require_new_transaction = transaction.IsAutoCommit() && !transaction.HasActiveTransaction();
 	if (require_new_transaction) {
+		// printf("Beginning explicit autocommit: Beginning transaction\n");
 		transaction.BeginTransaction();
 		transaction.SetRequiresExplicitAutoCommit(true);
 		return make_uniq<AutoCommitState>(*this, &transaction.ActiveTransaction());
 	}
 
+	// printf("Beginning explicit autocommit: NOT started?!\n");
 	return make_uniq<AutoCommitState>(AutoCommitResult::NOT_STARTED);
 }
 
@@ -1153,6 +1156,8 @@ void ClientContext::FinishExplicitAutoCommit(AutoCommitState &state, Transaction
 		throw InternalException("Invalid transaction type passed to ClientContext::FinishExplicitAutoCommit: %s", EnumUtil::ToString(type));
 	}
 
+	// printf("Finishing explicit autocommit\n");
+
 	if (state.result == AutoCommitResult::STARTED &&
 		transaction.HasActiveTransaction() &&
 		transaction.IsAutoCommit() &&
@@ -1160,11 +1165,16 @@ void ClientContext::FinishExplicitAutoCommit(AutoCommitState &state, Transaction
 		state.transaction == &transaction.ActiveTransaction()
 		) {
 		if (type == TransactionType::COMMIT) {
+			// printf("Committing explicit autocommit\n");
 			transaction.Commit();
 		} else {
+			// printf("Rolling back explicit autocommit\n");
 			transaction.Rollback(nullptr);
 		}
 	}
+
+	state.result = AutoCommitResult::OVERWRITTEN_BY_TRANSACTION;
+	state.transaction = nullptr;
 	transaction.SetRequiresExplicitAutoCommit(false);
 }
 

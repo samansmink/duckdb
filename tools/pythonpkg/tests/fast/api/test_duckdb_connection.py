@@ -62,8 +62,11 @@ class TestDuckDBConnection(object):
         # duckdb.execute("drop table tbl")
 
     def test_begin_rollback(self):
+        # print("FAKAA")
         duckdb.begin()
+        # print("FAKAA2")
         duckdb.execute("create table tbl as select 1")
+        # print("FAKAA3")
         duckdb.rollback()
         with pytest.raises(duckdb.CatalogException):
             # Table does not exist
