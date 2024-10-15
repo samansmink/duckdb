@@ -54,7 +54,7 @@ jobs:
             - name: Setup vcpkg
               uses: lukka/run-vcpkg@v11.1
               with:
-                  vcpkgGitCommitId: a1a1cbc975abf909a6c8985a6a2b8fe20bbd9bd6
+                  vcpkgGitCommitId: c82f74667287d3dc386bce81e44964370c91a289
 
             - name: Setup Ccache
               uses: hendrikmuhs/ccache-action@main
