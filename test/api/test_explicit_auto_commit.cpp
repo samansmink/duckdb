@@ -177,3 +177,41 @@ TEST_CASE("Auto commit state outliving connection", "[api]") {
 	// Trigger commit state destructor -> Should not crash
 	auto_commit_state = nullptr;
 }
+
+// TODO: don't think this is streaming yet
+TEST_CASE("Auto commit with streaming result", "[api]") {
+	DuckDB db(nullptr);
+	Connection con(db);
+	duckdb::unique_ptr<AutoCommitState> auto_commit_state;
+	con.EnableQueryVerification();
+
+	con.Query("set streaming_buffer_size='1mb'");
+
+	idx_t count = 10000;
+
+	// auto_commit_state = con.context->StartExplicitAutoCommit();
+	auto prepare = con.Prepare("create table tbl as from range(10000);");
+	auto result = prepare->Execute();
+	REQUIRE(!result->HasError());
+	// con.context->FinishExplicitAutoCommit(*auto_commit_state);
+	auto_commit_state = nullptr;
+
+	auto_commit_state = con.context->StartExplicitAutoCommit();
+	auto streaming_query = con.SendQuery("select * from tbl");
+	REQUIRE(!streaming_query->HasError());
+	con.context->FinishExplicitAutoCommit(*auto_commit_state);
+	auto_commit_state = nullptr;
+
+	duckdb::ColumnDataCollection collection(duckdb::Allocator::DefaultAllocator(), streaming_query->types);
+	while (true) {
+		printf("LOOPLOOP");
+		auto chunk = streaming_query->Fetch();
+		if (chunk) {
+			collection.Append(*chunk);
+		} else {
+			break;
+		}
+	}
+
+	REQUIRE(collection.Count() == count);
+}

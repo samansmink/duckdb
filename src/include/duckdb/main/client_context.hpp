@@ -88,6 +88,7 @@ class ClientContext : public enable_shared_from_this<ClientContext> {
 	friend class BatchedBufferedData; // ExecuteTaskInternal
 	friend class StreamQueryResult;   // LockContext
 	friend class ConnectionManager;
+	friend struct AutoCommitState; // LockContext
 
 public:
 	DUCKDB_API explicit ClientContext(shared_ptr<DatabaseInstance> db);

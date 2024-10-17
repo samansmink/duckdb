@@ -57,6 +57,7 @@ AutoCommitState::AutoCommitState(AutoCommitResult result_p) :
 
 AutoCommitState::~AutoCommitState() {
  	if (result == AutoCommitResult::STARTED && context) {
+ 		auto lock = context->LockContext();
  		// we started a transaction so we may need to clean it up
  		if (context->transaction.HasActiveTransaction() &&
  			&context->transaction.ActiveTransaction() == transaction) {
@@ -1132,16 +1133,17 @@ void ClientContext::RunFunctionInTransactionInternal(ClientContextLock &lock, co
 }
 
 unique_ptr<AutoCommitState> ClientContext::StartExplicitAutoCommit() {
+	auto lock = LockContext();
+
 	if (transaction.HasActiveTransaction() && !transaction.IsAutoCommit()) {
-		// printf("Beginning explicit autocommit: ALREADY IN TRANSACTION\n");
 		return make_uniq<AutoCommitState>(AutoCommitResult::ALREADY_IN_TRANSACTION);
 	}
 
 	// TODO: What if this is called when autocommit is disabled? do we enable or ignore?
+	D_ASSERT(transaction.IsAutoCommit());
 
 	bool require_new_transaction = transaction.IsAutoCommit() && !transaction.HasActiveTransaction();
 	if (require_new_transaction) {
-		// printf("Beginning explicit autocommit: Beginning transaction\n");
 		transaction.BeginTransaction();
 		transaction.SetRequiresExplicitAutoCommit(true);
 		return make_uniq<AutoCommitState>(*this, &transaction.ActiveTransaction());
@@ -1152,11 +1154,11 @@ unique_ptr<AutoCommitState> ClientContext::StartExplicitAutoCommit() {
 }
 
 void ClientContext::FinishExplicitAutoCommit(AutoCommitState &state, TransactionType type) {
+	auto lock = LockContext();
+
 	if (type != TransactionType::COMMIT && type != TransactionType::ROLLBACK) {
 		throw InternalException("Invalid transaction type passed to ClientContext::FinishExplicitAutoCommit: %s", EnumUtil::ToString(type));
 	}
-
-	// printf("Finishing explicit autocommit\n");
 
 	if (state.result == AutoCommitResult::STARTED &&
 		transaction.HasActiveTransaction() &&
@@ -1165,17 +1167,21 @@ void ClientContext::FinishExplicitAutoCommit(AutoCommitState &state, Transaction
 		state.transaction == &transaction.ActiveTransaction()
 		) {
 		if (type == TransactionType::COMMIT) {
-			// printf("Committing explicit autocommit\n");
 			transaction.Commit();
 		} else {
-			// printf("Rolling back explicit autocommit\n");
 			transaction.Rollback(nullptr);
 		}
 	}
 
+	// TODO: this is weird?
 	state.result = AutoCommitResult::OVERWRITTEN_BY_TRANSACTION;
 	state.transaction = nullptr;
 	transaction.SetRequiresExplicitAutoCommit(false);
+
+	// TODO: this is technically incorrect? it means that we will execute a streaming query at a different
+	if (active_query && active_query->HasOpenResult() && !transaction.HasActiveTransaction() && transaction.IsAutoCommit()) {
+		transaction.BeginTransaction();
+	}
 }
 
 void ClientContext::RunFunctionInTransaction(const std::function<void(void)> &fun, bool requires_valid_transaction) {
