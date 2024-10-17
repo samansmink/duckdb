@@ -60,6 +60,7 @@ void TransactionContext::Commit() {
 void TransactionContext::SetAutoCommit(bool value) {
 	auto_commit = value;
 	if (!auto_commit && !current_transaction) {
+		printf(" > Beginning transaction be cause none was set\n");
 		BeginTransaction();
 	}
 
