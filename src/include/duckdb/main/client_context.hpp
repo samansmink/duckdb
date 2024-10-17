@@ -62,7 +62,7 @@ struct PendingQueryParameters {
 	bool allow_stream_result = false;
 };
 
-enum class AutoCommitResult : uint8_t { NOT_STARTED = 0, STARTED = 1, ALREADY_IN_TRANSACTION = 2 };
+enum class AutoCommitResult : uint8_t { NOT_STARTED = 0, STARTED = 1, ALREADY_IN_TRANSACTION = 2, OVERWRITTEN_BY_TRANSACTION = 3};
 struct AutoCommitState {
 	AutoCommitState(ClientContext &context, MetaTransaction *transaction);
 	AutoCommitState(AutoCommitResult result);
