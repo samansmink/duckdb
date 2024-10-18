@@ -1105,6 +1105,7 @@ void ClientContext::RunFunctionInTransactionInternal(ClientContextLock &lock, co
 	// check if we are on AutoCommit. In this case we should start a transaction
 	bool require_new_transaction = transaction.IsAutoCommit() && !transaction.HasActiveTransaction();
 	if (require_new_transaction) {
+		// TODO: does this still fail?
 		// D_ASSERT(!active_query);
 		transaction.BeginTransaction();
 	}
@@ -1149,7 +1150,6 @@ unique_ptr<AutoCommitState> ClientContext::StartExplicitAutoCommit() {
 		return make_uniq<AutoCommitState>(*this, &transaction.ActiveTransaction());
 	}
 
-	// printf("Beginning explicit autocommit: NOT started?!\n");
 	return make_uniq<AutoCommitState>(AutoCommitResult::NOT_STARTED);
 }
 
@@ -1178,7 +1178,8 @@ void ClientContext::FinishExplicitAutoCommit(AutoCommitState &state, Transaction
 	state.transaction = nullptr;
 	transaction.SetRequiresExplicitAutoCommit(false);
 
-	// TODO: this is technically incorrect? it means that we will execute a streaming query at a different
+	// TODO: this is technically incorrect? it means that we will execute a streaming query at a different transaction than necessary
+	// can we just disable the explicit autocommit?
 	if (active_query && active_query->HasOpenResult() && !transaction.HasActiveTransaction() && transaction.IsAutoCommit()) {
 		transaction.BeginTransaction();
 	}

@@ -29,8 +29,7 @@
 #include "duckdb/main/table_description.hpp"
 #include "duckdb/planner/expression/bound_parameter_data.hpp"
 #include "duckdb/transaction/transaction_context.hpp"
-
-#include <duckdb/parser/parsed_data/transaction_info.hpp>
+#include "duckdb/parser/parsed_data/transaction_info.hpp"
 
 namespace duckdb {
 class Appender;
