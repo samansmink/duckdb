@@ -60,6 +60,8 @@ public:
 	void ResetActiveQuery();
 	void SetActiveQuery(transaction_t query_number);
 
+	bool open_autocommit_transaction;
+
 private:
 	ClientContext &context;
 	bool auto_commit;

@@ -25,6 +25,7 @@ TransactionContext::~TransactionContext() {
 }
 
 void TransactionContext::BeginTransaction() {
+	// printf("Beginning transaction\n");
 	if (current_transaction) {
 		throw TransactionException("cannot start a transaction within a transaction");
 	}
@@ -60,7 +61,7 @@ void TransactionContext::Commit() {
 void TransactionContext::SetAutoCommit(bool value) {
 	auto_commit = value;
 	if (!auto_commit && !current_transaction) {
-		printf(" > Beginning transaction be cause none was set\n");
+		// printf(" > Beginning transaction be cause none was set\n");
 		BeginTransaction();
 	}
 
@@ -90,6 +91,7 @@ void TransactionContext::Rollback(optional_ptr<ErrorData> error) {
 }
 
 void TransactionContext::ClearTransaction() {
+	// printf("Clear transaction\n");
 	SetAutoCommit(true);
 	current_transaction = nullptr;
 }

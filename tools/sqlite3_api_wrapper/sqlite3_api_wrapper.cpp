@@ -53,6 +53,8 @@ struct sqlite3_stmt {
 	string query_string;
 	//! The prepared statement object, if successfully prepared
 	duckdb::unique_ptr<PreparedStatement> prepared;
+	//! Alternatively, the raw statement so we can prepare + execute in a single go
+	duckdb::unique_ptr<SQLStatement> statement;
 	//! The result object, if successfully executed
 	duckdb::unique_ptr<QueryResult> result;
 	//! The current chunk that we are iterating over
@@ -202,22 +204,25 @@ int sqlite3_prepare_v2(sqlite3 *db,           /* Database handle */
 			}
 		}
 
-		auto autocommit_state = db->con->context->StartExplicitAutoCommit();
+		// auto autocommit_state = db->con->context->StartExplicitAutoCommit();
+
+		// We delay the actual preparing: we would
 
 		// now prepare the query
-		auto prepared = db->con->Prepare(std::move(statements.back()));
-		if (prepared->HasError()) {
-			// failed to prepare: set the error message
-			db->last_error = prepared->error;
-			return SQLITE_ERROR;
-		}
+		// auto prepared = db->con->Prepare(std::move(statements.back()));
+		// if (prepared->HasError()) {
+		// 	// failed to prepare: set the error message
+		// 	db->last_error = prepared->error;
+		// 	return SQLITE_ERROR;
+		// }
 
 		// create the statement entry
 		duckdb::unique_ptr<sqlite3_stmt> stmt = make_uniq<sqlite3_stmt>();
 		stmt->db = db;
 		stmt->query_string = query;
-		stmt->prepared = std::move(prepared);
-		stmt->auto_commit_state = std::move(autocommit_state);
+		// stmt->prepared = std::move(prepared);
+		// stmt->auto_commit_state = std::move(autocommit_state);
+		stmt->statement = std::move(statements.back());
 		stmt->current_row = -1;
 		for (idx_t i = 0; i < stmt->prepared->named_param_map.size(); i++) {
 			stmt->bound_names.push_back("$" + to_string(i + 1));
@@ -251,10 +256,15 @@ char *sqlite3_print_duckbox(sqlite3_stmt *pStmt, size_t max_rows, size_t max_wid
 			pStmt->db->last_error = ErrorData("Statement has already been executed");
 			return nullptr;
 		}
-		pStmt->result = pStmt->prepared->Execute(pStmt->bound_values, false);
-		if (pStmt->auto_commit_state) {
-			pStmt->db->con->context->FinishExplicitAutoCommit(*pStmt->auto_commit_state, TransactionType::COMMIT);
+
+		if (pStmt->prepared) {
+			pStmt->result = pStmt->prepared->Execute(pStmt->bound_values, false);
+		} else if (pStmt->statement) {
+			pStmt->result = pStmt->db->con->Query(std::move(pStmt->statement));
+		} else {
+			throw InternalException("Neither a prepared statement nor raw statement were found while executing sqlite3_print_duckbox");
 		}
+
 		if (pStmt->result->HasError()) {
 			// error in execute: clear prepared statement
 			pStmt->db->last_error = pStmt->result->GetErrorObject();
