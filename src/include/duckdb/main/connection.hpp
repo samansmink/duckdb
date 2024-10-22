@@ -96,7 +96,7 @@ public:
 	DUCKDB_API unique_ptr<PendingQueryResult> PendingQuery(const string &query, bool allow_stream_result = false);
 	//! Issues a query to the database and returns a Pending Query Result
 	DUCKDB_API unique_ptr<PendingQueryResult> PendingQuery(unique_ptr<SQLStatement> statement,
-							       bool allow_stream_result = false);
+	                                                       bool allow_stream_result = false);
 
 	//! Prepare the specified query, returning a prepared statement object
 	DUCKDB_API unique_ptr<PreparedStatement> Prepare(const string &query);
@@ -104,10 +104,13 @@ public:
 	DUCKDB_API unique_ptr<PreparedStatement> Prepare(unique_ptr<SQLStatement> statement);
 
 	//! Runs prepare and execute in single transaction
-	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(const string &query, vector<Value> &values, bool allow_stream_result);
-	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(unique_ptr<SQLStatement> statement, vector<Value> &values, bool allow_stream_result = false);
-	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(unique_ptr<SQLStatement> statement, case_insensitive_map_t<BoundParameterData> &named_values,
-							      bool allow_stream_result);
+	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(const string &query, vector<Value> &values,
+	                                                     bool allow_stream_result);
+	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(unique_ptr<SQLStatement> statement, vector<Value> &values,
+	                                                     bool allow_stream_result = false);
+	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(unique_ptr<SQLStatement> statement,
+	                                                     case_insensitive_map_t<BoundParameterData> &named_values,
+	                                                     bool allow_stream_result);
 	//! Get the table info of a specific table, or nullptr if it cannot be found.
 	DUCKDB_API unique_ptr<TableDescription> TableInfo(const string &database_name, const string &schema_name,
 	                                                  const string &table_name);

@@ -149,7 +149,7 @@ unique_ptr<PreparedStatement> Connection::Prepare(unique_ptr<SQLStatement> state
 }
 
 unique_ptr<QueryResult> Connection::PrepareAndExecute(const string &query, vector<Value> &values,
-													  bool allow_stream_result) {
+                                                      bool allow_stream_result) {
 	case_insensitive_map_t<BoundParameterData> named_values;
 	for (idx_t i = 0; i < values.size(); i++) {
 		auto &val = values[i];
@@ -168,7 +168,8 @@ unique_ptr<QueryResult> Connection::PrepareAndExecute(unique_ptr<SQLStatement> s
 	return context->PrepareAndExecute(std::move(statement), named_values, allow_stream_result);
 }
 
-unique_ptr<QueryResult> Connection::PrepareAndExecute(unique_ptr<SQLStatement> statement, case_insensitive_map_t<BoundParameterData> &named_values,
+unique_ptr<QueryResult> Connection::PrepareAndExecute(unique_ptr<SQLStatement> statement,
+                                                      case_insensitive_map_t<BoundParameterData> &named_values,
                                                       bool allow_stream_result) {
 	return context->PrepareAndExecute(std::move(statement), named_values, allow_stream_result);
 }

@@ -598,7 +598,8 @@ unique_ptr<QueryResult> DuckDBPyConnection::ExecuteInternal(PreparedStatement &p
 	return res;
 }
 
-unique_ptr<QueryResult> DuckDBPyConnection::PrepareAndExecuteInternal(unique_ptr<SQLStatement> statement, py::object params) {
+unique_ptr<QueryResult> DuckDBPyConnection::PrepareAndExecuteInternal(unique_ptr<SQLStatement> statement,
+                                                                      py::object params) {
 	if (params.is_none()) {
 		params = py::list();
 	}

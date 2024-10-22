@@ -9,24 +9,10 @@ static void CreateSimpleTable(Connection &con) {
 	REQUIRE_NO_FAIL(con.Query("INSERT INTO a VALUES (11), (12), (13)"));
 }
 
-static void AppendToSimpleTable(Connection &con) {
-	REQUIRE_NO_FAIL(con.Query("INSERT INTO a VALUES (14)"));
-}
-
 static void CheckSimpleQueryPrepareExecute(Connection &con) {
 	auto statements = con.ExtractStatements("SELECT COUNT(*) FROM a WHERE i=?");
 	REQUIRE(statements.size() == 1);
 	duckdb::vector<Value> values = {Value(12)};
-	auto result = con.PrepareAndExecute(std::move(statements[0]), values, true);
-	REQUIRE(CHECK_COLUMN(result, 0, {1}));
-}
-
-static void CheckSimpleQueryAfterAppend(Connection &con) {
-	auto statements = con.ExtractStatements("SELECT COUNT(*) FROM a WHERE i=?");
-	REQUIRE(statements.size() == 1);
-	REQUIRE(statements[0] != nullptr);
-
-	duckdb::vector<Value> values = {Value(14)};
 	auto result = con.PrepareAndExecute(std::move(statements[0]), values, true);
 	REQUIRE(CHECK_COLUMN(result, 0, {1}));
 }

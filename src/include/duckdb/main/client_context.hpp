@@ -61,23 +61,6 @@ struct PendingQueryParameters {
 	bool allow_stream_result = false;
 };
 
-enum class AutoCommitResult : uint8_t { NOT_STARTED = 0, STARTED = 1, ALREADY_IN_TRANSACTION = 2, OVERWRITTEN_BY_TRANSACTION = 3};
-struct AutoCommitState {
-	AutoCommitState(ClientContext &context, MetaTransaction *transaction);
-	AutoCommitState(AutoCommitResult result);
-
-	// Copy not allowed since destructor ends transaction
-	AutoCommitState (const AutoCommitState&) = delete;
-	AutoCommitState& operator= (const AutoCommitState&) = delete;
-
-	~AutoCommitState();
-
-	//! AutoCommitState needs to keep the context alive to avoid lifetime issues
-	weak_ptr<ClientContext> context;
-	AutoCommitResult result;
-	MetaTransaction *transaction;
-};
-
 //! The ClientContext holds information relevant to the current client session
 //! during execution
 class ClientContext : public enable_shared_from_this<ClientContext> {
@@ -87,7 +70,6 @@ class ClientContext : public enable_shared_from_this<ClientContext> {
 	friend class BatchedBufferedData; // ExecuteTaskInternal
 	friend class StreamQueryResult;   // LockContext
 	friend class ConnectionManager;
-	friend struct AutoCommitState; // LockContext
 
 public:
 	DUCKDB_API explicit ClientContext(shared_ptr<DatabaseInstance> db);
@@ -162,10 +144,11 @@ public:
 	DUCKDB_API unique_ptr<PreparedStatement> Prepare(unique_ptr<SQLStatement> statement);
 
 	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(unique_ptr<SQLStatement> statement,
-		case_insensitive_map_t<BoundParameterData> &values, bool allow_stream_result = true);
+	                                                     case_insensitive_map_t<BoundParameterData> &values,
+	                                                     bool allow_stream_result = true);
 	DUCKDB_API unique_ptr<QueryResult> PrepareAndExecute(const string &query,
-		case_insensitive_map_t<BoundParameterData> &values, bool allow_stream_result = true);
-
+	                                                     case_insensitive_map_t<BoundParameterData> &values,
+	                                                     bool allow_stream_result = true);
 
 	//! Create a pending query result from a prepared statement with the given name and set of parameters
 	//! It is possible that the prepared statement will be re-bound. This will generally happen if the catalog is
@@ -199,16 +182,12 @@ public:
 	//! Runs a function with a valid transaction context, potentially starting a transaction if the context is in auto
 	//! commit mode.
 	DUCKDB_API void RunFunctionInTransaction(const std::function<void(void)> &fun,
-	                                         bool requires_valid_transaction = true, bool dont_commit_on_success = false);
+	                                         bool requires_valid_transaction = true,
+	                                         bool dont_commit_on_success = false);
 	//! Same as RunFunctionInTransaction, but does not obtain a lock on the client context or check for validation
 	DUCKDB_API void RunFunctionInTransactionInternal(ClientContextLock &lock, const std::function<void(void)> &fun,
-	                                                 bool requires_valid_transaction = true, bool dont_commit_on_success = false);
-
-	//! Starts an explicit auto-commit. In explicit auto-commit, the auto-commit transaction will not be commited on query end.
-	//! This allows running multiple queries in the same auto-commit transactions. Should be followed by FinishExplicitAutoCommit
-	DUCKDB_API unique_ptr<AutoCommitState> StartExplicitAutoCommit();
-	//! Ends the explicit auto-commit, committing/rolling back the auto-commit transaction (if there is any)
-	DUCKDB_API void FinishExplicitAutoCommit(AutoCommitState &state, TransactionType type = TransactionType::COMMIT);
+	                                                 bool requires_valid_transaction = true,
+	                                                 bool dont_commit_on_success = false);
 
 	//! Equivalent to CURRENT_SETTING(key) SQL function.
 	DUCKDB_API SettingLookupResult TryGetCurrentSetting(const std::string &key, Value &result) const;
@@ -278,8 +257,11 @@ private:
 	unique_ptr<QueryResult> RunStatementInternal(ClientContextLock &lock, const string &query,
 	                                             unique_ptr<SQLStatement> statement, bool allow_stream_result,
 	                                             bool verify = true);
-	unique_ptr<PreparedStatement> PrepareInternal(ClientContextLock &lock, unique_ptr<SQLStatement> statement, bool leave_autocommit_open = false);
-	unique_ptr<QueryResult> PrepareAndExecuteInternal(ClientContextLock &lock, unique_ptr<SQLStatement> statement, case_insensitive_map_t<BoundParameterData> &values, bool allow_stream_result);
+	unique_ptr<PreparedStatement> PrepareInternal(ClientContextLock &lock, unique_ptr<SQLStatement> statement,
+	                                              bool leave_autocommit_open = false);
+	unique_ptr<QueryResult> PrepareAndExecuteInternal(ClientContextLock &lock, unique_ptr<SQLStatement> statement,
+	                                                  case_insensitive_map_t<BoundParameterData> &values,
+	                                                  bool allow_stream_result);
 	void LogQueryInternal(ClientContextLock &lock, const string &query);
 
 	unique_ptr<QueryResult> FetchResultInternal(ClientContextLock &lock, PendingQueryResult &pending);

@@ -46,30 +46,6 @@
 
 namespace duckdb {
 
-AutoCommitState::AutoCommitState(ClientContext &context_p, MetaTransaction *transaction_p) :
-	context(context_p.shared_from_this()), result(AutoCommitResult::STARTED), transaction(transaction_p)  {
-
-}
-AutoCommitState::AutoCommitState(AutoCommitResult result_p) :
-	result(result_p), transaction(nullptr)  {
-	D_ASSERT(result_p != AutoCommitResult::STARTED);
-}
-
-AutoCommitState::~AutoCommitState() {
-	auto context_ptr = context.lock();
-
- 	if (result == AutoCommitResult::STARTED && context_ptr) {
- 		// TODO: locking the context in the AutoCommit destructor might be dangerous?
- 		auto lock = context_ptr->LockContext();
- 		// we started a transaction so we may need to clean it up
- 		if (context_ptr->transaction.HasActiveTransaction() &&
- 			&context_ptr->transaction.ActiveTransaction() == transaction) {
- 			context_ptr->transaction.Rollback(nullptr);
- 		}
- 		context_ptr->transaction.SetRequiresExplicitAutoCommit(false);
- 	}
-}
-
 struct ActiveQueryContext {
 public:
 	//! The query that is currently being executed
@@ -677,7 +653,8 @@ unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query) {
 }
 
 unique_ptr<PreparedStatement> ClientContext::PrepareInternal(ClientContextLock &lock,
-                                                             unique_ptr<SQLStatement> statement, bool leave_autocommit_open) {
+                                                             unique_ptr<SQLStatement> statement,
+                                                             bool leave_autocommit_open) {
 	auto named_param_map = statement->named_param_map;
 	auto statement_query = statement->query;
 	shared_ptr<PreparedStatementData> prepared_data;
@@ -685,18 +662,21 @@ unique_ptr<PreparedStatement> ClientContext::PrepareInternal(ClientContextLock &
 
 	auto requires_new_transaction = transaction.IsAutoCommit() && !transaction.HasActiveTransaction();
 	RunFunctionInTransactionInternal(
-	    lock, [&]() { prepared_data = CreatePreparedStatement(lock, statement_query, std::move(statement)); }, false, leave_autocommit_open);
+	    lock, [&]() { prepared_data = CreatePreparedStatement(lock, statement_query, std::move(statement)); }, false,
+	    leave_autocommit_open);
 	prepared_data->unbound_statement = std::move(unbound_statement);
 	auto res = make_uniq<PreparedStatement>(shared_from_this(), std::move(prepared_data), std::move(statement_query),
-	                                    std::move(named_param_map));
+	                                        std::move(named_param_map));
 	transaction.open_autocommit_transaction = requires_new_transaction && transaction.HasActiveTransaction();
 	return res;
 }
 
-unique_ptr<QueryResult> ClientContext::PrepareAndExecuteInternal(ClientContextLock &lock, unique_ptr<SQLStatement> statement,
-														 case_insensitive_map_t<BoundParameterData> &values,
-														 bool allow_stream_result) {
-	// Prepare, but leaving the transaction open on success to ensure we run the query in the same transaction avoiding unnecessary rebinds
+unique_ptr<QueryResult> ClientContext::PrepareAndExecuteInternal(ClientContextLock &lock,
+                                                                 unique_ptr<SQLStatement> statement,
+                                                                 case_insensitive_map_t<BoundParameterData> &values,
+                                                                 bool allow_stream_result) {
+	// Prepare, but leaving the transaction open on success to ensure we run the query in the same transaction avoiding
+	// unnecessary rebinds
 	auto prepare_result = PrepareInternal(lock, std::move(statement), true);
 
 	if (prepare_result->HasError()) {
@@ -776,8 +756,8 @@ unique_ptr<QueryResult> ClientContext::PrepareAndExecute(const string &query,
 }
 
 unique_ptr<QueryResult> ClientContext::PrepareAndExecute(unique_ptr<SQLStatement> statement,
-														 case_insensitive_map_t<BoundParameterData> &values,
-														 bool allow_stream_result) {
+                                                         case_insensitive_map_t<BoundParameterData> &values,
+                                                         bool allow_stream_result) {
 	auto lock = LockContext();
 	// prepare the query
 	auto query = statement->query;
@@ -1197,62 +1177,8 @@ void ClientContext::RunFunctionInTransactionInternal(ClientContextLock &lock, co
 	}
 }
 
-unique_ptr<AutoCommitState> ClientContext::StartExplicitAutoCommit() {
-	auto lock = LockContext();
-	printf("Start Explicit autocommit\n");
-
-	if (transaction.HasActiveTransaction() && !transaction.IsAutoCommit()) {
-		return make_uniq<AutoCommitState>(AutoCommitResult::ALREADY_IN_TRANSACTION);
-	}
-
-	// TODO: What if this is called when autocommit is disabled? do we enable or ignore?
-	D_ASSERT(transaction.IsAutoCommit());
-
-	bool require_new_transaction = transaction.IsAutoCommit() && !transaction.HasActiveTransaction();
-	if (require_new_transaction) {
-		transaction.BeginTransaction();
-		transaction.SetRequiresExplicitAutoCommit(true);
-		return make_uniq<AutoCommitState>(*this, &transaction.ActiveTransaction());
-	}
-
-	return make_uniq<AutoCommitState>(AutoCommitResult::NOT_STARTED);
-}
-
-void ClientContext::FinishExplicitAutoCommit(AutoCommitState &state, TransactionType type) {
-	auto lock = LockContext();
-	printf("Finish explicit autocommit\n");
-
-	if (type != TransactionType::COMMIT && type != TransactionType::ROLLBACK) {
-		throw InternalException("Invalid transaction type passed to ClientContext::FinishExplicitAutoCommit: %s", EnumUtil::ToString(type));
-	}
-
-	if (state.result == AutoCommitResult::STARTED &&
-		transaction.HasActiveTransaction() &&
-		transaction.IsAutoCommit() &&
-		transaction.RequiresExplicitAutoCommit() &&
-		state.transaction == &transaction.ActiveTransaction()
-		) {
-		if (type == TransactionType::COMMIT) {
-			transaction.Commit();
-		} else {
-			transaction.Rollback(nullptr);
-		}
-	}
-
-	// TODO: this is weird?
-	state.result = AutoCommitResult::OVERWRITTEN_BY_TRANSACTION;
-	state.transaction = nullptr;
-	transaction.SetRequiresExplicitAutoCommit(false);
-
-	// TODO: this is technically incorrect? it means that we will execute a streaming query at a different transaction than necessary
-	// can we just disable the explicit autocommit?
-	if (active_query && active_query->HasOpenResult() && !transaction.HasActiveTransaction() && transaction.IsAutoCommit()) {
-		printf("Restarting active transaction because we have open commit\n");
-		transaction.BeginTransaction();
-	}
-}
-
-void ClientContext::RunFunctionInTransaction(const std::function<void(void)> &fun, bool requires_valid_transaction, bool dont_commit_on_success) {
+void ClientContext::RunFunctionInTransaction(const std::function<void(void)> &fun, bool requires_valid_transaction,
+                                             bool dont_commit_on_success) {
 	auto lock = LockContext();
 	RunFunctionInTransactionInternal(*lock, fun, requires_valid_transaction, dont_commit_on_success);
 }
