@@ -22,6 +22,19 @@ static void CheckSimpleQueryPrepareExecute(Connection &con) {
 	REQUIRE(CHECK_COLUMN(result, 0, {1}));
 }
 
+static void CheckCatalogErrorQuery(Connection &con) {
+	duckdb::vector<Value> values = {Value(12)};
+	auto result = con.PrepareAndExecute("SELECT COUNT(*) FROM b WHERE i=?", values, true);
+	D_ASSERT(result->HasError() && result->GetErrorType() == ExceptionType::CATALOG);
+}
+
+static void CheckConversionErrorQuery(Connection &con) {
+	// Check query with invalid prepared value
+	duckdb::vector<Value> values = {Value("fawakaaniffoo")};
+	auto result = con.PrepareAndExecute("SELECT COUNT(*) FROM a WHERE i=?", values, true);
+	D_ASSERT(result->HasError() && result->GetErrorType() == ExceptionType::CONVERSION);
+}
+
 static void CheckSimpleQueryPrepareExecuteAfterModification(Connection &con) {
 	duckdb::vector<Value> values = {Value(14)};
 	auto result = con.PrepareAndExecute("SELECT COUNT(*) FROM a WHERE i=?", values, true);
@@ -45,10 +58,7 @@ TEST_CASE("PrepareExecute catalog error", "[api]") {
 
 	CreateSimpleTable(con);
 
-	// Check query with invalid table name
-	duckdb::vector<Value> values = {Value(12)};
-	auto result = con.PrepareAndExecute("SELECT COUNT(*) FROM b WHERE i=?", values, true);
-	D_ASSERT(result->HasError() && result->GetErrorType() == ExceptionType::CATALOG);
+	CheckCatalogErrorQuery(con);
 
 	// Verify things are still sane
 	CheckSimpleQueryPrepareExecute(con);
@@ -61,10 +71,7 @@ TEST_CASE("PrepareExecute invalid value type error", "[api]") {
 
 	CreateSimpleTable(con);
 
-	// Check query with invalid prepared value
-	duckdb::vector<Value> values = {Value("fawakaaniffoo")};
-	auto result = con.PrepareAndExecute("SELECT COUNT(*) FROM a WHERE i=?", values, true);
-	D_ASSERT(result->HasError() && result->GetErrorType() == ExceptionType::CONVERSION);
+	CheckConversionErrorQuery(con);
 
 	// Verify things are still sane
 	CheckSimpleQueryPrepareExecute(con);
@@ -74,12 +81,14 @@ TEST_CASE("PrepareExecute with transactions", "[api]") {
 	DuckDB db(nullptr);
 	Connection con1(db);
 	Connection con2(db);
+	duckdb::vector<Value> empty_values = {};
 	con1.EnableQueryVerification();
 
 	CreateSimpleTable(con1);
 
+	CheckConversionErrorQuery(con1);
+
 	// Begin a transaction in the PrepareAndExecute
-	duckdb::vector<Value> empty_values = {};
 	auto result1 = con1.PrepareAndExecute("BEGIN TRANSACTION", empty_values, false);
 	REQUIRE(!result1->HasError());
 	CheckSimpleQueryPrepareExecute(con1);

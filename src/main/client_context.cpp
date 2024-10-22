@@ -682,6 +682,7 @@ unique_ptr<QueryResult> ClientContext::PrepareAndExecuteInternal(ClientContextLo
 	if (prepare_result->HasError()) {
 		if (transaction.open_autocommit_transaction) {
 			transaction.Rollback(nullptr);
+			transaction.open_autocommit_transaction = false;
 		}
 		return make_uniq<MaterializedQueryResult>(ErrorData(prepare_result->GetError()));
 	}
@@ -694,6 +695,7 @@ unique_ptr<QueryResult> ClientContext::PrepareAndExecuteInternal(ClientContextLo
 	if (pending_query->HasError()) {
 		if (transaction.open_autocommit_transaction) {
 			transaction.Rollback(nullptr);
+			transaction.open_autocommit_transaction = false;
 		}
 		return make_uniq<MaterializedQueryResult>(pending_query->GetErrorObject());
 	}
