@@ -49,18 +49,13 @@ public:
 		return auto_commit;
 	}
 
-	void SetRequiresExplicitAutoCommit(bool value);
-	bool RequiresExplicitAutoCommit() const {
-		return requires_explicit_auto_commit;
-	}
-
 	void SetReadOnly();
 
 	idx_t GetActiveQuery();
 	void ResetActiveQuery();
 	void SetActiveQuery(transaction_t query_number);
 
-	bool open_autocommit_transaction;
+	bool open_autocommit_transaction = false;
 
 private:
 	ClientContext &context;

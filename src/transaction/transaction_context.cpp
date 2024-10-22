@@ -60,17 +60,14 @@ void TransactionContext::Commit() {
 
 void TransactionContext::SetAutoCommit(bool value) {
 	auto_commit = value;
-	if (!auto_commit && !current_transaction) {
-		// printf(" > Beginning transaction be cause none was set\n");
-		BeginTransaction();
+
+	if (!value) {
+		open_autocommit_transaction = false;
 	}
 
-	// Reset requires explicit auto_commit: this option can only be enabled when auto commit is on
-	requires_explicit_auto_commit = false;
-}
-
-void TransactionContext::SetRequiresExplicitAutoCommit(bool value) {
-	requires_explicit_auto_commit = value;
+	if (!auto_commit && !current_transaction) {
+		BeginTransaction();
+	}
 }
 
 void TransactionContext::SetReadOnly() {
