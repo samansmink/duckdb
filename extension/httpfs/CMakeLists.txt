@@ -34,9 +34,8 @@ endif()
 
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
-target_link_libraries(httpfs_loadable_extension duckdb_mbedtls
-                      ${OPENSSL_LIBRARIES})
-target_link_libraries(httpfs_extension duckdb_mbedtls ${OPENSSL_LIBRARIES})
+target_link_libraries(httpfs_loadable_extension ${OPENSSL_LIBRARIES})
+target_link_libraries(httpfs_extension ${OPENSSL_LIBRARIES})
 
 if(MINGW)
   find_package(ZLIB)

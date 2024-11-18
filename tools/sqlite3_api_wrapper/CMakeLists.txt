@@ -21,9 +21,6 @@ set(SQLITE_API_WRAPPER_FILES shell_extension.cpp sqlite3_api_wrapper.cpp
 
 add_library(sqlite3_api_wrapper_static STATIC ${SQLITE_API_WRAPPER_FILES})
 target_link_libraries(sqlite3_api_wrapper_static duckdb_static)
-if(NOT AMALGAMATION_BUILD)
-  target_link_libraries(sqlite3_api_wrapper_static duckdb_utf8proc)
-endif()
 link_threads(sqlite3_api_wrapper_static)
 
 if(NOT WIN32 AND NOT ZOS)

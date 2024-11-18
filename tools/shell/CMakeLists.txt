@@ -20,10 +20,6 @@ if(STATIC_LIBCPP)
   target_link_libraries(shell -static-libstdc++ -static-libgcc)
 endif()
 
-if(NOT AMALGAMATION_BUILD AND NOT WIN32)
-  target_link_libraries(shell duckdb_utf8proc)
-endif()
-
 function(ensure_variable_is_number INPUT_VERSION OUT_RESULT)
   if(NOT "${${INPUT_VERSION}}" MATCHES "^[0-9]+$")
     message(

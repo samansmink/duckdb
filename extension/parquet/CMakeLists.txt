@@ -73,7 +73,6 @@ endif()
 build_static_extension(parquet ${PARQUET_EXTENSION_FILES})
 set(PARAMETERS "-warnings")
 build_loadable_extension(parquet ${PARAMETERS} ${PARQUET_EXTENSION_FILES})
-target_link_libraries(parquet_loadable_extension duckdb_mbedtls duckdb_zstd)
 
 install(
   TARGETS parquet_extension

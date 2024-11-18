@@ -118,7 +118,6 @@ set(CORE_FUNCTION_FILES
 build_static_extension(core_functions ${CORE_FUNCTION_FILES})
 set(PARAMETERS "-warnings")
 build_loadable_extension(core_functions ${PARAMETERS} ${CORE_FUNCTION_FILES})
-target_link_libraries(core_functions_loadable_extension duckdb_skiplistlib)
 
 install(
   TARGETS core_functions_extension
