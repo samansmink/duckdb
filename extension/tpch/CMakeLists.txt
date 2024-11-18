@@ -7,12 +7,14 @@ include_directories(include)
 add_subdirectory(dbgen)
 
 build_static_extension(tpch tpch_extension.cpp ${DBGEN_OBJECT_FILES})
+target_link_libraries(tpch_extension dbgen "$<TARGET_OBJECTS:dbgen>")
+
 set(PARAMETERS "-warnings")
 build_loadable_extension(tpch ${PARAMETERS} tpch_extension.cpp
                          ${DBGEN_OBJECT_FILES})
 
 install(
-  TARGETS tpch_extension
+  TARGETS tpch_extension dbgen
   EXPORT "${DUCKDB_EXPORT_SET}"
   LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
   ARCHIVE DESTINATION "${INSTALL_LIB_DIR}")

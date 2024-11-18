@@ -1,0 +1,19 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a9eff40..112eaab 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -9,12 +9,13 @@ include_directories(extension/excel/include)
+ add_subdirectory(extension/excel/numformat)
+ 
+ build_static_extension(excel extension/excel/excel_extension.cpp ${NUMFORMAT_OBJECT_FILES})
++target_link_libraries(excel_extension numformat "$<TARGET_OBJECTS:numformat>")
+ set(PARAMETERS "-warnings")
+ build_loadable_extension(excel ${PARAMETERS} extension/excel/excel_extension.cpp
+                          ${NUMFORMAT_OBJECT_FILES})
+ 
+ install(
+-  TARGETS excel_extension
++  TARGETS excel_extension numformat
+   EXPORT "${DUCKDB_EXPORT_SET}"
+   LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
+   ARCHIVE DESTINATION "${INSTALL_LIB_DIR}")
