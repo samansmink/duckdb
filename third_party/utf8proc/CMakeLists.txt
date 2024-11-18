@@ -4,7 +4,7 @@ endif()
 
 include_directories(include)
 
-add_library(duckdb_utf8proc STATIC utf8proc.cpp utf8proc_wrapper.cpp)
+add_library(duckdb_utf8proc OBJECT utf8proc.cpp utf8proc_wrapper.cpp)
 
 
 install(TARGETS duckdb_utf8proc

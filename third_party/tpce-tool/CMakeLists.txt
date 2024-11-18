@@ -11,7 +11,7 @@ add_subdirectory(utilities)
 
 add_definitions(-DCOMPILE_FLAT_FILE_LOAD)
 
-add_library(tpce STATIC
+add_library(tpce OBJECT
             ${TPCE_OBJECT_FILES}
             duckdb_interface.cpp
             tpce.cpp

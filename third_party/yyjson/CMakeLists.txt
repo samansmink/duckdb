@@ -2,7 +2,7 @@ if(POLICY CMP0063)
     cmake_policy(SET CMP0063 NEW)
 endif()
 
-add_library(duckdb_yyjson STATIC yyjson.cpp)
+add_library(duckdb_yyjson OBJECT yyjson.cpp)
 
 target_include_directories(
         duckdb_yyjson

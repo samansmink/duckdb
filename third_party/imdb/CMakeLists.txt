@@ -9,6 +9,6 @@ project(imdb CXX)
 include_directories(include)
 
 set(CMAKE_BUILD_TYPE "Release")
-add_library(imdb STATIC imdb.cpp ${ALL_OBJECT_FILES})
+add_library(imdb OBJECT imdb.cpp ${ALL_OBJECT_FILES})
 
 disable_target_warnings(imdb)

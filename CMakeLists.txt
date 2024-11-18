@@ -947,8 +947,7 @@ function(build_static_extension NAME PARAMETERS)
   # all parameters after name
   set(FILES "${ARGV}")
   list(REMOVE_AT FILES 0)
-  add_library(${NAME}_extension STATIC ${FILES})
-  target_link_libraries(${NAME}_extension duckdb_static)
+  add_library(${NAME}_extension OBJECT ${FILES})
 endfunction()
 
 # Internal extension register function
