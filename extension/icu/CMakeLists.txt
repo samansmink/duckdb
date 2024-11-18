@@ -25,10 +25,14 @@ set(ICU_EXTENSION_FILES
 
 build_static_extension(icu ${ICU_EXTENSION_FILES})
 
-# Because build_static_extension creates object libraries, we need to manually propagate this
-target_link_libraries(icu_extension duckdb_icu_common "$<TARGET_OBJECTS:duckdb_icu_common>")
-target_link_libraries(icu_extension duckdb_icu_i18n "$<TARGET_OBJECTS:duckdb_icu_i18n>")
-target_link_libraries(icu_extension duckdb_icu_stubdata "$<TARGET_OBJECTS:duckdb_icu_stubdata>")
+# Because build_static_extension creates object libraries, we need to manually
+# propagate this
+target_link_libraries(icu_extension duckdb_icu_common
+                      "$<TARGET_OBJECTS:duckdb_icu_common>")
+target_link_libraries(icu_extension duckdb_icu_i18n
+                      "$<TARGET_OBJECTS:duckdb_icu_i18n>")
+target_link_libraries(icu_extension duckdb_icu_stubdata
+                      "$<TARGET_OBJECTS:duckdb_icu_stubdata>")
 
 link_threads(icu_extension)
 disable_target_warnings(icu_extension)
