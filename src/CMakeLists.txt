@@ -136,11 +136,11 @@ else()
   # We wrap the statically linked extensions for the shared library
   add_library(duckdb_static_extension_wrapper STATIC)
   link_extension_libraries(duckdb_static_extension_wrapper)
-  set_target_properties(duckdb_static_extension_wrapper PROPERTIES
-          C_VISIBILITY_PRESET hidden
-          CXX_VISIBILITY_PRESET hidden
-          VISIBILITY_INLINES_HIDDEN ON
-  )
+  set_target_properties(
+    duckdb_static_extension_wrapper
+    PROPERTIES C_VISIBILITY_PRESET hidden
+               CXX_VISIBILITY_PRESET hidden
+               VISIBILITY_INLINES_HIDDEN ON)
   target_link_libraries(duckdb PRIVATE duckdb_static_extension_wrapper)
 
   add_library(duckdb_static STATIC ${ALL_OBJECT_FILES})

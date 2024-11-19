@@ -11,7 +11,8 @@ target_sources(tpcds_extension INTERFACE $<TARGET_OBJECTS:dsdgen>)
 target_sources(tpcds_extension INTERFACE $<TARGET_OBJECTS:dsdgen_c>)
 
 set(PARAMETERS "-warnings")
-build_loadable_extension(tpcds ${PARAMETERS} tpcds_extension.cpp $<TARGET_OBJECTS:dsdgen> $<TARGET_OBJECTS:dsdgen_c>)
+build_loadable_extension(tpcds ${PARAMETERS} tpcds_extension.cpp
+                         $<TARGET_OBJECTS:dsdgen> $<TARGET_OBJECTS:dsdgen_c>)
 
 install(
   TARGETS tpcds_extension dsdgen dsdgen_c
