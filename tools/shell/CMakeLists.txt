@@ -12,7 +12,7 @@ set(SHELL_SOURCES ${SHELL_SOURCES} shell.cpp shell_renderer.cpp
 option(STATIC_LIBCPP "Statically link CLI to libc++" FALSE)
 
 add_executable(shell ${SHELL_SOURCES})
-target_link_libraries(shell PRIVATE sqlite3_api_wrapper_static
+target_link_libraries(shell sqlite3_api_wrapper_static
                                     ${DUCKDB_EXTRA_LINK_FLAGS})
 link_threads(shell)
 if(STATIC_LIBCPP)

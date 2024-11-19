@@ -130,7 +130,7 @@ else()
     target_sources(duckdb PRIVATE version.rc)
   endif()
 
-  target_link_libraries(duckdb PRIVATE ${DUCKDB_LINK_LIBS})
+  target_link_libraries(duckdb ${DUCKDB_LINK_LIBS})
   link_threads(duckdb)
 
   # We wrap the statically linked extensions for the shared library
@@ -141,10 +141,10 @@ else()
     PROPERTIES C_VISIBILITY_PRESET hidden
                CXX_VISIBILITY_PRESET hidden
                VISIBILITY_INLINES_HIDDEN ON)
-  target_link_libraries(duckdb PRIVATE duckdb_static_extension_wrapper)
+  target_link_libraries(duckdb duckdb_static_extension_wrapper)
 
   add_library(duckdb_static STATIC ${ALL_OBJECT_FILES})
-  target_link_libraries(duckdb_static PRIVATE ${DUCKDB_LINK_LIBS})
+  target_link_libraries(duckdb_static ${DUCKDB_LINK_LIBS})
   link_threads(duckdb_static)
   link_extension_libraries(duckdb_static)
 
