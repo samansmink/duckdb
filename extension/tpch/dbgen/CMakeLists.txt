@@ -11,8 +11,5 @@ add_library(dbgen OBJECT
   rng64.cpp
   speed_seed.cpp
   text.cpp)
-set(DBGEN_OBJECT_FILES
-   ${DBGEN_OBJECT_FILES} $<TARGET_OBJECTS:dbgen>
-   PARENT_SCOPE)
 
 disable_target_warnings(dbgen)

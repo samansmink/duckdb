@@ -6,14 +6,12 @@ include_directories(include)
 include_directories(dsdgen/include)
 add_subdirectory(dsdgen)
 
-build_static_extension(tpcds tpcds_extension.cpp ${DSDGEN_OBJECT_FILES})
-
+build_static_extension(tpcds tpcds_extension.cpp)
 target_sources(tpcds_extension INTERFACE $<TARGET_OBJECTS:dsdgen>)
 target_sources(tpcds_extension INTERFACE $<TARGET_OBJECTS:dsdgen_c>)
 
 set(PARAMETERS "-warnings")
-build_loadable_extension(tpcds ${PARAMETERS} tpcds_extension.cpp
-                         ${DSDGEN_OBJECT_FILES})
+build_loadable_extension(tpcds ${PARAMETERS} tpcds_extension.cpp $<TARGET_OBJECTS:dsdgen> $<TARGET_OBJECTS:dsdgen_c>)
 
 install(
   TARGETS tpcds_extension dsdgen dsdgen_c

@@ -34,7 +34,7 @@ target_sources(icu_extension INTERFACE $<TARGET_OBJECTS:duckdb_icu_stubdata>)
 link_threads(icu_extension)
 disable_target_warnings(icu_extension)
 set(PARAMETERS "-no-warnings")
-build_loadable_extension(icu ${PARAMETERS} ${ICU_EXTENSION_FILES})
+build_loadable_extension(icu ${PARAMETERS} ${ICU_EXTENSION_FILES} $<TARGET_OBJECTS:duckdb_icu_common> $<TARGET_OBJECTS:duckdb_icu_i18n> $<TARGET_OBJECTS:duckdb_icu_stubdata>)
 
 install(
   TARGETS icu_extension duckdb_icu_common duckdb_icu_i18n duckdb_icu_stubdata

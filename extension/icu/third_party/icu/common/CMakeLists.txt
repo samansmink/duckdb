@@ -197,6 +197,3 @@ add_library_unity(
   putil.cpp
   umapfile.cpp
   wintz.cpp)
-set(ICU_LIBRARY_FILES
-    ${ICU_LIBRARY_FILES} $<TARGET_OBJECTS:duckdb_icu_common>
-    PARENT_SCOPE)

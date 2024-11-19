@@ -1,15 +1,16 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index a9eff40..112eaab 100644
+index a9eff40..aa9d0ce 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -9,12 +9,13 @@ include_directories(extension/excel/include)
  add_subdirectory(extension/excel/numformat)
  
  build_static_extension(excel extension/excel/excel_extension.cpp ${NUMFORMAT_OBJECT_FILES})
-+target_sources(excel_extension INTERFACE $<TARGET_OBJECTS:numformat>)
++target_link_libraries(excel_extension numformat "$<TARGET_OBJECTS:numformat>")
  set(PARAMETERS "-warnings")
  build_loadable_extension(excel ${PARAMETERS} extension/excel/excel_extension.cpp
-                          ${NUMFORMAT_OBJECT_FILES})
+-                         ${NUMFORMAT_OBJECT_FILES})
++                         ${NUMFORMAT_OBJECT_FILES} $<TARGET_OBJECTS:numformat>)
  
  install(
 -  TARGETS excel_extension
@@ -17,3 +18,16 @@ index a9eff40..112eaab 100644
    EXPORT "${DUCKDB_EXPORT_SET}"
    LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
    ARCHIVE DESTINATION "${INSTALL_LIB_DIR}")
+diff --git a/extension/excel/numformat/CMakeLists.txt b/extension/excel/numformat/CMakeLists.txt
+index b916052..5743494 100644
+--- a/extension/excel/numformat/CMakeLists.txt
++++ b/extension/excel/numformat/CMakeLists.txt
+@@ -2,8 +2,4 @@ include_directories(include)
+ 
+ add_library(numformat OBJECT nf_calendar.cpp nf_localedata.cpp nf_zformat.cpp)
+ 
+-set(NUMFORMAT_OBJECT_FILES
+-    ${NUMFORMAT_OBJECT_FILES} $<TARGET_OBJECTS:numformat>
+-    PARENT_SCOPE)
+-
+ disable_target_warnings(numformat)

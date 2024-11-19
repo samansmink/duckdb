@@ -130,12 +130,21 @@ else()
     target_sources(duckdb PRIVATE version.rc)
   endif()
 
-  target_link_libraries(duckdb ${DUCKDB_LINK_LIBS})
+  target_link_libraries(duckdb PRIVATE ${DUCKDB_LINK_LIBS})
   link_threads(duckdb)
-  link_extension_libraries(duckdb)
+
+  # We wrap the statically linked extensions for the shared library
+  add_library(duckdb_static_extension_wrapper STATIC)
+  link_extension_libraries(duckdb_static_extension_wrapper)
+  set_target_properties(duckdb_static_extension_wrapper PROPERTIES
+          C_VISIBILITY_PRESET hidden
+          CXX_VISIBILITY_PRESET hidden
+          VISIBILITY_INLINES_HIDDEN ON
+  )
+  target_link_libraries(duckdb PRIVATE duckdb_static_extension_wrapper)
 
   add_library(duckdb_static STATIC ${ALL_OBJECT_FILES})
-  target_link_libraries(duckdb_static ${DUCKDB_LINK_LIBS})
+  target_link_libraries(duckdb_static PRIVATE ${DUCKDB_LINK_LIBS})
   link_threads(duckdb_static)
   link_extension_libraries(duckdb_static)
 
@@ -160,7 +169,7 @@ else()
 endif()
 
 install(
-  TARGETS duckdb duckdb_static
+  TARGETS duckdb duckdb_static duckdb_static_extension_wrapper
   EXPORT "${DUCKDB_EXPORT_SET}"
   LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
   ARCHIVE DESTINATION "${INSTALL_LIB_DIR}"
