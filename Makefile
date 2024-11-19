@@ -492,7 +492,6 @@ bundle-library: release
 	cd build/release && \
 	mkdir -p bundle && \
 	cp src/libduckdb_static.a bundle/. && \
-	cp third_party/*/libduckdb_*.a bundle/. && \
 	cp extension/*/lib*_extension.a bundle/. && \
 	cd bundle && \
 	find . -name '*.a' -exec ${AR} -x {} \; && \
