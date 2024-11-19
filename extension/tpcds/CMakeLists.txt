@@ -7,8 +7,10 @@ include_directories(dsdgen/include)
 add_subdirectory(dsdgen)
 
 build_static_extension(tpcds tpcds_extension.cpp ${DSDGEN_OBJECT_FILES})
-target_link_libraries(tpcds_extension dsdgen "$<TARGET_OBJECTS:dsdgen>")
-target_link_libraries(tpcds_extension dsdgen_c "$<TARGET_OBJECTS:dsdgen_c>")
+
+target_sources(tpcds_extension INTERFACE $<TARGET_OBJECTS:dsdgen>)
+target_sources(tpcds_extension INTERFACE $<TARGET_OBJECTS:dsdgen_c>)
+
 set(PARAMETERS "-warnings")
 build_loadable_extension(tpcds ${PARAMETERS} tpcds_extension.cpp
                          ${DSDGEN_OBJECT_FILES})
