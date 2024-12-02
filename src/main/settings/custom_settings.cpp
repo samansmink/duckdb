@@ -1,7 +1,7 @@
 //===----------------------------------------------------------------------===//
 //                         DuckDB
 // This file will not be overwritten. To implement a custom function for
-// a new setting, enable 'custom_implementation' in 'settings.json'
+// a new setting, enable 'custom_implementation' in 'src/common/settings.json'
 // for this setting. The 'update_settings_definitions.py' may include new
 // setting methods' signatures that need to be implemented in this file. You
 // can check the functions declaration in 'settings.hpp' and what is
@@ -919,7 +919,7 @@ Value MaxTempDirectorySizeSetting::GetSetting(const ClientContext &context) {
 		return Value(StringUtil::BytesToHumanReadableString(max_swap.GetIndex()));
 	} else {
 		// The temp directory has not been used yet
-		return Value(StringUtil::BytesToHumanReadableString(0));
+		return Value("90% of available disk space");
 	}
 }
 

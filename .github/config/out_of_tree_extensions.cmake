@@ -134,17 +134,6 @@ duckdb_extension_load(sqlsmith
         GIT_TAG d6d62c1cba6b1369ba79db4bff3c67f24aaa95c2
         )
 
-################# SUBSTRAIT
-if (NOT WIN32)
-    duckdb_extension_load(substrait
-            LOAD_TESTS DONT_LINK
-            GIT_URL https://github.com/duckdb/substrait
-            GIT_TAG be71387cf0a484dc7b261a0cb21abec0d0e0ce5c
-            APPLY_PATCHES
-            )
-endif()
-
-
 ################# VSS
 duckdb_extension_load(vss
         LOAD_TESTS
@@ -165,3 +154,12 @@ if (NOT MINGW)
             APPLY_PATCHES
             )
 endif()
+
+################# FTS
+duckdb_extension_load(fts
+        LOAD_TESTS
+        DONT_LINK
+        GIT_URL https://github.com/duckdb/duckdb_fts
+        GIT_TAG 0477abaf2484aa7b9aabf8ace9dc0bde80a15554
+        TEST_DIR test/sql
+)

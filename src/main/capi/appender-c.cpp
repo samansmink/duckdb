@@ -82,6 +82,14 @@ duckdb_state duckdb_appender_run_function(duckdb_appender appender, FUN &&functi
 	return DuckDBSuccess;
 }
 
+duckdb_state duckdb_appender_add_column(duckdb_appender appender, const char *name) {
+	return duckdb_appender_run_function(appender, [&](Appender &appender) { appender.AddColumn(name); });
+}
+
+duckdb_state duckdb_appender_clear_columns(duckdb_appender appender) {
+	return duckdb_appender_run_function(appender, [&](Appender &appender) { appender.ClearColumns(); });
+}
+
 const char *duckdb_appender_error(duckdb_appender appender) {
 	if (!appender) {
 		return nullptr;
@@ -265,6 +273,10 @@ duckdb_logical_type duckdb_appender_column_type(duckdb_appender appender, idx_t 
 
 	auto &logical_type = wrapper->appender->GetActiveTypes()[col_idx];
 	return reinterpret_cast<duckdb_logical_type>(new duckdb::LogicalType(logical_type));
+}
+
+duckdb_state duckdb_append_value(duckdb_appender appender, duckdb_value value) {
+	return duckdb_append_internal<duckdb::Value>(appender, *(reinterpret_cast<duckdb::Value *>(value)));
 }
 
 duckdb_state duckdb_append_data_chunk(duckdb_appender appender, duckdb_data_chunk chunk) {
