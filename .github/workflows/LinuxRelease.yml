@@ -32,15 +32,12 @@ jobs:
          fetch-depth: 0
          ref: ${{ inputs.git_ref }}
 
-     - uses: ./.github/actions/ubuntu_18_setup
-       with:
-        ccache: 1
-        aarch64_cross_compile: 1
-        git_ref: ${{ inputs.git_ref }}
-
      - name: Build
        shell: bash
-       run: CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ make
+       run: |
+        sudo apt-get update
+        sudo apt-get install -y -qq gcc-aarch64-linux-gnu g++-aarch64-linux-gnu ninja-build
+        CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ make
 
      - name: Deploy
        shell: bash
