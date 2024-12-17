@@ -1,45 +1,6 @@
 name: LinuxRelease
 on:
-  workflow_call:
-    inputs:
-      override_git_describe:
-        type: string
-      git_ref:
-        type: string
-      skip_tests:
-        type: string
-  workflow_dispatch:
-    inputs:
-      override_git_describe:
-        type: string
-      git_ref:
-        type: string
-      skip_tests:
-        type: string
-  repository_dispatch:
   push:
-    branches:
-      - '**'
-      - '!main'
-      - '!feature'
-    paths-ignore:
-      - '**.md'
-      - 'tools/**'
-      - '!tools/shell/**'
-      - '.github/patches/duckdb-wasm/**'
-      - '.github/workflows/**'
-      - '!.github/workflows/LinuxRelease.yml'
-
-  pull_request:
-    types: [opened, reopened, ready_for_review]
-    paths-ignore:
-      - '**.md'
-      - 'tools/**'
-      - '!tools/shell/**'
-      - '.github/patches/duckdb-wasm/**'
-      - '.github/workflows/**'
-      - '!.github/workflows/LinuxRelease.yml'
-
 
 concurrency:
   group: linuxrelease-${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/main' || github.sha }}-${{ inputs.override_git_describe }}
@@ -56,7 +17,6 @@ jobs:
    runs-on: ubuntu-latest
 #   needs: linux-extensions-64
    container: ubuntu:18.04
-   if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature' }}
    env:
      EXTENSION_CONFIGS: '${GITHUB_WORKSPACE}/.github/config/bundled_extensions.cmake'
      ENABLE_EXTENSION_AUTOLOADING: 1
