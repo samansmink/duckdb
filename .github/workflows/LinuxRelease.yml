@@ -238,7 +238,7 @@ jobs:
     # Builds extensions for linux_arm64
     name: Linux Extensions (aarch64)
     runs-on: ubuntu-latest
-    needs: linux-extensions-64
+#    needs: linux-extensions-64
     if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature' }}
 
     steps:
