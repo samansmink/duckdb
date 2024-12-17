@@ -140,7 +140,6 @@ jobs:
    runs-on: ubuntu-latest
    needs: linux-extensions-64
    container: ubuntu:18.04
-   if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature' }}
    env:
      EXTENSION_CONFIGS: '${GITHUB_WORKSPACE}/.github/config/bundled_extensions.cmake'
      ENABLE_EXTENSION_AUTOLOADING: 1
