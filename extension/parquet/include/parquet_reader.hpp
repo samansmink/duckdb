@@ -51,6 +51,7 @@ struct ParquetReaderPrefetchConfig {
 struct ParquetReaderScanState {
 	vector<idx_t> group_idx_list;
 	int64_t current_group;
+	idx_t offset_in_group;
 	idx_t group_offset;
 	unique_ptr<FileHandle> file_handle;
 	unique_ptr<ColumnReader> root_reader;

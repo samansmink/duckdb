@@ -659,6 +659,15 @@ uint32_t ParquetReader::ReadData(duckdb_apache::thrift::protocol::TProtocol &ipr
 	}
 }
 
+idx_t GetRowGroupOffset(ParquetReader &reader, idx_t group_idx) {
+    idx_t row_group_offset = 0;
+    auto &row_groups = reader.GetFileMetadata()->row_groups;
+    for (idx_t i = 0; i < group_idx; i++) {
+        row_group_offset += row_groups[i].num_rows;
+    }
+    return row_group_offset;
+}
+
 const ParquetRowGroup &ParquetReader::GetGroup(ParquetReaderScanState &state) {
 	auto file_meta_data = GetFileMetadata();
 	D_ASSERT(state.current_group >= 0 && (idx_t)state.current_group < state.group_idx_list.size());
@@ -795,7 +804,7 @@ void ParquetReader::PrepareRowGroupBuffer(ParquetReaderScanState &state, idx_t c
 
 			if (prune_result == FilterPropagateResult::FILTER_ALWAYS_FALSE) {
 				// this effectively will skip this chunk
-				state.group_offset = group.num_rows;
+				state.offset_in_group = group.num_rows;
 				return;
 			}
 		}
@@ -817,7 +826,7 @@ void ParquetReader::InitializeScan(ClientContext &context, ParquetReaderScanStat
                                    vector<idx_t> groups_to_read) {
 	state.current_group = -1;
 	state.finished = false;
-	state.group_offset = 0;
+	state.offset_in_group = 0;
 	state.group_idx_list = std::move(groups_to_read);
 	state.sel.Initialize(STANDARD_VECTOR_SIZE);
 	if (!state.file_handle || state.file_handle->path != file_handle->path) {
@@ -1069,9 +1078,9 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 	}
 
 	// see if we have to switch to the next row group in the parquet file
-	if (state.current_group < 0 || (int64_t)state.group_offset >= GetGroup(state).num_rows) {
+	if (state.current_group < 0 || (int64_t)state.offset_in_group >= GetGroup(state).num_rows) {
 		state.current_group++;
-		state.group_offset = 0;
+		state.offset_in_group = 0;
 
 		auto &trans = reinterpret_cast<ThriftFileTransport &>(*state.thrift_file_proto->getTransport());
 		trans.ClearPrefetch();
@@ -1081,6 +1090,9 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 			state.finished = true;
 			return false;
 		}
+
+	    // TODO: only need this if we have a deletion vector?
+	    state.group_offset = GetRowGroupOffset(state.root_reader->Reader(), state.group_idx_list[state.current_group]);
 
 		uint64_t to_scan_compressed_bytes = 0;
 		for (idx_t col_idx = 0; col_idx < reader_data.column_ids.size(); col_idx++) {
@@ -1093,7 +1105,7 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 		}
 
 		auto &group = GetGroup(state);
-		if (state.prefetch_mode && state.group_offset != (idx_t)group.num_rows) {
+		if (state.prefetch_mode && state.offset_in_group != (idx_t)group.num_rows) {
 			uint64_t total_row_group_span = GetGroupSpan(state);
 
 			double scan_percentage = (double)(to_scan_compressed_bytes) / static_cast<double>(total_row_group_span);
@@ -1144,7 +1156,7 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 		return true;
 	}
 
-	auto this_output_chunk_rows = MinValue<idx_t>(STANDARD_VECTOR_SIZE, GetGroup(state).num_rows - state.group_offset);
+	auto this_output_chunk_rows = MinValue<idx_t>(STANDARD_VECTOR_SIZE, GetGroup(state).num_rows - state.offset_in_group);
 	result.SetCardinality(this_output_chunk_rows);
 
 	if (this_output_chunk_rows == 0) {
@@ -1156,6 +1168,11 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 	// be relevant
 	parquet_filter_t filter_mask;
 	filter_mask.set();
+
+    auto &deletion_vector = state.root_reader->Reader().reader_data.deletion_vector;
+    if (deletion_vector) {
+        deletion_vector->Apply(filter_mask, state.offset_in_group + state.group_offset, 0, this_output_chunk_rows);
+    }
 
 	// mask out unused part of bitset
 	for (idx_t i = this_output_chunk_rows; i < STANDARD_VECTOR_SIZE; i++) {
@@ -1170,36 +1187,38 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 
 	auto &root_reader = state.root_reader->Cast<StructColumnReader>();
 
-	if (reader_data.filters) {
+	if (reader_data.filters || reader_data.deletion_vector) {
 		vector<bool> need_to_read(reader_data.column_ids.size(), true);
 
-		// first load the columns that are used in filters
-		for (auto &filter_col : reader_data.filters->filters) {
-			if (filter_mask.none()) {
-				// if no rows are left we can stop checking filters
-				break;
-			}
-			auto filter_entry = reader_data.filter_map[filter_col.first];
-			if (filter_entry.is_constant) {
-				// this is a constant vector, look for the constant
-				auto &constant = reader_data.constant_map[filter_entry.index].value;
-				Vector constant_vector(constant);
-				ApplyFilter(constant_vector, *filter_col.second, filter_mask, this_output_chunk_rows);
-			} else {
-				auto id = filter_entry.index;
-				auto file_col_idx = reader_data.column_ids[id];
-				auto result_idx = reader_data.column_mapping[id];
+        if (reader_data.filters) {
+            // first load the columns that are used in filters
+            for (auto &filter_col : reader_data.filters->filters) {
+                if (filter_mask.none()) {
+                    // if no rows are left we can stop checking filters
+                    break;
+                }
+                auto filter_entry = reader_data.filter_map[filter_col.first];
+                if (filter_entry.is_constant) {
+                    // this is a constant vector, look for the constant
+                    auto &constant = reader_data.constant_map[filter_entry.index].value;
+                    Vector constant_vector(constant);
+                    ApplyFilter(constant_vector, *filter_col.second, filter_mask, this_output_chunk_rows);
+                } else {
+                    auto id = filter_entry.index;
+                    auto file_col_idx = reader_data.column_ids[id];
+                    auto result_idx = reader_data.column_mapping[id];
 
-				auto &result_vector = result.data[result_idx];
-				auto &child_reader = root_reader.GetChildReader(file_col_idx);
-				child_reader.Read(result.size(), filter_mask, define_ptr, repeat_ptr, result_vector);
-				need_to_read[id] = false;
+                    auto &result_vector = result.data[result_idx];
+                    auto &child_reader = root_reader.GetChildReader(file_col_idx);
+                    child_reader.Read(result.size(), filter_mask, define_ptr, repeat_ptr, result_vector);
+                    need_to_read[id] = false;
 
-				ApplyFilter(result_vector, *filter_col.second, filter_mask, this_output_chunk_rows);
-			}
-		}
+                    ApplyFilter(result_vector, *filter_col.second, filter_mask, this_output_chunk_rows);
+                }
+            }
+	    }
 
-		// we still may have to read some cols
+        // we still may have to read some cols
 		for (idx_t col_idx = 0; col_idx < reader_data.column_ids.size(); col_idx++) {
 			if (!need_to_read[col_idx]) {
 				continue;
@@ -1235,7 +1254,7 @@ bool ParquetReader::ScanInternal(ParquetReaderScanState &state, DataChunk &resul
 		}
 	}
 
-	state.group_offset += this_output_chunk_rows;
+	state.offset_in_group += this_output_chunk_rows;
 	return true;
 }
 

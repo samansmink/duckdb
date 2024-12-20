@@ -90,6 +90,15 @@ struct MultiFileConstantEntry {
 	Value value;
 };
 
+class DeletionVector {
+public:
+    virtual ~DeletionVector() = default;
+
+    //! This method would be called by parquet reader who internally uses a bitset for filtering during scan
+    virtual void Apply(std::bitset<STANDARD_VECTOR_SIZE> &bitset, idx_t offset_in_file, idx_t offset_in_bitset, idx_t count) const = 0;
+};
+
+//! The data corresponding to one of the files in a MultiFileList
 struct MultiFileReaderData {
 	//! The column ids to read from the file
 	vector<idx_t> column_ids;
@@ -112,6 +121,8 @@ struct MultiFileReaderData {
 	unordered_map<column_t, LogicalType> cast_map;
 	//! (Optionally) The MultiFileReader-generated metadata corresponding to the currently read file
 	optional_idx file_list_idx;
+    //! (Optionally) A deletion vector to be applied during scanning
+    unique_ptr<DeletionVector> deletion_vector;
 };
 
 //! The MultiFileReader class provides a set of helper methods to handle scanning from multiple files
