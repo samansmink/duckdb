@@ -55,7 +55,7 @@ public:
 	idx_t estimated_cardinality;
 
 	//! The global sink state of this operator
-	unique_ptr<GlobalSinkState> sink_state;
+	mutable unique_ptr<GlobalSinkState> sink_state;
 	//! The global state of this operator
 	unique_ptr<GlobalOperatorState> op_state;
 	//! Lock for (re)setting any of the operator states

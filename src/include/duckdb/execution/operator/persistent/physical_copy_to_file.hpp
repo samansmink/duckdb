@@ -11,6 +11,7 @@
 #include "duckdb/common/enums/copy_overwrite_mode.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/filename_pattern.hpp"
+#include "duckdb/common/value_operations/value_operations.hpp"
 #include "duckdb/execution/physical_operator.hpp"
 #include "duckdb/function/copy_function.hpp"
 #include "duckdb/parser/parsed_data/copy_info.hpp"
@@ -83,5 +84,72 @@ public:
 private:
 	unique_ptr<GlobalFunctionData> CreateFileState(ClientContext &context, GlobalSinkState &sink,
 	                                               StorageLockKey &global_lock) const;
+};
+
+struct PartitionWriteInfo {
+    unique_ptr<GlobalFunctionData> global_state;
+    idx_t active_writes = 0;
+};
+
+struct VectorOfValuesHashFunction {
+    uint64_t operator()(const vector<Value> &values) const {
+        hash_t result = 0;
+        for (auto &val : values) {
+            result ^= val.Hash();
+        }
+        return result;
+    }
+};
+
+struct VectorOfValuesEquality {
+    bool operator()(const vector<Value> &a, const vector<Value> &b) const {
+        if (a.size() != b.size()) {
+            return false;
+        }
+        for (idx_t i = 0; i < a.size(); i++) {
+            if (ValueOperations::DistinctFrom(a[i], b[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+template <class T>
+using vector_of_value_map_t = unordered_map<vector<Value>, T, VectorOfValuesHashFunction, VectorOfValuesEquality>;
+
+class GlobalHivePartitionState;
+
+class CopyToFunctionGlobalState : public GlobalSinkState {
+public:
+	explicit CopyToFunctionGlobalState(ClientContext &context, unique_ptr<GlobalFunctionData> global_state);
+
+	StorageLock lock;
+	atomic<idx_t> rows_copied;
+	atomic<idx_t> last_file_offset;
+	unique_ptr<GlobalFunctionData> global_state;
+	//! Created directories
+	unordered_set<string> created_directories;
+	//! shared state for HivePartitionedColumnData
+	shared_ptr<GlobalHivePartitionState> partition_state;
+	//! File names
+	vector<Value> file_names;
+	//! Max open files
+	idx_t max_open_files;
+
+	void CreateDir(const string &dir_path, FileSystem &fs);
+	string GetOrCreateDirectory(const vector<idx_t> &cols, const vector<string> &names, const vector<Value> &values,
+	                            string path, FileSystem &fs);
+	void AddFileName(const StorageLockKey &l, const string &file_name);
+	void FinalizePartition(ClientContext &context, const PhysicalCopyToFile &op, PartitionWriteInfo &info);
+	void FinalizePartitions(ClientContext &context, const PhysicalCopyToFile &op);
+	PartitionWriteInfo &GetPartitionWriteInfo(ExecutionContext &context, const PhysicalCopyToFile &op,
+	                                          const vector<Value> &values);
+	void FinishPartitionWrite(PartitionWriteInfo &info);
+
+private:
+	//! The active writes per partition (for partitioned write)
+	vector_of_value_map_t<unique_ptr<PartitionWriteInfo>> active_partitioned_writes;
+	vector_of_value_map_t<idx_t> previous_partitions;
 };
 } // namespace duckdb
