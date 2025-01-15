@@ -74,6 +74,7 @@ void SetArrowMapFormat(DuckDBArrowSchemaHolder &root_holder, ArrowSchema &child,
 	child.children = &root_holder.nested_children_ptr.back()[0];
 	child.children[0]->name = "entries";
 	SetArrowFormat(root_holder, **child.children, ListType::GetChildType(type), options, context);
+    child.children[0]->flags = 0; // entries can not be nullable
 }
 
 bool SetArrowExtension(DuckDBArrowSchemaHolder &root_holder, ArrowSchema &child, const LogicalType &type,
