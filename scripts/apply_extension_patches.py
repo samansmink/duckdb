@@ -38,7 +38,11 @@ print(f"Resetting patches in {directory}\n")
 subprocess.run(["git", "log"], check=True)
 subprocess.run(["git", "clean", "-f"], check=True)
 subprocess.run(["git", "reset", "--hard", "HEAD"], check=True)
+
 # Apply each patch file using patch
 for patch in patches:
     print(f"Applying patch: {patch}\n")
     subprocess.run(["patch", "-p1", "--forward", "-i", os.path.join(directory, patch)], check=True)
+    print(f"Successfully applied patch to {directory}:")
+    print(subprocess.run(["git", "--no-pager", "diff"], check=True, cwd=directory))
+    exit(-1)
