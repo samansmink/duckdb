@@ -45,4 +45,6 @@ for patch in patches:
     subprocess.run(["patch", "-p1", "--forward", "-i", os.path.join(directory, patch)], check=True)
     print(f"Successfully applied patch to {directory}:")
     print(subprocess.run(["git", "--no-pager", "diff"], check=True, cwd=directory))
+    workdir = os.getcwd()
+    print(f"RAN git diff on {workdir}")
     exit(-1)
