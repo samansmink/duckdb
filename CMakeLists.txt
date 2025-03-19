@@ -1090,13 +1090,16 @@ macro(register_external_extension NAME URL COMMIT DONT_LINK DONT_BUILD LOAD_TEST
     set(PATCH_COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/apply_extension_patches.py ${CMAKE_SOURCE_DIR}/.github/patches/extensions/${NAME}/)
   endif()
   FETCHCONTENT_DECLARE(
-          ${NAME}_extension_fc
+          ${NAME}_EXTENSION_FC
           GIT_REPOSITORY ${URL}
           GIT_TAG ${COMMIT}
           GIT_SUBMODULES "${SUBMODULES}"
           PATCH_COMMAND ${PATCH_COMMAND}
   )
-  FETCHCONTENT_POPULATE(${NAME}_EXTENSION_FC)
+  FetchContent_GetProperties(${NAME}_EXTENSION_FC)
+  if(NOT ${NAME}_EXTENSION_FC_POPULATED)
+    FETCHCONTENT_POPULATE(${NAME}_EXTENSION_FC)
+  endif()
 
   # Autogenerate version tag if not provided
   if ("${EXTENSION_VERSION}" STREQUAL "")
