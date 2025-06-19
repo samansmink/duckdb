@@ -15,10 +15,20 @@ merged_overlay_ports = []
 
 
 def prefix_overlay_ports(overlay_ports, path_to_vcpkg_json):
+    def is_extension_ci_tools(vcpkg_prefix_path, overlay_port):
+        if overlay_port == "./extension-ci-tools/vcpkg_ports" and "_deps" in vcpkg_prefix_path:
+            return True
+
+        return False
+
     def prefix_overlay_port(overlay_port):
         vcpkg_prefix_path = path_to_vcpkg_json[0 : path_to_vcpkg_json.find("/vcpkg.json")]
         if len(vcpkg_prefix_path) == 0:
             return overlay_port
+
+        if is_extension_ci_tools(vcpkg_prefix_path, overlay_port):
+            return None
+
         return vcpkg_prefix_path + '/' + overlay_port
 
     return map(prefix_overlay_port, overlay_ports)
@@ -64,20 +74,9 @@ data = {
 }
 
 if merged_overlay_ports:
-    data['vcpkg-configuration'] = {'overlay-ports': merged_overlay_ports}
+    data['vcpkg-configuration'] = {'overlay-ports': [x for x in merged_overlay_ports if x is not None]}
 else:
     data['vcpkg-configuration'] = {}
-
-REGISTRY_BASELINE = '0f9bf648ba1ee29291890a1ca9a49a80bba017eb'
-# NOTE: use 'scripts/list_vcpkg_registry_packages.py --baseline <baseline>' to generate the list of packages
-data['vcpkg-configuration']['registries'] = [
-    {
-        "kind": "git",
-        "repository": "https://github.com/duckdb/vcpkg-duckdb-ports",
-        "baseline": REGISTRY_BASELINE,
-        "packages": ['avro-c', 'vcpkg-cmake'],
-    }
-]
 
 # Print output
 print("Writing to 'build/extension_configuration/vcpkg.json': ")
