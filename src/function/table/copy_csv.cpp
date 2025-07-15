@@ -123,62 +123,6 @@ string TransformNewLine(string new_line) {
 	;
 }
 
-static vector<unique_ptr<Expression>> CreateCastExpressions(WriteCSVData &bind_data, ClientContext &context,
-                                                            const vector<string> &names,
-                                                            const vector<LogicalType> &sql_types) {
-	auto &options = bind_data.options;
-	auto &formats = options.write_date_format;
-
-	bool has_dateformat = !formats[LogicalTypeId::DATE].IsNull();
-	bool has_timestampformat = !formats[LogicalTypeId::TIMESTAMP].IsNull();
-
-	// Create a binder
-	auto binder = Binder::CreateBinder(context);
-
-	auto &bind_context = binder->bind_context;
-	auto table_index = binder->GenerateTableIndex();
-	bind_context.AddGenericBinding(table_index, "copy_csv", names, sql_types);
-
-	// Create the ParsedExpressions (cast, strftime, etc..)
-	vector<unique_ptr<ParsedExpression>> unbound_expressions;
-	for (idx_t i = 0; i < sql_types.size(); i++) {
-		auto &type = sql_types[i];
-		auto &name = names[i];
-
-		bool is_timestamp = type.id() == LogicalTypeId::TIMESTAMP || type.id() == LogicalTypeId::TIMESTAMP_TZ;
-		if (has_dateformat && type.id() == LogicalTypeId::DATE) {
-			// strftime(<name>, 'format')
-			vector<unique_ptr<ParsedExpression>> children;
-			children.push_back(make_uniq<BoundExpression>(make_uniq<BoundReferenceExpression>(name, type, i)));
-			children.push_back(make_uniq<ConstantExpression>(formats[LogicalTypeId::DATE]));
-			auto func = make_uniq_base<ParsedExpression, FunctionExpression>("strftime", std::move(children));
-			unbound_expressions.push_back(std::move(func));
-		} else if (has_timestampformat && is_timestamp) {
-			// strftime(<name>, 'format')
-			vector<unique_ptr<ParsedExpression>> children;
-			children.push_back(make_uniq<BoundExpression>(make_uniq<BoundReferenceExpression>(name, type, i)));
-			children.push_back(make_uniq<ConstantExpression>(formats[LogicalTypeId::TIMESTAMP]));
-			auto func = make_uniq_base<ParsedExpression, FunctionExpression>("strftime", std::move(children));
-			unbound_expressions.push_back(std::move(func));
-		} else {
-			// CAST <name> AS VARCHAR
-			auto column = make_uniq<BoundExpression>(make_uniq<BoundReferenceExpression>(name, type, i));
-			auto expr = make_uniq_base<ParsedExpression, CastExpression>(LogicalType::VARCHAR, std::move(column));
-			unbound_expressions.push_back(std::move(expr));
-		}
-	}
-
-	// Create an ExpressionBinder, bind the Expressions
-	vector<unique_ptr<Expression>> expressions;
-	ExpressionBinder expression_binder(*binder, context);
-	expression_binder.target_type = LogicalType::VARCHAR;
-	for (auto &expr : unbound_expressions) {
-		expressions.push_back(expression_binder.Bind(expr));
-	}
-
-	return expressions;
-}
-
 static unique_ptr<FunctionData> WriteCSVBind(ClientContext &context, CopyFunctionBindInput &input,
                                              const vector<string> &names, const vector<LogicalType> &sql_types) {
 	auto bind_data = make_uniq<WriteCSVData>(input.info.file_path, sql_types, names);
@@ -211,7 +155,7 @@ static unique_ptr<FunctionData> WriteCSVBind(ClientContext &context, CopyFunctio
 		break;
 	}
 
-	auto expressions = CreateCastExpressions(*bind_data, context, names, sql_types);
+	auto expressions = CSVWriter::CreateCastExpressions(bind_data->options, context, names, sql_types);
 	bind_data->cast_expressions = std::move(expressions);
 
 	// bind_data->writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
@@ -253,7 +197,8 @@ struct GlobalWriteCSVData : public GlobalFunctionData {
 	}
 
 	idx_t FileSize() {
-		return writer.FileSize();
+		// return writer.FileSize();
+		return DConstants::INVALID_INDEX;
 	}
 
 	CSVWriter writer;
@@ -277,6 +222,8 @@ static unique_ptr<GlobalFunctionData> WriteCSVInitializeGlobal(ClientContext &co
 	auto &options = csv_data.options;
 	auto global_data =
 	    make_uniq<GlobalWriteCSVData>(options, FileSystem::GetFileSystem(context), file_path, options.compression);
+
+	global_data->writer.AddCasts(csv_data.cast_expressions);
 
 	if (!options.prefix.empty()) {
 		global_data->writer.WriteRawString(options.prefix);
@@ -373,7 +320,7 @@ unique_ptr<PreparedBatchData> WriteCSVPrepareBatch(ClientContext &context, Funct
 	cast_chunk.Initialize(Allocator::Get(context), types);
 
 	auto &original_types = collection->Types();
-	auto expressions = CreateCastExpressions(csv_data, context, csv_data.options.name_list, original_types);
+	auto expressions = CSVWriter::CreateCastExpressions(csv_data.options, context, csv_data.options.name_list, original_types);
 	ExpressionExecutor executor(context, expressions);
 	auto &global_state = gstate.Cast<GlobalWriteCSVData>();
 
@@ -398,14 +345,15 @@ void WriteCSVFlushBatch(ClientContext &context, FunctionData &bind_data, GlobalF
 //===--------------------------------------------------------------------===//
 // File rotation
 //===--------------------------------------------------------------------===//
-bool WriteCSVRotateFiles(FunctionData &, const optional_idx &file_size_bytes) {
-	return file_size_bytes.IsValid();
-}
-
-bool WriteCSVRotateNextFile(GlobalFunctionData &gstate, FunctionData &, const optional_idx &file_size_bytes) {
-	auto &global_state = gstate.Cast<GlobalWriteCSVData>();
-	return global_state.FileSize() > file_size_bytes.GetIndex();
-}
+// TODO: restore
+// bool WriteCSVRotateFiles(FunctionData &, const optional_idx &file_size_bytes) {
+// 	return file_size_bytes.IsValid();
+// }
+//
+// bool WriteCSVRotateNextFile(GlobalFunctionData &gstate, FunctionData &, const optional_idx &file_size_bytes) {
+// 	auto &global_state = gstate.Cast<GlobalWriteCSVData>();
+// 	return global_state.FileSize() > file_size_bytes.GetIndex();
+// }
 
 void CSVCopyFunction::RegisterFunction(BuiltinFunctions &set) {
 	CopyFunction info("csv");
@@ -418,8 +366,8 @@ void CSVCopyFunction::RegisterFunction(BuiltinFunctions &set) {
 	info.execution_mode = WriteCSVExecutionMode;
 	info.prepare_batch = WriteCSVPrepareBatch;
 	info.flush_batch = WriteCSVFlushBatch;
-	info.rotate_files = WriteCSVRotateFiles;
-	info.rotate_next_file = WriteCSVRotateNextFile;
+	// info.rotate_files = WriteCSVRotateFiles;
+	// info.rotate_next_file = WriteCSVRotateNextFile;
 
 	info.copy_from_bind = MultiFileFunction<CSVMultiFileInfo>::MultiFileBindCopy;
 	info.copy_from_function = ReadCSVTableFunction::GetFunction();

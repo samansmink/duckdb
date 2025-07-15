@@ -2,6 +2,8 @@
 #include "duckdb/common/serializer/write_stream.hpp"
 #include "duckdb/common/serializer/memory_stream.hpp"
 #include "duckdb/execution/operator/csv_scanner/csv_reader_options.hpp"
+#include "duckdb/common/serializer/buffered_file_writer.hpp"
+#include "duckdb/parser/expression/constant_expression.hpp"
 
 #include <unistd.h>
 
@@ -19,15 +21,75 @@ CSVWriterLocalState::CSVWriterLocalState() : stream(make_uniq<MemoryStream>()) {
 CSVWriterLocalState::CSVWriterLocalState(ClientContext &context) : stream(make_uniq<MemoryStream>(Allocator::Get(context))) {
 }
 
+CSVWriterLocalState::CSVWriterLocalState(DatabaseInstance &db) : stream(make_uniq<MemoryStream>(Allocator::Get(db))) {
+}
+
+
 CSVWriterLocalState::~CSVWriterLocalState() {
 	if (stream) {
-		// Ensure we don't accidentially destroy unflushed data
+		// Ensure we don't accidentally destroy unflushed data
 		D_ASSERT(stream->GetPosition() == 0);
 	}
 }
 
-CSVWriter::CSVWriter(FileSystem &fs, const string &file_path, FileCompressionType compression) :  writer_options({}), written_anything(false) {
-	output_file = fs.OpenFile(file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression);
+vector<unique_ptr<Expression>> CSVWriter::CreateCastExpressions(CSVReaderOptions &options, ClientContext &context,
+															const vector<string> &names,
+															const vector<LogicalType> &sql_types) {
+	auto &formats = options.write_date_format;
+
+	bool has_dateformat = !formats[LogicalTypeId::DATE].IsNull();
+	bool has_timestampformat = !formats[LogicalTypeId::TIMESTAMP].IsNull();
+
+	// Create a binder
+	auto binder = Binder::CreateBinder(context);
+
+	auto &bind_context = binder->bind_context;
+	auto table_index = binder->GenerateTableIndex();
+	bind_context.AddGenericBinding(table_index, "copy_csv", names, sql_types);
+
+	// Create the ParsedExpressions (cast, strftime, etc..)
+	vector<unique_ptr<ParsedExpression>> unbound_expressions;
+	for (idx_t i = 0; i < sql_types.size(); i++) {
+		auto &type = sql_types[i];
+		auto &name = names[i];
+
+		bool is_timestamp = type.id() == LogicalTypeId::TIMESTAMP || type.id() == LogicalTypeId::TIMESTAMP_TZ;
+		if (has_dateformat && type.id() == LogicalTypeId::DATE) {
+			// strftime(<name>, 'format')
+			vector<unique_ptr<ParsedExpression>> children;
+			children.push_back(make_uniq<BoundExpression>(make_uniq<BoundReferenceExpression>(name, type, i)));
+			children.push_back(make_uniq<ConstantExpression>(formats[LogicalTypeId::DATE]));
+			auto func = make_uniq_base<ParsedExpression, FunctionExpression>("strftime", std::move(children));
+			unbound_expressions.push_back(std::move(func));
+		} else if (has_timestampformat && is_timestamp) {
+			// strftime(<name>, 'format')
+			vector<unique_ptr<ParsedExpression>> children;
+			children.push_back(make_uniq<BoundExpression>(make_uniq<BoundReferenceExpression>(name, type, i)));
+			children.push_back(make_uniq<ConstantExpression>(formats[LogicalTypeId::TIMESTAMP]));
+			auto func = make_uniq_base<ParsedExpression, FunctionExpression>("strftime", std::move(children));
+			unbound_expressions.push_back(std::move(func));
+		} else {
+			// CAST <name> AS VARCHAR
+			auto column = make_uniq<BoundExpression>(make_uniq<BoundReferenceExpression>(name, type, i));
+			auto expr = make_uniq_base<ParsedExpression, CastExpression>(LogicalType::VARCHAR, std::move(column));
+			unbound_expressions.push_back(std::move(expr));
+		}
+	}
+
+	// Create an ExpressionBinder, bind the Expressions
+	vector<unique_ptr<Expression>> expressions;
+	ExpressionBinder expression_binder(*binder, context);
+	expression_binder.target_type = LogicalType::VARCHAR;
+	for (auto &expr : unbound_expressions) {
+		expressions.push_back(expression_binder.Bind(expr));
+	}
+
+	return expressions;
+}
+
+CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list) : write_stream(stream){
+	options.name_list = name_list;
+	options.force_quote.resize(name_list.size(), false);
 
 	writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
 	memset(writer_options.requires_quotes.get(), 0, sizeof(bool) * 256);
@@ -41,8 +103,7 @@ CSVWriter::CSVWriter(FileSystem &fs, const string &file_path, FileCompressionTyp
 	}
 }
 
-CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path, FileCompressionType compression) : options(options_p){
-	output_file = fs.OpenFile(file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression);
+CSVWriter::CSVWriter(FileSystem &fs, const string &file_path, FileCompressionType compression) :  writer_options({}), written_anything(false), file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer) {
 
 	writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
 	memset(writer_options.requires_quotes.get(), 0, sizeof(bool) * 256);
@@ -54,9 +115,36 @@ CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &
 	if (!options.write_newline.empty()) {
 		writer_options.newline = TransformNewLine(options.write_newline);
 	}
+}
+
+CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path, FileCompressionType compression) : file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer), options(options_p) {
+	writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
+	memset(writer_options.requires_quotes.get(), 0, sizeof(bool) * 256);
+	writer_options.requires_quotes['\n'] = true;
+	writer_options.requires_quotes['\r'] = true;
+	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.delimiter.GetValue()[0])] = true;
+	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.quote.GetValue())] = true;
+
+	if (!options.write_newline.empty()) {
+		writer_options.newline = TransformNewLine(options.write_newline);
+	}
+}
+
+void CSVWriter::AddCasts(const vector<unique_ptr<Expression>> &casts_p) {
+	string_casts = casts_p;
+	cast_chunk = make_uniq<DataChunk>(string_casts.size());
+
+	vector<LogicalType> types;
+	types.resize(string_casts.size(), LogicalType::VARCHAR);
+
+	// TODO: pass through other allocator?
+	cast_chunk->Initialize(Allocator::DefaultAllocator(), types);
 }
 
 void CSVWriter::WriteChunk(DataChunk &input, CSVWriterLocalState &local_state) {
+
+
+
 	WriteChunk(input, *local_state.stream, options, written_anything, writer_options);
 
 	if (!local_state.require_manual_flush && local_state.stream->GetPosition() >= writer_options.flush_size) {
@@ -66,7 +154,8 @@ void CSVWriter::WriteChunk(DataChunk &input, CSVWriterLocalState &local_state) {
 
 void CSVWriter::WriteRawString(const string& raw_string) {
 	lock_guard<mutex> flock(lock);
-	output_file->Write((void *)raw_string.c_str(), raw_string.size());
+	bytes_written += raw_string.size();
+	write_stream.WriteData((data_ptr_t)raw_string.c_str(), raw_string.size());
 }
 
 void CSVWriter::WriteRawString(const string& prefix, CSVWriterLocalState &local_state) {
@@ -90,25 +179,34 @@ void CSVWriter::Flush(CSVWriterLocalState &local_state) {
 
 void CSVWriter::Close() {
 	lock_guard<mutex> flock(lock);
-	output_file->Close();
+
+	file_writer->Close();
 }
 
 // TODO: this no longer writes the newlines on written_anything == false
 void CSVWriter::FlushInternal(CSVWriterLocalState &local_state) {
 	written_anything = true;
-	output_file->Write((void *)local_state.stream->GetData(), local_state.stream->GetPosition());
+	bytes_written += local_state.stream->GetPosition();
+	write_stream.WriteData((data_ptr_t)local_state.stream->GetData(), local_state.stream->GetPosition());
 	local_state.stream->Rewind();
 }
 
 unique_ptr<CSVWriterLocalState> CSVWriter::InitializeLocalWriteState(ClientContext &context) {
+	auto res = make_uniq<CSVWriterLocalState>(context);
+	res->stream = make_uniq<MemoryStream>();
+	return res;
+}
+
+unique_ptr<CSVWriterLocalState> CSVWriter::InitializeLocalWriteState(DatabaseInstance &db) {
 	auto res = make_uniq<CSVWriterLocalState>();
 	res->stream = make_uniq<MemoryStream>();
 	return res;
 }
 
-idx_t CSVWriter::FileSize() {
+idx_t CSVWriter::BytesWritten() {
 	lock_guard<mutex> flock(lock);
-	return output_file->GetFileSize();
+
+	return 0; // TODO
 }
 
 void CSVWriter::WriteQuoteOrEscape(WriteStream &writer, char quote_or_escape) {
@@ -206,6 +304,9 @@ void CSVWriter::WriteQuotedString(WriteStream &writer, const char *str, idx_t le
 
 // Write a chunk to a csv file
 void CSVWriter::WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOptions &options, bool &written_anything, CSVWriterOptions &writer_options) {
+
+
+
 	// now loop over the vectors and output the values
 	for (idx_t row_idx = 0; row_idx < input.size(); row_idx++) {
 		if (row_idx == 0 && !written_anything) {
