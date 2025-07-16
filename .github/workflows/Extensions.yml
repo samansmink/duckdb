@@ -47,7 +47,7 @@ jobs:
     name: In-tree Extensions 1
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'linux_arm64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;'
+      exclude_archs: 'linux_arm64;linux_amd64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;windows_amd64'
       artifact_prefix: in-tree-extensions-1
       extension_config: |
         duckdb_extension_load(json)
@@ -56,7 +56,7 @@ jobs:
     name: In-tree Extensions 2
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'linux_arm64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;'
+      exclude_archs: 'linux_arm64;linux_amd64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;windows_amd64'
       artifact_prefix: in-tree-extensions-2
       extension_config: |
         duckdb_extension_load(tpch)
