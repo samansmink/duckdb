@@ -62,7 +62,7 @@ jobs:
         duckdb_extension_load(tpch)
 
   create-extension-repository:
-    name: Linux
+    name: Create Extension Repository
     runs-on: ubuntu-latest
     needs:
       - in-tree-extensions-1
