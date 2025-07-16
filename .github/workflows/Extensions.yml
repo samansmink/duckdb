@@ -57,7 +57,7 @@ jobs:
       ci_tools_version: add-extension-config-injection # TODO: switch to main once merged
 
       # TODO: re-enable caching
-      upload_all_extensions_with_prefix: ${{ github.job }}
+      upload_all_extensions_with_prefix: in-tree-extensions
 
   # The extension_config.cmake configuration that gets built
       extra_extension_config: |
