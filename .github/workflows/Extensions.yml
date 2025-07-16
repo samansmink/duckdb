@@ -43,18 +43,46 @@ on:
       - '!.github/workflows/Extensions.yml'
 
 jobs:
-  in-tree-extensions:
-    name: In-tree Extensions
-    uses: ./.github/workflows/_extension_distribution_and_deploy.yml
+  in-tree-extensions-1:
+    name: In-tree Extensions 1
+    uses: ./.github/workflows/_extension_distribution.yml
     with:
       exclude_archs: 'linux_arm64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;'
-      artifact_prefix: in-tree-extensions
+      artifact_prefix: in-tree-extensions-1
       extension_config: |
-        duckdb_extension_load(autocomplete)
-        duckdb_extension_load(core_functions)
-        duckdb_extension_load(icu)
         duckdb_extension_load(json)
-        duckdb_extension_load(parquet)
-        duckdb_extension_load(tpcds)
+
+  in-tree-extensions-2:
+    name: In-tree Extensions 2
+    uses: ./.github/workflows/_extension_distribution.yml
+    with:
+      exclude_archs: 'linux_arm64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;'
+      artifact_prefix: in-tree-extensions-2
+      extension_config: |
         duckdb_extension_load(tpch)
-        duckdb_extension_load(demo_capi DONT_LINK)
+
+  create-extension-repository:
+    name: Linux
+    runs-on: ubuntu-latest
+    needs:
+      - in-tree-extensions-1
+      - in-tree-extensions-2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: 'true'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: in-tree-extensions-1-${{ github.sha }}
+          path: /tmp/repository_generation/in-tree-extensions-1
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: in-tree-extensions-2-${{ github.sha }}
+          path: /tmp/repository_generation/in-tree-extensions-2
+
+      - name: Print all extensions
+        run: |
+          tree /tmp/repository_generation
