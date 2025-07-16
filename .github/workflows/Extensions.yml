@@ -1,0 +1,70 @@
+#
+# This workflow calls the main distribution pipeline from DuckDB to build, test and release extensions
+#
+name: LinuxRelease
+on:
+  workflow_call:
+#    inputs:
+#      override_git_describe:
+#        type: string
+#      git_ref:
+#        type: string
+#      skip_tests:
+#        type: string
+  workflow_dispatch:
+#    inputs:
+#      override_git_describe:
+#        type: string
+#      git_ref:
+#        type: string
+#      skip_tests:
+#        type: string
+  push:
+    branches-ignore:
+      - 'main'
+      - 'feature'
+      - 'v*.*-*'
+    paths-ignore:
+      - '**.md'
+      - 'tools/**'
+      - '!tools/shell/**'
+      - '.github/patches/duckdb-wasm/**'
+      - '.github/workflows/**'
+      - '!.github/workflows/LinuxRelease.yml'
+  merge_group:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+    paths-ignore:
+      - '**.md'
+      - 'tools/**'
+      - '!tools/shell/**'
+      - '.github/patches/duckdb-wasm/**'
+      - '.github/workflows/**'
+      - '!.github/workflows/Extensions.yml'
+
+jobs:
+  duckdb-test-extension-build:
+    name: Extension template
+    uses: samansmink/extension-ci-tools/.github/workflows/_extension_distribution.yml@add-extension-config-injection
+    with:
+      extension_name: quack # placeholder, make optional?
+      override_repository: duckdb/extension-template
+      override_ref: main
+
+      duckdb_version: ${{ github.sha }}
+      # override_duckdb_repository: ${{ github.repository }} # TODO: required to run this on forks?
+
+      override_ci_tools_repository: samansmink/extension-ci-tools # TODO: remove once merged
+      ci_tools_version: add-extension-config-injection # TODO: switch to main once merged
+
+      # TODO: re-enable caching
+      # save_cache: ${{ github.event_name != 'pull_request' }}
+      # vcpkg_binary_sources: ${{ github.event_name == 'push' && vars.VCPKG_BINARY_SOURCES || '' }}
+
+      upload_all_extensions_with_prefix: 'duckdb-test-build'
+
+      extra_extension_config: |
+        duckdb_extension_load(tpch)
+
+     # TODO: re-enable caching
+#    secrets: inherit
