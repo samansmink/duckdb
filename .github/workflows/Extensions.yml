@@ -47,6 +47,7 @@ jobs:
     name: In-tree Extensions
     uses: samansmink/extension-ci-tools/.github/workflows/_extension_distribution.yml@add-extension-config-injection
     with:
+      # Generic Inputs: can be wrapped in another workflow
       extension_name: quack # placeholder, make optional?
       override_repository: duckdb/extension-template
       override_ref: main
@@ -58,7 +59,7 @@ jobs:
       # TODO: re-enable caching
 
       # Set the label of the artifact containing all extensions
-      upload_all_extensions_as: in-tree-extensions-${{ github.sha }}
+      upload_all_extensions_with_prefix: in-tree-extensions-${{ github.sha }}
 
       # The extension_config.cmake configuration that gets built
       extra_extension_config: |
