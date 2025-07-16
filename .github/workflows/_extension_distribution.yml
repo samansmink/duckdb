@@ -21,7 +21,10 @@ jobs:
       # We piggy-back extension-template to build the extensions in extension_config, it's hacky, but it works ¯\_(ツ)_/¯
       override_repository: duckdb/extension-template
       override_ref: main
+
+      # Note when `upload_all_extensions` is true, the extension name is used as prefix to the artifact holding all built extensions
       upload_all_extensions: true
+      extension_name: ${{ inputs.artifact_prefix }}
 
       # DuckDB version is overridden to the current commit of the current repository
       duckdb_version: ${{ github.sha }}
@@ -33,7 +36,6 @@ jobs:
 
       exclude_archs: ${{ inputs.exclude_archs }}
 
-      extension_name: ${{ inputs.artifact_prefix }}
 
       # TODO: re-enable caching
 
