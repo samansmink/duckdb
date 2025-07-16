@@ -50,21 +50,21 @@ jobs:
     name: Load Extension Configs
     runs-on: ubuntu-latest
     outputs:
-      in-tree-extensions: ${{ steps.set-in-tree-extensions.outputs.in-tree-extensions }}
-      out-of-tree-extensions: ${{ steps.set-out-of-tree-extensions.outputs.out-of-tree-extensions }}
+      in_tree_extensions: ${{ steps.set-in-tree-extensions.outputs.in-tree-extensions }}
+      out_of_tree_extensions: ${{ steps.set-out-of-tree-extensions.outputs.out-of-tree-extensions }}
     steps:
       - uses: actions/checkout@v4
 
       - id: set-in-tree-extensions
         run: |
-          in-tree-extensions="`cat .github/config/in_tree_extensions.cmake`"
-          echo in-tree-extensions=$in-tree-extensions >> $GITHUB_OUTPUT
+          in_tree_extensions="`cat .github/config/in_tree_extensions.cmake`"
+          echo in_tree_extensions=$in_tree_extensions >> $GITHUB_OUTPUT
           echo `cat $GITHUB_OUTPUT`
 
       - id: set-out-of-tree-extensions
         run: |
-          out-of-tree-extensions="`cat .github/config/out_of_tree_extensions.cmake`"
-          echo out-of-tree-extensions=$out-of-tree-extensions >> $GITHUB_OUTPUT
+          out_of_tree_extensions="`cat .github/config/out_of_tree_extensions.cmake`"
+          echo out_of_tree_extensions=$out_of_tree_extensions >> $GITHUB_OUTPUT
           echo `cat $GITHUB_OUTPUT`  
 
   # This job builds the extension from .github/config/in_tree_extensions.cmake
@@ -75,7 +75,7 @@ jobs:
     with:
       exclude_archs: 'linux_arm64;linux_amd64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;windows_amd64'
       artifact_prefix: in-tree-extensions
-      extension_config: ${{ needs.load-extension-configs.outputs.in-tree-extensions }}
+      extension_config: ${{ needs.load-extension-configs.outputs.in_tree_extensions }}
 
   # This job builds the extension from .github/config/out_of_tree_extensions.cmake
   out-of-tree-extensions:
@@ -85,7 +85,7 @@ jobs:
     with:
       exclude_archs: 'linux_arm64;linux_amd64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;windows_amd64'
       artifact_prefix: out-of-tree-extensions
-      extension_config: ${{ needs.load-extension-configs.outputs.out-of-tree-extensions }}
+      extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
 
   # Merge all extensions into a single, versioned repository
   create-extension-repository:
