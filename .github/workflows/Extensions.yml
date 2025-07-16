@@ -45,24 +45,11 @@ on:
 jobs:
   in-tree-extensions:
     name: In-tree Extensions
-    uses: samansmink/extension-ci-tools/.github/workflows/_extension_distribution.yml@add-extension-config-injection
+    uses: ./.github/workflows/_extension_distribution_and_deploy.yml
     with:
-      # Generic Inputs: can be wrapped in another workflow
-      extension_name: quack # placeholder, make optional?
-      override_repository: duckdb/extension-template
-      override_ref: main
-      duckdb_version: ${{ github.sha }}
-      override_duckdb_repository: https://github.com/${{ github.repository }}.git # TODO: required to run this on forks?
-      override_ci_tools_repository: samansmink/extension-ci-tools # TODO: remove once merged
-      ci_tools_version: add-extension-config-injection # TODO: switch to main once merged
-
       exclude_archs: 'linux_arm64;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;'
-
-      # TODO: re-enable caching
-      upload_all_extensions_with_prefix: in-tree-extensions
-
-      # The extension_config.cmake configuration that gets built
-      extra_extension_config: |
+      artifact_prefix: in-tree-extensions
+      extension_config: |
         duckdb_extension_load(autocomplete)
         duckdb_extension_load(core_functions)
         duckdb_extension_load(icu)

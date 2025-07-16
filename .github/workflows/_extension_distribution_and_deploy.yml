@@ -1,0 +1,42 @@
+name: Extension Build and Deploy
+on:
+  workflow_call:
+    inputs:
+      artifact_prefix:
+        required: true
+        type: string
+      extension_config:
+        required: true
+        type: string
+      exclude_archs:
+        required: false
+        type: string
+        default: ''
+
+
+jobs:
+  build:
+    name: In-tree Extensions
+    uses: samansmink/extension-ci-tools/.github/workflows/_extension_distribution.yml@add-extension-config-injection
+    with:
+      # Note: the extension-template is used to build the injected extension configuration
+      extension_name: quack
+      override_repository: duckdb/extension-template
+      override_ref: main
+
+      # DuckDB version is overridden to the current commit of the current repository
+      duckdb_version: ${{ github.sha }}
+      override_duckdb_repository: https://github.com/${{ github.repository }}.git # TODO: required to run this on forks?
+
+      # CI tools is pinned to main
+      override_ci_tools_repository: samansmink/extension-ci-tools # TODO: remove once merged
+      ci_tools_version: add-extension-config-injection # TODO: switch to main once merged
+
+      exclude_archs: ${{ inputs.exclude_archs }}
+
+      upload_all_extensions_with_prefix: ${{ inputs.artifact_prefix }}
+
+      # TODO: re-enable caching
+
+      # The extension_config.cmake configuration that gets built
+      extra_extension_config: ${{ inputs.extension_config }}
