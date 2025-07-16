@@ -54,15 +54,16 @@ jobs:
       out-of-tree-extensions: ${{ steps.set-out-of-tree-extensions.outputs.out-of-tree-extensions }}
     steps:
       - uses: actions/checkout@v4
+
       - id: set-in-tree-extensions
         run: |
-          in-tree-extensions="`cat build/in-tree-extensions.json`"
+          in-tree-extensions="`cat .github/config/in_tree_extensions.cmake`"
           echo in-tree-extensions=$in-tree-extensions >> $GITHUB_OUTPUT
           echo `cat $GITHUB_OUTPUT`
 
       - id: set-out-of-tree-extensions
         run: |
-          out-of-tree-extensions="`cat build/out-of-tree-extensions.json`"
+          out-of-tree-extensions="`cat .github/config/out_of_tree_extensions.cmake`"
           echo out-of-tree-extensions=$out-of-tree-extensions >> $GITHUB_OUTPUT
           echo `cat $GITHUB_OUTPUT`  
 
@@ -78,7 +79,7 @@ jobs:
 
   # This job builds the extension from .github/config/out_of_tree_extensions.cmake
   out-of-tree-extensions:
-    name: In-tree Extensions 2
+    name: Out-of-tree Extensions
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
