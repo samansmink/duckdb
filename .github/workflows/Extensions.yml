@@ -75,12 +75,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: in-tree-extensions-1-${{ github.sha }}*
+          pattern: in-tree-extensions-1-${{ github.sha }}*
           path: /tmp/repository_generation/in-tree-extensions-1
 
       - uses: actions/download-artifact@v4
         with:
-          name: in-tree-extensions-2-${{ github.sha }}*
+          pattern: in-tree-extensions-2-${{ github.sha }}*
           path: /tmp/repository_generation/in-tree-extensions-2
 
       - name: Print all extensions
