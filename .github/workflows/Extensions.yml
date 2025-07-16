@@ -44,24 +44,23 @@ on:
 
 jobs:
   duckdb-in-tree-extensions:
-    name: Extension template
+    name: In-tree Extensions
     uses: samansmink/extension-ci-tools/.github/workflows/_extension_distribution.yml@add-extension-config-injection
     with:
       extension_name: quack # placeholder, make optional?
-
       override_repository: duckdb/extension-template
       override_ref: main
-
       duckdb_version: ${{ github.sha }}
       override_duckdb_repository: https://github.com/${{ github.repository }}.git # TODO: required to run this on forks?
-
       override_ci_tools_repository: samansmink/extension-ci-tools # TODO: remove once merged
       ci_tools_version: add-extension-config-injection # TODO: switch to main once merged
 
       # TODO: re-enable caching
 
-      upload_all_extensions_as: ${{ vars.JOB_NAME }}-${{ github.sha }}
+      # Set the label of the artifact containing all extensions
+      upload_all_extensions_as: in-tree-extensions-${{ github.sha }}
 
+      # The extension_config.cmake configuration that gets built
       extra_extension_config: |
         duckdb_extension_load(autocomplete)
         duckdb_extension_load(core_functions)
@@ -70,6 +69,4 @@ jobs:
         duckdb_extension_load(parquet)
         duckdb_extension_load(tpcds)
         duckdb_extension_load(tpch)
-        
-        # Test extension for the upcoming C CAPI extensions
         duckdb_extension_load(demo_capi DONT_LINK)
