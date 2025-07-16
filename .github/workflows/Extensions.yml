@@ -43,7 +43,7 @@ on:
       - '!.github/workflows/Extensions.yml'
 
 jobs:
-  duckdb-in-tree-extensions:
+  in-tree-extensions:
     name: In-tree Extensions
     uses: samansmink/extension-ci-tools/.github/workflows/_extension_distribution.yml@add-extension-config-injection
     with:
@@ -57,11 +57,9 @@ jobs:
       ci_tools_version: add-extension-config-injection # TODO: switch to main once merged
 
       # TODO: re-enable caching
+      upload_all_extensions_with_prefix: ${{ github.job }}
 
-      # Set the label of the artifact containing all extensions
-      upload_all_extensions_with_prefix: in-tree-extensions-${{ github.sha }}
-
-      # The extension_config.cmake configuration that gets built
+  # The extension_config.cmake configuration that gets built
       extra_extension_config: |
         duckdb_extension_load(autocomplete)
         duckdb_extension_load(core_functions)
