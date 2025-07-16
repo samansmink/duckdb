@@ -52,7 +52,7 @@ jobs:
       override_ref: main
 
       duckdb_version: ${{ github.sha }}
-      override_duckdb_repository: ${{ github.repository }} # TODO: required to run this on forks?
+      override_duckdb_repository: https://github.com/samansmink/extension-ci-tools.git${{ github.repositoryUrl }} # TODO: required to run this on forks?
 
       override_ci_tools_repository: samansmink/extension-ci-tools # TODO: remove once merged
       ci_tools_version: add-extension-config-injection # TODO: switch to main once merged
