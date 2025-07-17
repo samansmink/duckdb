@@ -117,6 +117,7 @@ jobs:
 
       - name: Merge into single repository
         run: |
+          mkdir /tmp/merged_repository
           cp -r  /tmp/repository_generation/*/*/* /tmp/merged_repository
           tree /tmp/merged_repository
 
