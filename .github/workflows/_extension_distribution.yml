@@ -12,6 +12,10 @@ on:
         required: false
         type: string
         default: ''
+      extra_toolchains:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -36,6 +40,7 @@ jobs:
 
       exclude_archs: ${{ inputs.exclude_archs }}
 
+      extra_toolchains: ${{ inputs.extra_toolchains }}
 
       # TODO: re-enable caching
 
