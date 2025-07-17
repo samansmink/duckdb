@@ -55,17 +55,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+
+      - id: output
+        run: |
+          echo 'foo<<EOF' >> $GITHUB_OUTPUT
+          echo $errorMessages >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
       # TODO: this removes newlines?
       - id: set-in-tree-extensions
         run: |
           in_tree_extensions="`cat .github/config/in_tree_extensions.cmake`"
-          echo -e in_tree_extensions=$in_tree_extensions >> $GITHUB_OUTPUT
+          echo 'foo<<EOF' >> $GITHUB_OUTPUT
+          echo -e 'in_tree_extensions=$in_tree_extensions' >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
           echo -e `cat $GITHUB_OUTPUT`
 
       - id: set-out-of-tree-extensions
         run: |
           out_of_tree_extensions="`cat .github/config/out_of_tree_extensions.cmake`"
+          echo 'foo<<EOF' >> $GITHUB_OUTPUT
           echo -e out_of_tree_extensions=$out_of_tree_extensions >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
           echo -e `cat $GITHUB_OUTPUT`  
 
   # This job builds the extension from .github/config/in_tree_extensions.cmake
