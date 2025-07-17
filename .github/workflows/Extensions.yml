@@ -52,10 +52,11 @@ jobs:
     outputs:
       in_tree_extensions: ${{ steps.set-in-tree-extensions.outputs.extension_config }}
       out_of_tree_extensions: ${{ steps.set-out-of-tree-extensions.outputs.extension_config }}
+      rust_based_extensions: ${{ steps.set-rust-based-extensions.outputs.extension_config }}
     steps:
       - uses: actions/checkout@v4
 
-      # TODO: this removes newlines?
+      # Load .github/config/in_tree_extensions.cmake into output variable
       - id: set-in-tree-extensions
         run: |
           in_tree_extensions="`cat .github/config/in_tree_extensions.cmake`"
@@ -63,6 +64,7 @@ jobs:
           echo "$in_tree_extensions" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      # Load .github/config/out_of_tree_extensions.cmake into output variable
       - id: set-out-of-tree-extensions
         run: |
           out_of_tree_extensions="`cat .github/config/out_of_tree_extensions.cmake`"
@@ -70,7 +72,15 @@ jobs:
           echo "$out_of_tree_extensions" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-  # This job builds the extension from .github/config/in_tree_extensions.cmake
+      # Load .github/config/rust_based_extensions.cmake into output variable
+      - id: set-rust-based-extensions
+        run: |
+          rust_based_extensions="`cat .github/config/rust_based_extensions.cmake`"
+          echo "extension_config<<EOF" >> $GITHUB_OUTPUT
+          echo "rust_based_extensions" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # Build the extensions from .github/config/in_tree_extensions.cmake
   in-tree-extensions:
     name: In-tree Extensions
     needs: load-extension-configs
@@ -80,7 +90,7 @@ jobs:
       artifact_prefix: in-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.in_tree_extensions }}
 
-  # This job builds the extension from .github/config/out_of_tree_extensions.cmake
+  # Build the extensions from .github/config/out_of_tree_extensions.cmake
   out-of-tree-extensions:
     name: Out-of-tree Extensions
     needs: load-extension-configs
@@ -89,6 +99,16 @@ jobs:
       exclude_archs: 'linux_arm64;linux_amd64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;windows_amd64'
       artifact_prefix: out-of-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
+
+  # Build the extensions from .github/config/rust_based_extensions.cmake
+  rust-based-extensions:
+    name: Rust-based Extensions
+    needs: load-extension-configs
+    uses: ./.github/workflows/_extension_distribution.yml
+    with:
+      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl'
+      artifact_prefix: out-of-tree-extensions
+      extension_config: ${{ needs.load-extension-configs.outputs.rust_based_extensions }}
 
   # Merge all extensions into a single, versioned repository
   create-extension-repository:
@@ -106,12 +126,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: in-tree-extensions-${{ github.sha }}*
-          path: /tmp/repository_generation/in-tree-extensions-1
+          path: /tmp/repository_generation/in-tree-extensions
 
       - uses: actions/download-artifact@v4
         with:
           pattern: out-of-tree-extensions-${{ github.sha }}*
-          path: /tmp/repository_generation/in-tree-extensions-2
+          path: /tmp/repository_generation/out-of-tree-extensions
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rust-based-extensions-${{ github.sha }}*
+          path: /tmp/repository_generation/rust-based-extensions
 
       - name: Print all extensions
         run: |
