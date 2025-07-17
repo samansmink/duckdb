@@ -7,7 +7,6 @@
 #
 
 ################## DELTA
-
 duckdb_extension_load(delta
         GIT_URL https://github.com/samansmink/duckdb_delta
         GIT_TAG f02b963271c6c867de8ac2901b5ed4cc67101304
