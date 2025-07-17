@@ -77,7 +77,7 @@ jobs:
         run: |
           rust_based_extensions="`cat .github/config/rust_based_extensions.cmake`"
           echo "extension_config<<EOF" >> $GITHUB_OUTPUT
-          echo "rust_based_extensions" >> $GITHUB_OUTPUT
+          echo "$rust_based_extensions" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
   # Build the extensions from .github/config/in_tree_extensions.cmake
