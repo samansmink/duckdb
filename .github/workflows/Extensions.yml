@@ -55,13 +55,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-
-      - id: output
-        run: |
-          echo 'foo<<EOF' >> $GITHUB_OUTPUT
-          echo $errorMessages >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
-
       # TODO: this removes newlines?
       - id: set-in-tree-extensions
         run: |
