@@ -1,5 +1,5 @@
 #
-# This workflow is responsible for building all DuckDB ext
+# This workflow is responsible for building all DuckDB extensions
 #
 
 name: Extensions (all platforms)

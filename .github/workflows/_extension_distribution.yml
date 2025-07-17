@@ -41,6 +41,7 @@ jobs:
       exclude_archs: ${{ inputs.exclude_archs }}
 
       extra_toolchains: ${{ inputs.extra_toolchains }}
+      use_merged_vcpkg_manifest: '1'
 
       # TODO: re-enable caching
 
