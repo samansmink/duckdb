@@ -86,7 +86,6 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'linux_arm64;linux_amd64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;windows_amd64'
       artifact_prefix: in-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.in_tree_extensions }}
 
@@ -96,7 +95,6 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'linux_arm64;linux_amd64;linux_amd64_musl;osx_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;windows_amd64'
       artifact_prefix: out-of-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
 
