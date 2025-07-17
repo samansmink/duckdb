@@ -50,20 +50,23 @@ jobs:
     name: Load Extension Configs
     runs-on: ubuntu-latest
     outputs:
-      in_tree_extensions: ${{ steps.set-in-tree-extensions.outputs.* }}
-      out_of_tree_extensions: ${{ steps.set-out-of-tree-extensions.outputs.* }}
+      in_tree_extensions: ${{ steps.set-in-tree-extensions.outputs.PAYLOAD }}
+      out_of_tree_extensions: ${{ steps.set-out-of-tree-extensions.outputs.PAYLOAD }}
     steps:
       - uses: actions/checkout@v4
 
+      # TODO: this removes newlines?
       - id: set-in-tree-extensions
         run: |
-          cat .github/config/in_tree_extensions.cmake >> $GITHUB_OUTPUT
+          in_tree_extensions="`cat .github/config/in_tree_extensions.cmake`"
+          echo "PAYLOAD<<EOF"$'\n'"$in_tree_extensions"$'\n'EOF >> "$GITHUB_OUTPUT".
           echo $GITHUB_OUTPUT
 
       - id: set-out-of-tree-extensions
         run: |
-          cat .github/config/out_of_tree_extensions.cmake >> $GITHUB_OUTPUT
-          echo $GITHUB_OUTPUT
+          out_of_tree_extensions="`cat .github/config/out_of_tree_extensions.cmake`"
+          echo "PAYLOAD<<EOF"$'\n'"$out_of_tree_extensions"$'\n'EOF >> "$GITHUB_OUTPUT".
+          echo $GITHUB_OUTPUT  
 
   # This job builds the extension from .github/config/in_tree_extensions.cmake
   in-tree-extensions:
