@@ -102,6 +102,7 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
+      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl;windows_amd64;linux_arm64;osx_amd64;osx_amd64'
       artifact_prefix: in-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.in_tree_extensions }}
       override_tag: ${{ inputs.override_git_describe }}
@@ -113,6 +114,7 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
+      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl;windows_amd64;linux_arm64;osx_amd64;osx_amd64'
       artifact_prefix: out-of-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
       override_tag: ${{ inputs.override_git_describe }}
@@ -124,7 +126,7 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl'
+      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl;windows_amd64;linux_arm64;osx_amd64;osx_amd64'
       artifact_prefix: rust-based-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.rust_based_extensions }}
       extra_toolchains: 'rust'
