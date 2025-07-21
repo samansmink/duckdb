@@ -98,7 +98,6 @@ jobs:
       artifact_prefix: out-of-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
 
-g
   # Build the extensions from .github/config/rust_based_extensions.cmake
   rust-based-extensions:
     name: Rust-based Extensions
