@@ -95,8 +95,6 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      # TODO fix: can not use merged manifests with wasm right now
-      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;'
       artifact_prefix: out-of-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
 
