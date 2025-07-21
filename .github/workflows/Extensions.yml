@@ -5,21 +5,30 @@
 name: Extensions (all platforms)
 on:
   workflow_call:
-#    inputs:
-#      override_git_describe:
-#        type: string
-#      git_ref:
-#        type: string
-#      skip_tests:
-#        type: string
-  workflow_dispatch:
-#    inputs:
-#      override_git_describe:
-#        type: string
-#      git_ref:
-#        type: string
-#      skip_tests:
-#        type: string
+    inputs:
+      override_git_describe:
+        type: string
+      git_ref:
+        type: string
+      skip_tests:
+        type: string
+    workflow_dispatch:
+      inputs:
+        override_git_describe:
+          description: 'Version tag to override git describe'
+          type: string
+        git_ref:
+          description: 'Git ref'
+          type: string
+          required: false
+          default: ''
+# TODO
+#        skip_tests:
+#          description: 'Pass "true" to skip tests'
+#          type: string
+#          required: false
+#          default: ''
+
   push:
     branches-ignore:
       - 'main'
@@ -43,6 +52,13 @@ on:
       - '.github/patches/duckdb-wasm/**'
       - '.github/workflows/**'
       - '!.github/workflows/Extensions.yml'
+
+concurrency:
+  group: extensions-${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/main' || github.sha }}-${{ inputs.override_git_describe }}
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
 jobs:
   # This first step loads the various extension configs from the ~/.github/config directory storing them to drive the build jobs
@@ -88,6 +104,8 @@ jobs:
     with:
       artifact_prefix: in-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.in_tree_extensions }}
+      override_tag: ${{ inputs.override_git_describe }}
+      duckdb_ref: ${{ inputs.git_ref }}
 
   # Build the extensions from .github/config/out_of_tree_extensions.cmake
   out-of-tree-extensions:
@@ -97,6 +115,8 @@ jobs:
     with:
       artifact_prefix: out-of-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
+      override_tag: ${{ inputs.override_git_describe }}
+      duckdb_ref: ${{ inputs.git_ref }}
 
   # Build the extensions from .github/config/rust_based_extensions.cmake
   rust-based-extensions:
@@ -108,6 +128,8 @@ jobs:
       artifact_prefix: rust-based-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.rust_based_extensions }}
       extra_toolchains: 'rust'
+      override_tag: ${{ inputs.override_git_describe }}
+      duckdb_ref: ${{ inputs.git_ref }}
 
   # Merge all extensions into a single, versioned repository
   create-extension-repository:
@@ -154,3 +176,39 @@ jobs:
           name: extension-repository-${{ github.sha }}
           path: |
             /tmp/merged_repository/**/*.duckdb_extension*
+
+  upload-extensions:
+    name: Upload Extensions
+    runs-on: ubuntu-latest
+    needs:
+        - create-extension-repository
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: 'true'
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: extension-repository-${{ github.sha }}
+          path: /tmp/extension_repository
+
+      - name: List extensions to deploy
+        shell: bash
+        run: |
+          tree /tmp/repository_generation
+
+      - name: Deploy extensions
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{secrets.S3_ID}}
+          AWS_SECRET_ACCESS_KEY: ${{secrets.S3_KEY}}
+#          DUCKDB_DEPLOY_SCRIPT_MODE: for_real TODO: restore
+          DUCKDB_EXTENSION_SIGNING_PK: ${{ secrets.DUCKDB_EXTENSION_SIGNING_PK }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          pip install awscli
+          ./scripts/extension-upload-repository.sh /tmp/repository_generation
+
+# TODO: add jobs that depend on extensions to be built here
