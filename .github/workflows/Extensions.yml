@@ -194,12 +194,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: extension-repository-${{ github.sha }}
-          path: /tmp/extension_repository
+          path: /tmp
 
       - name: List extensions to deploy
         shell: bash
         run: |
-          tree /tmp/extension_repository
+          tree /tmp/extension-repository-${{ github.sha }}
 
       - name: Deploy extensions
         shell: bash
@@ -211,6 +211,6 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: |
           pip install awscli
-          ./scripts/extension-upload-repository.sh /tmp/extension_repository
+          ./scripts/extension-upload-repository.sh /tmp/extension-repository-${{ github.sha }}
 
 # TODO: add jobs that depend on extensions to be built here
