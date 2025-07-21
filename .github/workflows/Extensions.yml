@@ -12,16 +12,16 @@ on:
         type: string
       skip_tests:
         type: string
-    workflow_dispatch:
-      inputs:
-        override_git_describe:
-          description: 'Version tag to override git describe'
-          type: string
-        git_ref:
-          description: 'Git ref'
-          type: string
-          required: false
-          default: ''
+  workflow_dispatch:
+    inputs:
+      override_git_describe:
+        description: 'Version tag to override git describe'
+        type: string
+      git_ref:
+        description: 'Git ref'
+        type: string
+        required: false
+        default: ''
 # TODO
 #        skip_tests:
 #          description: 'Pass "true" to skip tests'
