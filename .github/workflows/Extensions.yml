@@ -197,7 +197,7 @@ jobs:
       - name: List extensions to deploy
         shell: bash
         run: |
-          tree /tmp/repository_generation
+          tree /tmp/extension_repository
 
       - name: Deploy extensions
         shell: bash
@@ -209,6 +209,6 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: |
           pip install awscli
-          ./scripts/extension-upload-repository.sh /tmp/repository_generation
+          ./scripts/extension-upload-repository.sh /tmp/extension_repository
 
 # TODO: add jobs that depend on extensions to be built here
