@@ -213,4 +213,81 @@ jobs:
           pip install awscli
           ./scripts/extension-upload-repository.sh /tmp/extension-repository-${{ github.sha }}
 
-# TODO: add jobs that depend on extensions to be built here
+  # TODO: restore autoloading tests
+
+  check-load-install-extensions:
+    name: Checks extension entries
+    if: ${{ inputs.skip_tests != 'true' }}
+    runs-on: ubuntu-22.04
+    needs: create-extension-repository
+    env:
+      CC: gcc-10
+      CXX: g++-10
+      GEN: ninja
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.git_ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install
+        shell: bash
+        run: sudo apt-get update -y -qq && sudo apt-get install -y -qq ninja-build
+
+      - name: Setup Ccache
+        uses: hendrikmuhs/ccache-action@main
+        with:
+          key: ${{ github.job }}
+          save: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
+
+      - name: Build
+        shell: bash
+        env:
+          GENERATE_EXTENSION_ENTRIES: 1
+          LOCAL_EXTENSION_REPO: build/release/repository_other
+        run: |
+          make
+
+      - uses: actions/download-artifact@v4
+        name: Download extension repository artifact
+        with:
+          pattern: extension-repository-${{ github.sha }}
+          path: /tmp
+
+      - name: Copy over local extension repository
+        shell: bash
+        run: |
+          cp -r /tmp/extension-repository-${{ github.sha }} build/release/repository
+
+      - name: Check if extension_entries.hpp is up to date
+        shell: bash
+        env:
+          EXTENSION_CONFIGS: '.github/config/in_tree_extensions.cmake;.github/config/out_of_tree_extensions.cmake'
+        run: |
+          make extension_configuration
+          python scripts/generate_extensions_function.py
+          pip install "black>=24"
+          pip install cmake-format
+          pip install "clang_format==11.0.1"
+          make format-fix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension_entries.hpp
+          path: |
+            src/include/duckdb/main/extension_entries.hpp
+
+      - name: Check for any difference
+        run: |
+          git diff --exit-code src/include/duckdb/main/extension_entries.hpp && echo "No differences found"
+
+      - name: Explainer
+        if: failure()
+        run: |
+          echo "There are differences in src/include/duckdb/main/extension_entries.hpp"
+          echo "Check the uploaded extension_entries.hpp (in the workflow Summary), and check that in instead of src/include/duckdb/main/extension_entries.hpp"
