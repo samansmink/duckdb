@@ -313,6 +313,8 @@ jobs:
         run: |
           cp -r /tmp/extension-repository-${{ github.sha }} build/release/repository
           tree build/release/repository
+          find build/release/repository -type f ! -path "build/release/repository/*/linux_amd64/*" -delete
+          tree build/release/repository
 
       # TODO: add rust-based extensions here too
       - name: Check if extension_entries.hpp is up to date
