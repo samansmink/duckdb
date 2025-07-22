@@ -102,7 +102,6 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl;windows_amd64;linux_arm64;osx_amd64;osx_amd64'
       artifact_prefix: in-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.in_tree_extensions }}
       override_tag: ${{ inputs.override_git_describe }}
@@ -114,7 +113,6 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl;windows_amd64;linux_arm64;osx_amd64;osx_amd64'
       artifact_prefix: out-of-tree-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.out_of_tree_extensions }}
       override_tag: ${{ inputs.override_git_describe }}
@@ -126,7 +124,7 @@ jobs:
     needs: load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
     with:
-      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl;windows_amd64;linux_arm64;osx_amd64;osx_amd64'
+      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads;windows_amd64_rtools;windows_amd64_mingw;linux_amd64_musl;'
       artifact_prefix: rust-based-extensions
       extension_config: ${{ needs.load-extension-configs.outputs.rust_based_extensions }}
       extra_toolchains: 'rust'
@@ -241,6 +239,11 @@ jobs:
           pattern: extension-repository-${{ github.sha }}
           path: /tmp
 
+      - name: List extensions to test with
+        shell: bash
+        run: |
+          tree /tmp/extension-repository-${{ github.sha }}
+
       - name: Build DuckDB
         env:
           GEN: ninja
@@ -309,6 +312,7 @@ jobs:
         shell: bash
         run: |
           cp -r /tmp/extension-repository-${{ github.sha }} build/release/repository
+          tree build/release/repository
 
       # TODO: add rust-based extensions here too
       - name: Check if extension_entries.hpp is up to date
