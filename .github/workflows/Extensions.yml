@@ -70,10 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: check-draft
     outputs:
-      in_tree_extensions_config: ${{ steps.set-in-tree-extensions.outputs.extension_config }}
-      in_tree_extensions_exclude_archs: ${{ steps.set-in-tree-extensions.outputs.exclude_archs }}
-      out_of_tree_extensions_config: ${{ steps.set-out-of-tree-extensions.outputs.extension_config }}
-      out_of_tree_extensions_exclude_archs: ${{ steps.set-out-of-tree-extensions.outputs.exclude_archs }}
+      main_extensions_config: ${{ steps.set-main-extensions.outputs.extension_config }}
+      main_extensions_exclude_archs: ${{ steps.set-main-extensions.outputs.exclude_archs }}
       rust_based_extensions_config: ${{ steps.set-rust-based-extensions.outputs.extension_config }}
       rust_based_extensions_exclude_archs: ${{ steps.set-rust-based-extensions.outputs.exclude_archs }}
     env:
