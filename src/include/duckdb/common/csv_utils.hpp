@@ -30,8 +30,14 @@ struct CSVWriterLocalState {
 	CSVWriterLocalState();
 	~CSVWriterLocalState();
 
+	void Reset() {
+		stream->Rewind();
+		written_anything = false;
+	}
+
 	unique_ptr<MemoryStream> stream;
 	bool written_anything = false;
+
 	bool require_manual_flush = false;
 };
 
@@ -53,6 +59,9 @@ struct CSVWriter {
 
 	void Flush(CSVWriterLocalState &local_state);
 
+	// Resets the state of the writer. Warning: the file_writer is not reset
+	void Reset(optional_ptr<CSVWriterLocalState> local_state);
+
 	//! Closes
 	void Close();
 
@@ -60,7 +69,6 @@ struct CSVWriter {
 	unique_ptr<CSVWriterLocalState> InitializeLocalWriteState(DatabaseInstance &db);
 
 	vector<unique_ptr<Expression>> string_casts;
-	unique_ptr<DataChunk> cast_chunk;
 
 	idx_t BytesWritten();
 

@@ -55,11 +55,13 @@ public:
 	                                      const string &log_message, const RegisteredLoggingContext &context) = 0;
 	DUCKDB_API virtual void WriteLogEntries(DataChunk &chunk, const RegisteredLoggingContext &context) = 0;
 	DUCKDB_API virtual void Flush() = 0;
+	DUCKDB_API virtual void Truncate();
 
 	//! READING (OPTIONAL)
 	DUCKDB_API virtual bool CanScan() {
 		return false;
 	}
+	// Reading interface 1: basic single-threaded scan
 	DUCKDB_API virtual unique_ptr<LogStorageScanState> CreateScanEntriesState() const;
 	DUCKDB_API virtual bool ScanEntries(LogStorageScanState &state, DataChunk &result) const;
 	DUCKDB_API virtual void InitializeScanEntries(LogStorageScanState &state) const;
@@ -67,20 +69,18 @@ public:
 	DUCKDB_API virtual bool ScanContexts(LogStorageScanState &state, DataChunk &result) const;
 	DUCKDB_API virtual void InitializeScanContexts(LogStorageScanState &state) const;
 
-	DUCKDB_API virtual void Truncate();
-
-	DUCKDB_API virtual void UpdateConfig(DatabaseInstance &db, case_insensitive_map_t<Value> &config);
-
+	// Reading interface 2: using bind_replace
 	DUCKDB_API virtual unique_ptr<TableRef> BindReplaceEntries(ClientContext &context, TableFunctionBindInput &input);
 	DUCKDB_API virtual unique_ptr<TableRef> BindReplaceContexts(ClientContext &context, TableFunctionBindInput &input);
+
+	//! CONFIGURATION
+	DUCKDB_API virtual void UpdateConfig(DatabaseInstance &db, case_insensitive_map_t<Value> &config);
 };
 
 class BufferingLogStorage : public LogStorage {
 public:
 	explicit BufferingLogStorage(DatabaseInstance &db);
 	~BufferingLogStorage() override;
-
-	void ResetBufferChunk();
 
 	//! Log message buffer schemas
 	static vector<LogicalType> GetContextsSchema();
@@ -93,12 +93,17 @@ public:
 					   const RegisteredLoggingContext &context) override;
 	void WriteLogEntries(DataChunk &chunk, const RegisteredLoggingContext &context) override;
 	void Flush() override;
-
 	void Truncate() override;
 
 protected:
 	void WriteLoggingContext(const RegisteredLoggingContext &context);
-	virtual void ResetBuffers();
+
+	//! ResetAllBuffers will clear all unflushed data
+	virtual void ResetAllBuffers();
+
+private:
+	//! Resets the log buffers
+	void ResetLogBuffers();
 
 protected:
 	mutable mutex lock;
@@ -118,6 +123,7 @@ protected:
 	idx_t max_buffer_size;
 };
 
+// TODO: remove
 struct LogStorageCsvConfig {
 	LogStorageCsvConfig() {
 		requires_quotes = make_unsafe_uniq_array<bool>(256);
@@ -145,14 +151,19 @@ public:
 	explicit CSVLogStorage(DatabaseInstance &db);
 	~CSVLogStorage() override;
 
-	void ResetCastChunk();
-
 	void UpdateConfig(DatabaseInstance &db, case_insensitive_map_t<Value> &config) override;
 
 protected:
 	virtual void UpdateConfigInternal(DatabaseInstance &db, case_insensitive_map_t<Value> &config);
 	void FlushInternal() override;
 	void ExecuteCast();
+
+	//! Resets all buffers and state
+	void ResetAllBuffers() override;
+	// Reset the writers
+	void ResetCSVWriterBuffers();
+	// Reset the Cast chunks
+	void ResetCastChunk();
 
 	static void SetWriterConfigs(CSVWriter &Writer, vector<string> column_names);
 
@@ -208,6 +219,8 @@ protected:
 	void WriteLogEntriesHeader();
 	void WriteLogContextsHeader();
 
+	void InitializeFiles(DatabaseInstance &db, const string &path, bool &should_write_header, unique_ptr<BufferedFileWriter>& log_contexts_file_writer, unique_ptr<CSVWriter> &log_contexts_writer, unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names);
+
 	unique_ptr<TableRef> BindReplaceInternal(ClientContext &context, TableFunctionBindInput &input, const string &path,
 	                                         const string &select_clause);
 
@@ -252,8 +265,10 @@ public:
 
 protected:
 	mutable mutex lock;
-	void ResetBuffers() override;
+	void ResetInMemoryBuffers();
 	void FlushInternal() override;
+
+	void ResetAllBuffers() override;
 
 	//! Passed as WriteStreams to the base class CSVWriter
 	unique_ptr<ColumnDataCollection> log_entries;

@@ -61,19 +61,6 @@ CSVLogStorage::CSVLogStorage(DatabaseInstance &db) : BufferingLogStorage(db) {
 	ResetCastChunk();
 }
 
-void CSVLogStorage::ResetCastChunk() {
-	log_entries_cast_chunk = make_uniq<DataChunk>();
-	log_contexts_cast_chunk = make_uniq<DataChunk>();
-
-	// Initialize the Cast chunks for casting everything to strings
-	vector<LogicalType> types;
-	types.resize(log_entries_buffer->ColumnCount(), LogicalType::VARCHAR);
-	log_entries_cast_chunk->Initialize(Allocator::DefaultAllocator(), types);
-
-	types.resize(log_contexts_buffer->ColumnCount(), LogicalType::VARCHAR);
-	log_contexts_cast_chunk->Initialize(Allocator::DefaultAllocator(), types);
-}
-
 void CSVLogStorage::UpdateConfig(DatabaseInstance &db, case_insensitive_map_t<Value> &config) {
 	lock_guard<mutex> lck(lock);
 	return UpdateConfigInternal(db, config);
@@ -151,6 +138,34 @@ void CSVLogStorage::ExecuteCast() {
 		throw InvalidInputException("Failed to cast log entries");
 	}
 
+}
+
+void CSVLogStorage::ResetAllBuffers() {
+	BufferingLogStorage::ResetAllBuffers();
+	ResetCSVWriterBuffers();
+	ResetCastChunk();
+}
+
+void CSVLogStorage::ResetCastChunk() {
+	log_entries_cast_chunk = make_uniq<DataChunk>();
+	log_contexts_cast_chunk = make_uniq<DataChunk>();
+
+	// Initialize the Cast chunks for casting everything to strings
+	vector<LogicalType> types;
+	types.resize(log_entries_buffer->ColumnCount(), LogicalType::VARCHAR);
+	log_entries_cast_chunk->Initialize(Allocator::DefaultAllocator(), types);
+
+	types.resize(log_contexts_buffer->ColumnCount(), LogicalType::VARCHAR);
+	log_contexts_cast_chunk->Initialize(Allocator::DefaultAllocator(), types);
+}
+
+void CSVLogStorage::ResetCSVWriterBuffers() {
+	if (log_contexts_state) {
+		log_contexts_state->Reset();
+	}
+	if (log_entries_state) {
+		log_entries_state->Reset();
+	}
 }
 
 void CSVLogStorage::SetWriterConfigs(CSVWriter& writer, vector<string> column_names) {
@@ -245,32 +260,28 @@ void FileLogStorage::WriteLogContextsHeader() {
 	log_contexts_should_write_header = false;
 }
 
-void FileLogStorage::InitializeLogContextsFile(DatabaseInstance &db, const string &path) {
-	auto path_to_set = !path.empty() ? path : GetDefaultLogContextsFilePath(db);
-	InitializeFile(db, path_to_set, log_contexts_should_write_header);
+void FileLogStorage::InitializeFiles(DatabaseInstance &db, const string &path, bool &should_write_header, unique_ptr<BufferedFileWriter>& log_contexts_file_writer, unique_ptr<CSVWriter> &log_contexts_writer, unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names) {
+	InitializeFile(db, path, should_write_header);
 
 	// Refresh BufferedFileWriter
 	auto &fs = db.GetFileSystem();
 	FileCompressionType compression = FileCompressionType::UNCOMPRESSED;
-	log_contexts_file_writer = make_uniq<BufferedFileWriter>(fs, path_to_set, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_APPEND | FileLockType::WRITE_LOCK | compression);
-	log_contexts_writer = make_uniq<CSVWriter>(*log_contexts_file_writer, GetContextsColumnNames());
+	log_contexts_file_writer = make_uniq<BufferedFileWriter>(fs, path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_APPEND | FileLockType::WRITE_LOCK | compression);
+	log_contexts_writer = make_uniq<CSVWriter>(*log_contexts_file_writer, column_names);
 	log_contexts_state = log_contexts_writer->InitializeLocalWriteState(db);
 
-	SetWriterConfigs(*log_contexts_writer, GetContextsColumnNames());
+	SetWriterConfigs(*log_contexts_writer, column_names);
 }
 
-// TODO: clean up
+void FileLogStorage::InitializeLogContextsFile(DatabaseInstance &db, const string &path) {
+	auto path_to_set = !path.empty() ? path : GetDefaultLogContextsFilePath(db);
+
+	InitializeFiles(db, path_to_set, log_contexts_should_write_header, log_contexts_file_writer, log_contexts_writer, log_contexts_state, GetContextsColumnNames());
+}
+
 void FileLogStorage::InitializeLogEntriesFile(DatabaseInstance &db, const string &path) {
 	auto path_to_set = !path.empty() ? path : GetDefaultLogEntriesFilePath(db);
-	InitializeFile(db, path_to_set, log_entries_should_write_header);
-
-	auto &fs = db.GetFileSystem();
-	FileCompressionType compression = FileCompressionType::UNCOMPRESSED;
-	log_entries_file_writer = make_uniq<BufferedFileWriter>(fs, path_to_set, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_APPEND | FileLockType::WRITE_LOCK | compression);
-	log_entries_writer = make_uniq<CSVWriter>(*log_entries_file_writer, GetEntriesColumnNames(true));
-	log_entries_state = log_entries_writer->InitializeLocalWriteState(db);
-
-	SetWriterConfigs(*log_entries_writer, GetEntriesColumnNames(normalize_contexts));
+	InitializeFiles(db, path_to_set, log_entries_should_write_header, log_entries_file_writer, log_entries_writer, log_entries_state, GetEntriesColumnNames(normalize_contexts));
 }
 
 void FileLogStorage::InitializeFile(DatabaseInstance &db, const string &path, bool &should_write_header) {
@@ -302,20 +313,16 @@ void FileLogStorage::InitializeFile(DatabaseInstance &db, const string &path, bo
 void FileLogStorage::Truncate() {
 	lock_guard<mutex> lck(lock);
 
-	// TODO: this is stupid:
-	// - don't flush, truncate
+	// Reset buffers
+	ResetAllBuffers();
 
-	log_entries_writer->Flush(*log_entries_state);
-	log_entries_file_writer->Truncate(0);
-	log_entries_writer->WriteHeader(); // TODO: is this correct?
-
-	if (normalize_contexts) {
-		log_contexts_writer->Flush(*log_contexts_state);
-		log_contexts_file_writer->Truncate(0);
-		log_contexts_writer->WriteHeader(); // TODO: is this correct?
+	// Truncate the writers
+	if (log_entries_file_writer) {
+		log_entries_file_writer->Truncate(0);
 	}
-
-	BufferingLogStorage::ResetBuffers();
+	if (log_contexts_file_writer) {
+		log_contexts_file_writer->Truncate(0);
+	}
 }
 
 void FileLogStorage::FlushInternal() {
@@ -384,8 +391,7 @@ void FileLogStorage::UpdateConfigInternal(DatabaseInstance &db, case_insensitive
 	}
 
 	if (old_normalize_contexts != normalize_contexts) {
-		ResetBufferChunk();
-		ResetCastChunk();
+		ResetAllBuffers();
 	}
 
 	if (!contexts_path.empty() || !entries_path.empty()) {
@@ -453,15 +459,19 @@ unique_ptr<TableRef> FileLogStorage::BindReplaceContexts(ClientContext &context,
 }
 
 BufferingLogStorage::BufferingLogStorage(DatabaseInstance &db_p) {
-	ResetBufferChunk();
+	ResetLogBuffers();
 }
 
-void BufferingLogStorage::ResetBufferChunk() {
-	max_buffer_size = STANDARD_VECTOR_SIZE; // TODO dedup
+void BufferingLogStorage::ResetLogBuffers() {
+	max_buffer_size = STANDARD_VECTOR_SIZE;
 	log_entries_buffer = make_uniq<DataChunk>();
 	log_contexts_buffer = make_uniq<DataChunk>();
-	log_entries_buffer->Initialize(Allocator::DefaultAllocator(), GetEntriesSchema(normalize_contexts), STANDARD_VECTOR_SIZE);
-	log_contexts_buffer->Initialize(Allocator::DefaultAllocator(), GetContextsSchema(), STANDARD_VECTOR_SIZE);
+	log_entries_buffer->Initialize(Allocator::DefaultAllocator(), GetEntriesSchema(normalize_contexts), max_buffer_size);
+	log_contexts_buffer->Initialize(Allocator::DefaultAllocator(), GetContextsSchema(), max_buffer_size);
+}
+
+void BufferingLogStorage::ResetAllBuffers() {
+	ResetLogBuffers();
 }
 
 InMemoryLogStorageScanState::InMemoryLogStorageScanState() {
@@ -548,11 +558,10 @@ vector<string> BufferingLogStorage::GetContextsColumnNames() {
 	};
 }
 
-void InMemoryLogStorage::ResetBuffers() {
+void InMemoryLogStorage::ResetAllBuffers() {
+	BufferingLogStorage::ResetAllBuffers();
 	log_entries->Reset();
 	log_contexts->Reset();
-
-	BufferingLogStorage::ResetBuffers();
 }
 
 InMemoryLogStorage::~InMemoryLogStorage() {
@@ -657,12 +666,12 @@ void BufferingLogStorage::Flush() {
 
 void BufferingLogStorage::Truncate() {
 	unique_lock<mutex> lck(lock);
-	ResetBuffers();
+	ResetAllBuffers();
 }
 
 void InMemoryLogStorage::Truncate() {
 	unique_lock<mutex> lck(lock);
-	ResetBuffers();
+	ResetAllBuffers();
 }
 
 void InMemoryLogStorage::FlushInternal() {
@@ -693,11 +702,6 @@ void BufferingLogStorage::WriteLoggingContext(const RegisteredLoggingContext &co
 	}
 }
 
-void BufferingLogStorage::ResetBuffers() {
-	log_entries_buffer->Reset();
-	log_contexts_buffer->Reset();
-	registered_contexts.clear();
-}
 
 bool InMemoryLogStorage::CanScan() {
 	return true;

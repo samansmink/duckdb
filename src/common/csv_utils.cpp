@@ -109,6 +109,18 @@ void CSVWriter::Flush(CSVWriterLocalState &local_state) {
 	FlushInternal(local_state);
 }
 
+void CSVWriter::Reset(optional_ptr<CSVWriterLocalState> local_state) {
+	lock_guard<mutex> flock(lock);
+
+	if (local_state) {
+		local_state->Reset();
+	}
+
+	written_anything = false;
+	bytes_written = 0;
+}
+
+
 void CSVWriter::Close() {
 	lock_guard<mutex> flock(lock);
 
