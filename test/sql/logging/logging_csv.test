@@ -26,6 +26,20 @@ CONNECTION	data/csv/big_number.csv	READ
 CONNECTION	data/csv/big_number.csv	READ
 CONNECTION	data/csv/big_number.csv	CLOSE
 
+query IIIIII
+DESCRIBE FROM '__TEST_DIR__/logging_csv_log.csv';
+----
+context_id	BIGINT	YES	NULL	NULL	NULL
+scope	VARCHAR	YES	NULL	NULL	NULL
+connection_id	BIGINT	YES	NULL	NULL	NULL
+transaction_id	BIGINT	YES	NULL	NULL	NULL
+query_id	BIGINT	YES	NULL	NULL	NULL
+thread	VARCHAR	YES	NULL	NULL	NULL
+timestamp	TIMESTAMP	YES	NULL	NULL	NULL
+log_type	VARCHAR	YES	NULL	NULL	NULL
+level	VARCHAR	YES	NULL	NULL	NULL
+message	VARCHAR	YES	NULL	NULL	NULL
+
 statement ok
 pragma disable_logging
 
@@ -61,13 +75,34 @@ WHERE path = 'data/csv/big_number.csv';
 1	data/csv/big_number.csv	CLOSE
 
 # Contexts are now in a separate csv file
+# TODO: is this correct?
 query I
 SELECT scope
 FROM "__TEST_DIR__/logging_csv_log_contexts.csv";
 ----
 CONNECTION
 CONNECTION
-CONNECTION
+
+# Check schema
+query IIIIII
+DESCRIBE FROM '__TEST_DIR__/logging_csv_log_entries.csv';
+----
+context_id	BIGINT	YES	NULL	NULL	NULL
+timestamp	TIMESTAMP	YES	NULL	NULL	NULL
+log_type	VARCHAR	YES	NULL	NULL	NULL
+level	VARCHAR	YES	NULL	NULL	NULL
+message	VARCHAR	YES	NULL	NULL	NULL
+
+# Check schema
+query IIIIII
+DESCRIBE FROM '__TEST_DIR__/logging_csv_log_contexts.csv';
+----
+context_id	BIGINT	YES	NULL	NULL	NULL
+scope	VARCHAR	YES	NULL	NULL	NULL
+connection_id	BIGINT	YES	NULL	NULL	NULL
+transaction_id	BIGINT	YES	NULL	NULL	NULL
+query_id	BIGINT	YES	NULL	NULL	NULL
+thread	VARCHAR	YES	NULL	NULL	NULL
 
 statement ok
 pragma disable_logging;
@@ -82,7 +117,7 @@ select count(*) FROM "__TEST_DIR__/logging_csv_log_contexts.csv";
 0
 
 query I
-select count(*) FROM "__TEST_DIR__/logging_csv_log.csv";
+select count(*) FROM "__TEST_DIR__/logging_csv_log_entries.csv";
 ----
 0
 

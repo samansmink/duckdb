@@ -16,9 +16,7 @@ query IIIIIIII
 SELECT type, log_level, scope, fs, parse_filename(path), op, bytes, pos FROM duckdb_logs_parsed('FileSystem') ORDER BY timestamp
 ----
 FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	OPEN	NULL	NULL
-FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	WRITE	2	0
-FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	WRITE	1	2
-FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	WRITE	1	3
+FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	WRITE	4	0
 FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	CLOSE	NULL	NULL
 FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	OPEN	NULL	NULL
 FileSystem	TRACE	CONNECTION	LocalFileSystem	par.csv	READ	4	0

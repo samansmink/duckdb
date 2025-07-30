@@ -23,6 +23,9 @@ class ColumnDataCollection;
 struct ColumnDataScanState;
 class MemoryStream;
 struct LogStorageConfig;
+struct CSVWriter;
+struct CSVWriterLocalState;
+class BufferedFileWriter;
 
 class LogStorageScanState {
 public:
@@ -72,6 +75,49 @@ public:
 	DUCKDB_API virtual unique_ptr<TableRef> BindReplaceContexts(ClientContext &context, TableFunctionBindInput &input);
 };
 
+class BufferingLogStorage : public LogStorage {
+public:
+	explicit BufferingLogStorage(DatabaseInstance &db);
+	~BufferingLogStorage() override;
+
+	void ResetBufferChunk();
+
+	//! Log message buffer schemas
+	static vector<LogicalType> GetContextsSchema();
+	static vector<LogicalType> GetEntriesSchema(bool normalize);
+	static vector<string> GetContextsColumnNames();
+	static vector<string> GetEntriesColumnNames(bool normalize);
+
+	//! LogStorage API: WRITING
+	void WriteLogEntry(timestamp_t timestamp, LogLevel level, const string &log_type, const string &log_message,
+					   const RegisteredLoggingContext &context) override;
+	void WriteLogEntries(DataChunk &chunk, const RegisteredLoggingContext &context) override;
+	void Flush() override;
+
+	void Truncate() override;
+
+protected:
+	void WriteLoggingContext(const RegisteredLoggingContext &context);
+	virtual void ResetBuffers();
+
+protected:
+	mutable mutex lock;
+
+	//! To be implemented by base classes: Flush the buffers to storage
+	virtual void FlushInternal() = 0;
+
+	unordered_set<idx_t> registered_contexts;
+
+	// Configuration for csv logger
+	idx_t buffer_limit = 0;
+	bool normalize_contexts = true;
+
+	// Cache for direct logging
+	unique_ptr<DataChunk> log_entries_buffer;
+	unique_ptr<DataChunk> log_contexts_buffer;
+	idx_t max_buffer_size;
+};
+
 struct LogStorageCsvConfig {
 	LogStorageCsvConfig() {
 		requires_quotes = make_unsafe_uniq_array<bool>(256);
@@ -91,33 +137,36 @@ struct LogStorageCsvConfig {
 	unsafe_unique_array<bool> requires_quotes;
 };
 
-// Base class for loggers that write out log entries as CSV-parsable strings
-class CSVLogStorage : public LogStorage {
+// Abstract base class for loggers that write out log entries as CSV-parsable strings
+// subclasses should:
+class CSVLogStorage : public BufferingLogStorage {
 public:
+	// TODO: initialize the CSVWriterLocalState's and CSVWriter's through params?
 	explicit CSVLogStorage(DatabaseInstance &db);
 	~CSVLogStorage() override;
 
-	//! LogStorage API: WRITING
-	void WriteLogEntry(timestamp_t timestamp, LogLevel level, const string &log_type, const string &log_message,
-	                   const RegisteredLoggingContext &context) override;
-	void WriteLogEntries(DataChunk &chunk, const RegisteredLoggingContext &context) override;
+	void ResetCastChunk();
 
 	void UpdateConfig(DatabaseInstance &db, case_insensitive_map_t<Value> &config) override;
-	void Flush() override;
 
 protected:
 	virtual void UpdateConfigInternal(DatabaseInstance &db, case_insensitive_map_t<Value> &config);
-	virtual void FlushInternal() = 0;
+	void FlushInternal() override;
+	void ExecuteCast();
+
+	static void SetWriterConfigs(CSVWriter &Writer, vector<string> column_names);
 
 	mutable mutex lock;
 
-	// Configuration for csv logger
-	idx_t buffer_limit = 0;
-	bool normalize_contexts = true;
+	// Subclasses use these to write out the log entries to CSV
+	unique_ptr<CSVWriterLocalState> log_entries_state;
+	unique_ptr<CSVWriterLocalState> log_contexts_state;
+	unique_ptr<CSVWriter> log_entries_writer;
+	unique_ptr<CSVWriter> log_contexts_writer;
 
-	LogStorageCsvConfig csv_config;
-	unique_ptr<MemoryStream> log_entries_stream;
-	unique_ptr<MemoryStream> log_contexts_stream;
+	// Cast chunks for casting to string
+	unique_ptr<DataChunk> log_entries_cast_chunk;
+	unique_ptr<DataChunk> log_contexts_cast_chunk;
 
 	// Used when normalizing the log into a log.csv and log_contexts.csv
 	unordered_set<idx_t> registered_contexts;
@@ -129,8 +178,10 @@ public:
 	~StdOutLogStorage() override;
 
 protected:
-	void Truncate() override;
 	void FlushInternal() override;
+
+	unique_ptr<MemoryStream> log_entries_stream;
+	unique_ptr<MemoryStream> log_contexts_stream;
 };
 
 class FileLogStorage : public CSVLogStorage {
@@ -149,8 +200,7 @@ protected:
 
 	void InitializeLogEntriesFile(DatabaseInstance &db, const string &path = "");
 	void InitializeLogContextsFile(DatabaseInstance &db, const string &path = "");
-	void InitializeFile(DatabaseInstance &db, const string &path, unique_ptr<FileHandle> &handle,
-	                    bool &should_write_header);
+	void InitializeFile(DatabaseInstance &db, const string &path, bool &should_write_header);
 
 	void UpdateConfigInternal(DatabaseInstance &db, case_insensitive_map_t<Value> &config) override;
 	void FlushInternal() override;
@@ -163,8 +213,9 @@ protected:
 
 	DatabaseInstance &db;
 
-	unique_ptr<FileHandle> log_entries_file_handle;
-	unique_ptr<FileHandle> log_contexts_file_handle;
+	//! Passed as WriteStreams to the CSVWriter in the base class
+	unique_ptr<BufferedFileWriter> log_entries_file_writer;
+	unique_ptr<BufferedFileWriter> log_contexts_file_writer;
 
 	//! Used for lazily opening the `log_entries_file_handle` and `log_contexts_file_handle` on first Flush
 	bool initialized = false;
@@ -182,16 +233,10 @@ public:
 	ColumnDataScanState scan_state;
 };
 
-class InMemoryLogStorage : public LogStorage {
+class InMemoryLogStorage : public BufferingLogStorage {
 public:
 	explicit InMemoryLogStorage(DatabaseInstance &db);
 	~InMemoryLogStorage() override;
-
-	//! LogStorage API: WRITING
-	void WriteLogEntry(timestamp_t timestamp, LogLevel level, const string &log_type, const string &log_message,
-	                   const RegisteredLoggingContext &context) override;
-	void WriteLogEntries(DataChunk &chunk, const RegisteredLoggingContext &context) override;
-	void Flush() override;
 
 	void Truncate() override;
 
@@ -206,24 +251,13 @@ public:
 	void InitializeScanContexts(LogStorageScanState &state) const override;
 
 protected:
-	void WriteLoggingContext(const RegisteredLoggingContext &context);
-	void ResetBuffers();
-
-protected:
 	mutable mutex lock;
+	void ResetBuffers() override;
+	void FlushInternal() override;
 
-	void FlushInternal();
-
-	//! Internal log entry storage
+	//! Passed as WriteStreams to the base class CSVWriter
 	unique_ptr<ColumnDataCollection> log_entries;
 	unique_ptr<ColumnDataCollection> log_contexts;
-
-	unordered_set<idx_t> registered_contexts;
-
-	// Cache for direct logging
-	unique_ptr<DataChunk> entry_buffer;
-	unique_ptr<DataChunk> log_context_buffer;
-	idx_t max_buffer_size;
 };
 
 } // namespace duckdb

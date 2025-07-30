@@ -26,6 +26,7 @@ struct CSVWriterOptions {
 
 struct CSVWriterLocalState {
 	CSVWriterLocalState(ClientContext &context);
+	CSVWriterLocalState(DatabaseInstance &db);
 	CSVWriterLocalState();
 	~CSVWriterLocalState();
 
@@ -35,15 +36,18 @@ struct CSVWriterLocalState {
 };
 
 struct CSVWriter {
+	//! Create a CSVWriter that writes to a WriteStream
+	CSVWriter(WriteStream &stream, vector<string> name_list);
+
+	//! Create a CSVWriter that writes to a file
 	CSVWriter(FileSystem &fs, const string &file_path, FileCompressionType compression);
 	CSVWriter(CSVReaderOptions &options, FileSystem &fs, const string &file_path, FileCompressionType compression);
 
-
-	// Write the string directly into the file
+	//! Writes the raw string directly into the output stream
 	void WriteRawString(const string& data);
+	//! Writes the header directly into the output stream
 	void WriteHeader();
-
-	//
+	//! Write the Raw String, using the local_state
 	void WriteRawString(const string& prefix, CSVWriterLocalState &local_state);
 	void WriteChunk(DataChunk &input, CSVWriterLocalState &local_state);
 
@@ -53,22 +57,30 @@ struct CSVWriter {
 	void Close();
 
 	unique_ptr<CSVWriterLocalState> InitializeLocalWriteState(ClientContext &context);
+	unique_ptr<CSVWriterLocalState> InitializeLocalWriteState(DatabaseInstance &db);
 
-	idx_t FileSize();
+	vector<unique_ptr<Expression>> string_casts;
+	unique_ptr<DataChunk> cast_chunk;
+
+	idx_t BytesWritten();
 
 	bool WrittenAnything() {
 		return written_anything;
 	}
 
 	CSVWriterOptions writer_options;
+	CSVReaderOptions options;
 
 protected:
 	//! If we've written any rows yet, allows us to prevent a trailing comma when writing JSON ARRAY
 	bool written_anything = false;
 
-	unique_ptr<FileHandle> output_file;
+	//! (optional, the owned file writer of this CSVWriter)
+	unique_ptr<BufferedFileWriter> file_writer;
+	//! WriteStream to write output t (either the owned BufferedFileWriter, or an externally managed WriteStream)
+	WriteStream &write_stream;
 
-	CSVReaderOptions options;
+	idx_t bytes_written = 0;
 
 	mutex lock;
 
