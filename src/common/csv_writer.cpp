@@ -42,13 +42,29 @@ CSVWriterOptions::CSVWriterOptions(const string &delim, const char &quote, const
 	}
 }
 
-CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list) : writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), write_stream(stream){
+CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list) : writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), write_stream(stream), should_initialize(true){
 	options.force_quote.resize(name_list.size(), false);
 	options.name_list = name_list;
 	options.force_quote.resize(name_list.size(), false);
 }
 
-CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path, FileCompressionType compression) : options(options_p), writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer) {
+CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path, FileCompressionType compression) : options(options_p), writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer), should_initialize(true) {
+}
+
+void CSVWriter::Initialize() {
+	if (!should_initialize) {
+		return;
+	}
+
+	if (!options.prefix.empty()) {
+		WriteRawString(options.prefix);
+	}
+
+	if (!(options.dialect_options.header.IsSetByUser() && !options.dialect_options.header.GetValue())) {
+		WriteHeader();
+	}
+
+	should_initialize = false;
 }
 
 void CSVWriter::WriteChunk(DataChunk &input, CSVWriterLocalState &local_state) {

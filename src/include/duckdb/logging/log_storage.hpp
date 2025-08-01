@@ -176,8 +176,8 @@ protected:
 	unique_ptr<CSVWriter> log_contexts_writer;
 
 	// Cast chunks for casting to string
-	unique_ptr<DataChunk> log_entries_cast_chunk;
-	unique_ptr<DataChunk> log_contexts_cast_chunk;
+	unique_ptr<DataChunk> log_entries_cast_buffer;
+	unique_ptr<DataChunk> log_contexts_cast_buffer;
 
 	// Used when normalizing the log into a log.csv and log_contexts.csv
 	unordered_set<idx_t> registered_contexts;
@@ -209,17 +209,14 @@ protected:
 	static string GetDefaultLogEntriesFilePath(DatabaseInstance &db);
 	static string GetDefaultLogContextsFilePath(DatabaseInstance &db);
 
-	void InitializeLogEntriesFile(DatabaseInstance &db, const string &path = "");
-	void InitializeLogContextsFile(DatabaseInstance &db, const string &path = "");
-	void InitializeFile(DatabaseInstance &db, const string &path, bool &should_write_header);
+	void InitializeLogEntriesFile(DatabaseInstance &db);
+	void InitializeLogContextsFile(DatabaseInstance &db);
+	static unique_ptr<BufferedFileWriter> InitializeFileWriter(DatabaseInstance &db, const string &path);
 
 	void UpdateConfigInternal(DatabaseInstance &db, case_insensitive_map_t<Value> &config) override;
 	void FlushInternal() override;
 
-	void WriteLogEntriesHeader();
-	void WriteLogContextsHeader();
-
-	void InitializeFiles(DatabaseInstance &db, const string &path, bool &should_write_header, unique_ptr<BufferedFileWriter>& log_contexts_file_writer, unique_ptr<CSVWriter> &log_contexts_writer, unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names);
+	static void InitializeFiles(DatabaseInstance &db, const string &path, unique_ptr<BufferedFileWriter>& log_contexts_file_writer, unique_ptr<CSVWriter> &log_contexts_writer, unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names);
 
 	unique_ptr<TableRef> BindReplaceInternal(ClientContext &context, TableFunctionBindInput &input, const string &path,
 	                                         const string &select_clause);
@@ -233,9 +230,12 @@ protected:
 	//! Used for lazily opening the `log_entries_file_handle` and `log_contexts_file_handle` on first Flush
 	bool initialized = false;
 
-	//! Used to lazily write the csv header of the log files on first Flush
-	bool log_entries_should_write_header = false;
-	bool log_contexts_should_write_header = false;
+	string log_contexts_path;
+	string log_entries_path;
+
+	//! Keep track whether the writers are initialized (have header written)
+	bool log_entries_should_initialize = false;
+	bool log_contexts_should_initialize = false;
 };
 
 class InMemoryLogStorageScanState : public LogStorageScanState {

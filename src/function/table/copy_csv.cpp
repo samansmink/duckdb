@@ -256,13 +256,7 @@ static unique_ptr<GlobalFunctionData> WriteCSVInitializeGlobal(ClientContext &co
 	auto global_data =
 	    make_uniq<GlobalWriteCSVData>(options, FileSystem::GetFileSystem(context), file_path, options.compression);
 
-	if (!options.prefix.empty()) {
-		global_data->writer.WriteRawString(options.prefix);
-	}
-
-	if (!(options.dialect_options.header.IsSetByUser() && !options.dialect_options.header.GetValue())) {
-		global_data->writer.WriteHeader();
-	}
+	global_data->writer.Initialize();
 
 	return std::move(global_data);
 }
@@ -305,13 +299,11 @@ void WriteCSVFinalize(ClientContext &context, FunctionData &bind_data, GlobalFun
 	auto &csv_data = bind_data.Cast<WriteCSVData>();
 	auto &options = csv_data.options;
 
-	CSVWriterLocalState local_state(context);
 	if (!options.suffix.empty()) {
 		global_state.writer.WriteRawString(options.suffix);
 	} else if (global_state.writer.WrittenAnything()) {
 		global_state.writer.WriteRawString(global_state.writer.writer_options.newline);
 	}
-	global_state.writer.Flush(local_state);
 	global_state.writer.Close();
 }
 

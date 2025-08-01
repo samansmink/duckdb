@@ -50,6 +50,9 @@ struct CSVWriter {
 	//! Create a CSVWriter that writes to a file
 	CSVWriter(CSVReaderOptions &options, FileSystem &fs, const string &file_path, FileCompressionType compression);
 
+	//! Writes header and prefix if necessary
+	void Initialize();
+
 	//! Writes the raw string directly into the output stream
 	void WriteRawString(const string& data);
 	//! Writes the header directly into the output stream
@@ -65,7 +68,7 @@ struct CSVWriter {
 	//! Resets the state of the writer. Warning: the file_writer is not reset
 	void Reset(optional_ptr<CSVWriterLocalState> local_state);
 
-	//! Closes
+	//! Closes the writer, optionally writes a postfix
 	void Close();
 
 	unique_ptr<CSVWriterLocalState> InitializeLocalWriteState(ClientContext &context);
@@ -99,6 +102,8 @@ protected:
 	WriteStream &write_stream;
 
 	idx_t bytes_written = 0;
+
+	bool should_initialize;
 
 	mutex lock;
 
