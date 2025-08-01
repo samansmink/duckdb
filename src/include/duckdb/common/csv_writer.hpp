@@ -1,7 +1,7 @@
 //===----------------------------------------------------------------------===//
 //                         DuckDB
 //
-// duckdb/common/csv_utils.hpp
+// duckdb/common/csv_writer.hpp
 //
 //
 //===----------------------------------------------------------------------===//
@@ -16,6 +16,8 @@ namespace duckdb {
 class MemoryStream;
 
 struct CSVWriterOptions {
+	CSVWriterOptions(const string &delim, const char &quote, const string &write_newline);
+
 	//! The newline string to write
 	string newline = "\n";
 	//! The size of the CSV file (in bytes) that we buffer before we flush it to disk
@@ -42,11 +44,10 @@ struct CSVWriterLocalState {
 };
 
 struct CSVWriter {
-	//! Create a CSVWriter that writes to a WriteStream
+	//! Create a CSVWriter that writes to a (non-owned) WriteStream
 	CSVWriter(WriteStream &stream, vector<string> name_list);
 
 	//! Create a CSVWriter that writes to a file
-	CSVWriter(FileSystem &fs, const string &file_path, FileCompressionType compression);
 	CSVWriter(CSVReaderOptions &options, FileSystem &fs, const string &file_path, FileCompressionType compression);
 
 	//! Writes the raw string directly into the output stream
@@ -55,11 +56,13 @@ struct CSVWriter {
 	void WriteHeader();
 	//! Write the Raw String, using the local_state
 	void WriteRawString(const string& prefix, CSVWriterLocalState &local_state);
+	//! Write a chunk of VARCHAR vectors to the CSV file (any casts are the responsibility of caller)
 	void WriteChunk(DataChunk &input, CSVWriterLocalState &local_state);
 
+	//! Flushes all data in the local write state
 	void Flush(CSVWriterLocalState &local_state);
 
-	// Resets the state of the writer. Warning: the file_writer is not reset
+	//! Resets the state of the writer. Warning: the file_writer is not reset
 	void Reset(optional_ptr<CSVWriterLocalState> local_state);
 
 	//! Closes
@@ -72,27 +75,32 @@ struct CSVWriter {
 
 	idx_t BytesWritten();
 
+	//! BytesWritten + OriginalSize;
+	idx_t FileSize();
+
 	bool WrittenAnything() {
 		return written_anything;
 	}
 
-	CSVWriterOptions writer_options;
 	CSVReaderOptions options;
+	CSVWriterOptions writer_options;
 
 protected:
+
+	void FlushInternal(CSVWriterLocalState &local_state);
+
 	//! If we've written any rows yet, allows us to prevent a trailing comma when writing JSON ARRAY
 	bool written_anything = false;
 
-	//! (optional, the owned file writer of this CSVWriter)
+	//! (optional) The owned file writer of this CSVWriter
 	unique_ptr<BufferedFileWriter> file_writer;
-	//! WriteStream to write output t (either the owned BufferedFileWriter, or an externally managed WriteStream)
+
+	//! The WriteStream to write the CSV data to
 	WriteStream &write_stream;
 
 	idx_t bytes_written = 0;
 
 	mutex lock;
-
-	void FlushInternal(CSVWriterLocalState &local_state);
 
 public:
 	static void WriteQuoteOrEscape(WriteStream &writer, char quote_or_escape);

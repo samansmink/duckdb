@@ -1,5 +1,5 @@
 #include "duckdb/common/bind_helpers.hpp"
-#include "duckdb/common/csv_utils.hpp"
+#include "duckdb/common/csv_writer.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/multi_file/multi_file_reader.hpp"
 #include "duckdb/common/serializer/memory_stream.hpp"
@@ -20,8 +20,6 @@
 #include "duckdb/parser/parsed_data/copy_info.hpp"
 #include "duckdb/planner/expression/bound_reference_expression.hpp"
 #include "duckdb/common/multi_file/multi_file_function.hpp"
-
-#include <limits>
 
 namespace duckdb {
 
@@ -116,13 +114,6 @@ void BaseCSVData::Finalize() {
 	}
 }
 
-// TODO: remove?
-string TransformNewLine(string new_line) {
-	new_line = StringUtil::Replace(new_line, "\\r", "\r");
-	return StringUtil::Replace(new_line, "\\n", "\n");
-	;
-}
-
 static vector<unique_ptr<Expression>> CreateCastExpressions(WriteCSVData &bind_data, ClientContext &context,
                                                             const vector<string> &names,
                                                             const vector<LogicalType> &sql_types) {
@@ -214,19 +205,6 @@ static unique_ptr<FunctionData> WriteCSVBind(ClientContext &context, CopyFunctio
 	auto expressions = CreateCastExpressions(*bind_data, context, names, sql_types);
 	bind_data->cast_expressions = std::move(expressions);
 
-	// bind_data->writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
-	// memset(bind_data->writer_options.requires_quotes.get(), 0, sizeof(bool) * 256);
-	// bind_data->writer_options.requires_quotes['\n'] = true;
-	// bind_data->writer_options.requires_quotes['\r'] = true;
-	// bind_data->writer_options.requires_quotes[NumericCast<idx_t>(
-	//     bind_data->options.dialect_options.state_machine_options.delimiter.GetValue()[0])] = true;
-	// bind_data->writer_options.requires_quotes[NumericCast<idx_t>(
-	//     bind_data->options.dialect_options.state_machine_options.quote.GetValue())] = true;
-	//
-	// if (!bind_data->options.write_newline.empty()) {
-	// 	bind_data->writer_options.newline = TransformNewLine(bind_data->options.write_newline);
-	// }
-
 	return std::move(bind_data);
 }
 
@@ -253,8 +231,7 @@ struct GlobalWriteCSVData : public GlobalFunctionData {
 	}
 
 	idx_t FileSize() {
-		// return writer.FileSize();
-		return DConstants::INVALID_INDEX;
+		return writer.FileSize();
 	}
 
 	CSVWriter writer;
@@ -399,15 +376,14 @@ void WriteCSVFlushBatch(ClientContext &context, FunctionData &bind_data, GlobalF
 //===--------------------------------------------------------------------===//
 // File rotation
 //===--------------------------------------------------------------------===//
-// TODO: restore
-// bool WriteCSVRotateFiles(FunctionData &, const optional_idx &file_size_bytes) {
-// 	return file_size_bytes.IsValid();
-// }
-//
-// bool WriteCSVRotateNextFile(GlobalFunctionData &gstate, FunctionData &, const optional_idx &file_size_bytes) {
-// 	auto &global_state = gstate.Cast<GlobalWriteCSVData>();
-// 	return global_state.FileSize() > file_size_bytes.GetIndex();
-// }
+bool WriteCSVRotateFiles(FunctionData &, const optional_idx &file_size_bytes) {
+	return file_size_bytes.IsValid();
+}
+
+bool WriteCSVRotateNextFile(GlobalFunctionData &gstate, FunctionData &, const optional_idx &file_size_bytes) {
+	auto &global_state = gstate.Cast<GlobalWriteCSVData>();
+	return global_state.FileSize() > file_size_bytes.GetIndex();
+}
 
 void CSVCopyFunction::RegisterFunction(BuiltinFunctions &set) {
 	CopyFunction info("csv");
@@ -420,8 +396,8 @@ void CSVCopyFunction::RegisterFunction(BuiltinFunctions &set) {
 	info.execution_mode = WriteCSVExecutionMode;
 	info.prepare_batch = WriteCSVPrepareBatch;
 	info.flush_batch = WriteCSVFlushBatch;
-	// info.rotate_files = WriteCSVRotateFiles;
-	// info.rotate_next_file = WriteCSVRotateNextFile;
+	info.rotate_files = WriteCSVRotateFiles;
+	info.rotate_next_file = WriteCSVRotateNextFile;
 
 	info.copy_from_bind = MultiFileFunction<CSVMultiFileInfo>::MultiFileBindCopy;
 	info.copy_from_function = ReadCSVTableFunction::GetFunction();

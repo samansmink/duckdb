@@ -1,11 +1,8 @@
-#include "duckdb/common/csv_utils.hpp"
+#include "duckdb/common/csv_writer.hpp"
 #include "duckdb/common/serializer/write_stream.hpp"
 #include "duckdb/common/serializer/memory_stream.hpp"
 #include "duckdb/execution/operator/csv_scanner/csv_reader_options.hpp"
 #include "duckdb/common/serializer/buffered_file_writer.hpp"
-#include "duckdb/parser/expression/constant_expression.hpp"
-
-#include <unistd.h>
 
 namespace duckdb {
 
@@ -32,47 +29,26 @@ CSVWriterLocalState::~CSVWriterLocalState() {
 	}
 }
 
-CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list) : write_stream(stream){
+CSVWriterOptions::CSVWriterOptions(const string &delim, const char &quote, const string &write_newline) {
+	requires_quotes = make_unsafe_uniq_array<bool>(256);
+	memset(requires_quotes.get(), 0, sizeof(bool) * 256);
+	requires_quotes['\n'] = true;
+	requires_quotes['\r'] = true;
+	requires_quotes[NumericCast<idx_t>(delim[0])] = true;
+	requires_quotes[NumericCast<idx_t>(quote)] = true;
+
+	if (!write_newline.empty()) {
+		newline = TransformNewLine(write_newline);
+	}
+}
+
+CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list) : writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), write_stream(stream){
+	options.force_quote.resize(name_list.size(), false);
 	options.name_list = name_list;
 	options.force_quote.resize(name_list.size(), false);
-
-	writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
-	memset(writer_options.requires_quotes.get(), 0, sizeof(bool) * 256);
-	writer_options.requires_quotes['\n'] = true;
-	writer_options.requires_quotes['\r'] = true;
-	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.delimiter.GetValue()[0])] = true;
-	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.quote.GetValue())] = true;
-
-	if (!options.write_newline.empty()) {
-		writer_options.newline = TransformNewLine(options.write_newline);
-	}
 }
 
-CSVWriter::CSVWriter(FileSystem &fs, const string &file_path, FileCompressionType compression) :  writer_options({}), written_anything(false), file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer) {
-
-	writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
-	memset(writer_options.requires_quotes.get(), 0, sizeof(bool) * 256);
-	writer_options.requires_quotes['\n'] = true;
-	writer_options.requires_quotes['\r'] = true;
-	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.delimiter.GetValue()[0])] = true;
-	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.quote.GetValue())] = true;
-
-	if (!options.write_newline.empty()) {
-		writer_options.newline = TransformNewLine(options.write_newline);
-	}
-}
-
-CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path, FileCompressionType compression) : options(options_p), file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer) {
-	writer_options.requires_quotes = make_unsafe_uniq_array<bool>(256);
-	memset(writer_options.requires_quotes.get(), 0, sizeof(bool) * 256);
-	writer_options.requires_quotes['\n'] = true;
-	writer_options.requires_quotes['\r'] = true;
-	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.delimiter.GetValue()[0])] = true;
-	writer_options.requires_quotes[NumericCast<idx_t>(options.dialect_options.state_machine_options.quote.GetValue())] = true;
-
-	if (!options.write_newline.empty()) {
-		writer_options.newline = TransformNewLine(options.write_newline);
-	}
+CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path, FileCompressionType compression) : options(options_p), writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer) {
 }
 
 void CSVWriter::WriteChunk(DataChunk &input, CSVWriterLocalState &local_state) {
@@ -149,8 +125,15 @@ unique_ptr<CSVWriterLocalState> CSVWriter::InitializeLocalWriteState(DatabaseIns
 
 idx_t CSVWriter::BytesWritten() {
 	lock_guard<mutex> flock(lock);
+	return bytes_written;
+}
 
-	return 0; // TODO
+idx_t CSVWriter::FileSize() {
+	lock_guard<mutex> flock(lock);
+	if (file_writer) {
+		return file_writer->GetFileSize();
+	}
+	return bytes_written;
 }
 
 void CSVWriter::WriteQuoteOrEscape(WriteStream &writer, char quote_or_escape) {

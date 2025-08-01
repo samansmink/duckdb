@@ -18,7 +18,7 @@
 #include "duckdb/function/scalar/strftime_format.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/execution/operator/csv_scanner/csv_file_scanner.hpp"
-#include "duckdb/common/csv_utils.hpp"
+#include "duckdb/common/csv_writer.hpp"
 
 namespace duckdb {
 class BaseScanner;

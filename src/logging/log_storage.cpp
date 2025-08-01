@@ -1,6 +1,6 @@
 #include "duckdb/logging/log_storage.hpp"
 
-#include "duckdb/common/csv_utils.hpp"
+#include "duckdb/common/csv_writer.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/function/table/read_csv.hpp"
 #include "duckdb/common/serializer/memory_stream.hpp"
