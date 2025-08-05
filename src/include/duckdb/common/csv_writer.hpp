@@ -51,14 +51,14 @@ struct CSVWriter {
 	CSVWriter(CSVReaderOptions &options, FileSystem &fs, const string &file_path, FileCompressionType compression);
 
 	//! Writes header and prefix if necessary
-	void Initialize();
+	void Initialize(bool force = false);
 
 	//! Writes the raw string directly into the output stream
-	void WriteRawString(const string& data);
+	void WriteRawString(const string &data);
 	//! Writes the header directly into the output stream
 	void WriteHeader();
 	//! Write the Raw String, using the local_state
-	void WriteRawString(const string& prefix, CSVWriterLocalState &local_state);
+	void WriteRawString(const string &prefix, CSVWriterLocalState &local_state);
 	//! Write a chunk of VARCHAR vectors to the CSV file (any casts are the responsibility of caller)
 	void WriteChunk(DataChunk &input, CSVWriterLocalState &local_state);
 
@@ -84,12 +84,14 @@ struct CSVWriter {
 	bool WrittenAnything() {
 		return written_anything;
 	}
+	void SetWrittenAnything(bool val) { // TODO: locking
+		written_anything = val;
+	}
 
 	CSVReaderOptions options;
 	CSVWriterOptions writer_options;
 
 protected:
-
 	void FlushInternal(CSVWriterLocalState &local_state);
 
 	//! If we've written any rows yet, allows us to prevent a trailing comma when writing JSON ARRAY
@@ -115,9 +117,11 @@ public:
 	static void WriteQuotedString(WriteStream &writer, const char *str, idx_t len, bool force_quote,
 	                              vector<string> &null_str, unsafe_unique_array<bool> &requires_quotes, char quote,
 	                              char escape);
-	static void WriteQuotedString(WriteStream &writer, const char *str, idx_t len, idx_t col_idx, CSVReaderOptions &options, CSVWriterOptions &writer_options);
+	static void WriteQuotedString(WriteStream &writer, const char *str, idx_t len, idx_t col_idx,
+	                              CSVReaderOptions &options, CSVWriterOptions &writer_options);
 
-	static void WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOptions &options, bool &written_anything, CSVWriterOptions &writer_options);
+	static void WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOptions &options, bool &written_anything,
+	                       CSVWriterOptions &writer_options);
 	static void WriteHeader(MemoryStream &stream, CSVReaderOptions &options, CSVWriterOptions &writer_options);
 };
 

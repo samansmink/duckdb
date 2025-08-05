@@ -15,12 +15,12 @@ static string TransformNewLine(string new_line) {
 CSVWriterLocalState::CSVWriterLocalState() : stream(make_uniq<MemoryStream>()) {
 }
 
-CSVWriterLocalState::CSVWriterLocalState(ClientContext &context) : stream(make_uniq<MemoryStream>(Allocator::Get(context))) {
+CSVWriterLocalState::CSVWriterLocalState(ClientContext &context)
+    : stream(make_uniq<MemoryStream>(Allocator::Get(context))) {
 }
 
 CSVWriterLocalState::CSVWriterLocalState(DatabaseInstance &db) : stream(make_uniq<MemoryStream>(Allocator::Get(db))) {
 }
-
 
 CSVWriterLocalState::~CSVWriterLocalState() {
 	if (stream) {
@@ -42,17 +42,28 @@ CSVWriterOptions::CSVWriterOptions(const string &delim, const char &quote, const
 	}
 }
 
-CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list) : writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), write_stream(stream), should_initialize(true){
+CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list)
+    : writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(),
+                     options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline),
+      write_stream(stream), should_initialize(true) {
 	options.force_quote.resize(name_list.size(), false);
 	options.name_list = name_list;
 	options.force_quote.resize(name_list.size(), false);
 }
 
-CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path, FileCompressionType compression) : options(options_p), writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(), options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline), file_writer(make_uniq<BufferedFileWriter>(fs, file_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW | FileLockType::WRITE_LOCK | compression)), write_stream(*file_writer), should_initialize(true) {
+CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path,
+                     FileCompressionType compression)
+    : options(options_p),
+      writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(),
+                     options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline),
+      file_writer(make_uniq<BufferedFileWriter>(fs, file_path,
+                                                FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW |
+                                                    FileLockType::WRITE_LOCK | compression)),
+      write_stream(*file_writer), should_initialize(true) {
 }
 
-void CSVWriter::Initialize() {
-	if (!should_initialize) {
+void CSVWriter::Initialize(bool force) {
+	if (!force && !should_initialize) {
 		return;
 	}
 
@@ -75,13 +86,13 @@ void CSVWriter::WriteChunk(DataChunk &input, CSVWriterLocalState &local_state) {
 	}
 }
 
-void CSVWriter::WriteRawString(const string& raw_string) {
+void CSVWriter::WriteRawString(const string &raw_string) {
 	lock_guard<mutex> flock(lock);
 	bytes_written += raw_string.size();
 	write_stream.WriteData((data_ptr_t)raw_string.c_str(), raw_string.size());
 }
 
-void CSVWriter::WriteRawString(const string& prefix, CSVWriterLocalState &local_state) {
+void CSVWriter::WriteRawString(const string &prefix, CSVWriterLocalState &local_state) {
 	local_state.stream->WriteData(const_data_ptr_cast(prefix.c_str()), prefix.size());
 
 	if (!local_state.require_manual_flush && local_state.stream->GetPosition() >= writer_options.flush_size) {
@@ -111,7 +122,6 @@ void CSVWriter::Reset(optional_ptr<CSVWriterLocalState> local_state) {
 	written_anything = false;
 	bytes_written = 0;
 }
-
 
 void CSVWriter::Close() {
 	lock_guard<mutex> flock(lock);
@@ -181,7 +191,7 @@ string CSVWriter::AddEscapes(char to_be_escaped, char escape, const string &val)
 }
 
 bool CSVWriter::RequiresQuotes(const char *str, idx_t len, vector<string> &null_str,
-                              unsafe_unique_array<bool> &requires_quotes) {
+                               unsafe_unique_array<bool> &requires_quotes) {
 	// check if the string is equal to the null string
 	if (len == null_str[0].size() && memcmp(str, null_str[0].c_str(), len) == 0) {
 		return true;
@@ -198,13 +208,16 @@ bool CSVWriter::RequiresQuotes(const char *str, idx_t len, vector<string> &null_
 	return false;
 }
 
-void CSVWriter::WriteQuotedString(WriteStream &writer, const char *str, idx_t len, idx_t col_idx, CSVReaderOptions &options, CSVWriterOptions &writer_options) {
-	WriteQuotedString(writer, str, len,  options.force_quote[col_idx], options.null_str, writer_options.requires_quotes, options.dialect_options.state_machine_options.quote.GetValue(), options.dialect_options.state_machine_options.escape.GetValue());
+void CSVWriter::WriteQuotedString(WriteStream &writer, const char *str, idx_t len, idx_t col_idx,
+                                  CSVReaderOptions &options, CSVWriterOptions &writer_options) {
+	WriteQuotedString(writer, str, len, options.force_quote[col_idx], options.null_str, writer_options.requires_quotes,
+	                  options.dialect_options.state_machine_options.quote.GetValue(),
+	                  options.dialect_options.state_machine_options.escape.GetValue());
 }
 
 void CSVWriter::WriteQuotedString(WriteStream &writer, const char *str, idx_t len, bool force_quote,
-                                 vector<string> &null_str, unsafe_unique_array<bool> &requires_quotes, char quote,
-                                 char escape) {
+                                  vector<string> &null_str, unsafe_unique_array<bool> &requires_quotes, char quote,
+                                  char escape) {
 	if (!force_quote) {
 		// force quote is disabled: check if we need to add quotes anyway
 		force_quote = RequiresQuotes(str, len, null_str, requires_quotes);
@@ -246,7 +259,8 @@ void CSVWriter::WriteQuotedString(WriteStream &writer, const char *str, idx_t le
 }
 
 // Write a chunk to a csv file
-void CSVWriter::WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOptions &options, bool &written_anything, CSVWriterOptions &writer_options) {
+void CSVWriter::WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOptions &options, bool &written_anything,
+                           CSVWriterOptions &writer_options) {
 	// now loop over the vectors and output the values
 	for (idx_t row_idx = 0; row_idx < input.size(); row_idx++) {
 		if (row_idx == 0 && !written_anything) {
@@ -259,7 +273,7 @@ void CSVWriter::WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOpti
 		for (idx_t col_idx = 0; col_idx < input.ColumnCount(); col_idx++) {
 			if (col_idx != 0) {
 				CSVWriter::WriteQuoteOrEscape(writer,
-											 options.dialect_options.state_machine_options.delimiter.GetValue()[0]);
+				                              options.dialect_options.state_machine_options.delimiter.GetValue()[0]);
 			}
 			if (FlatVector::IsNull(input.data[col_idx], row_idx)) {
 				// write null value
@@ -273,7 +287,8 @@ void CSVWriter::WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOpti
 			// (e.g. integers only require quotes if the delimiter is a number, decimals only require quotes if the
 			// delimiter is a number or "." character)
 
-			WriteQuotedString(writer, str_data[row_idx].GetData(), str_data[row_idx].GetSize(),  col_idx, options, writer_options);
+			WriteQuotedString(writer, str_data[row_idx].GetData(), str_data[row_idx].GetSize(), col_idx, options,
+			                  writer_options);
 		}
 	}
 }
@@ -281,11 +296,11 @@ void CSVWriter::WriteChunk(DataChunk &input, MemoryStream &writer, CSVReaderOpti
 void CSVWriter::WriteHeader(MemoryStream &stream, CSVReaderOptions &options, CSVWriterOptions &writer_options) {
 	for (idx_t i = 0; i < options.name_list.size(); i++) {
 		if (i != 0) {
-			WriteQuoteOrEscape(stream,
-										 options.dialect_options.state_machine_options.delimiter.GetValue()[0]);
+			WriteQuoteOrEscape(stream, options.dialect_options.state_machine_options.delimiter.GetValue()[0]);
 		}
 
-		WriteQuotedString(stream, options.name_list[i].c_str(), options.name_list[i].size(), i, options, writer_options);
+		WriteQuotedString(stream, options.name_list[i].c_str(), options.name_list[i].size(), i, options,
+		                  writer_options);
 	}
 
 	// TODO: why was this done before?

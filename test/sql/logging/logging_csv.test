@@ -157,10 +157,10 @@ Invalid Input Error: Unrecognized log storage config option: 'path'
 
 # Switching between normalized and denormalized logs will throw if the log is non-empty
 
-mode unskip
-
 statement ok
 pragma truncate_duckdb_logs
+
+mode unskip
 
 statement ok
 pragma enable_logging(['QueryLog'], storage='file', storage_config={'path': '__TEST_DIR__/logging_csv_log.csv'});
@@ -177,4 +177,4 @@ pragma truncate_duckdb_logs
 # Invalid Configuration Error: Cannot change between normalized and denormalized with a non-empty log. Please truncate the log first
 
 statement ok
-FROM duckdb_logs
+explain FROM duckdb_logs

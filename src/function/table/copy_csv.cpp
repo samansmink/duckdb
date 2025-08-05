@@ -227,7 +227,9 @@ public:
 };
 
 struct GlobalWriteCSVData : public GlobalFunctionData {
-	GlobalWriteCSVData(CSVReaderOptions &options, FileSystem &fs, const string &file_path, FileCompressionType compression) : writer(options, fs, file_path, compression) {
+	GlobalWriteCSVData(CSVReaderOptions &options, FileSystem &fs, const string &file_path,
+	                   FileCompressionType compression)
+	    : writer(options, fs, file_path, compression) {
 	}
 
 	idx_t FileSize() {
@@ -261,7 +263,8 @@ static unique_ptr<GlobalFunctionData> WriteCSVInitializeGlobal(ClientContext &co
 	return std::move(global_data);
 }
 
-static void WriteCSVChunkInternal(CSVWriter &writer, CSVWriterLocalState &writer_local_state, DataChunk &cast_chunk, DataChunk &input, ExpressionExecutor &executor) {
+static void WriteCSVChunkInternal(CSVWriter &writer, CSVWriterLocalState &writer_local_state, DataChunk &cast_chunk,
+                                  DataChunk &input, ExpressionExecutor &executor) {
 	// first cast the columns of the chunk to varchar
 	cast_chunk.Reset();
 	cast_chunk.SetCardinality(input);
@@ -278,7 +281,8 @@ static void WriteCSVSink(ExecutionContext &context, FunctionData &bind_data, Glo
 	auto &local_data = lstate.Cast<LocalWriteCSVData>();
 	auto &global_state = gstate.Cast<GlobalWriteCSVData>();
 
-	WriteCSVChunkInternal(global_state.writer, local_data.writer_local_state, local_data.cast_chunk, input, local_data.executor);
+	WriteCSVChunkInternal(global_state.writer, local_data.writer_local_state, local_data.cast_chunk, input,
+	                      local_data.executor);
 }
 
 //===--------------------------------------------------------------------===//

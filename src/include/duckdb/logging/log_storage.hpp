@@ -90,7 +90,7 @@ public:
 
 	//! LogStorage API: WRITING
 	void WriteLogEntry(timestamp_t timestamp, LogLevel level, const string &log_type, const string &log_message,
-					   const RegisteredLoggingContext &context) override;
+	                   const RegisteredLoggingContext &context) override;
 	void WriteLogEntries(DataChunk &chunk, const RegisteredLoggingContext &context) override;
 	void Flush() override;
 	void Truncate() override;
@@ -216,10 +216,15 @@ protected:
 	void UpdateConfigInternal(DatabaseInstance &db, case_insensitive_map_t<Value> &config) override;
 	void FlushInternal() override;
 
-	static void InitializeFiles(DatabaseInstance &db, const string &path, unique_ptr<BufferedFileWriter>& log_contexts_file_writer, unique_ptr<CSVWriter> &log_contexts_writer, unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names);
+	void Initialize();
+
+	static void InitializeFile(DatabaseInstance &db, const string &path,
+	                           unique_ptr<BufferedFileWriter> &log_contexts_file_writer,
+	                           unique_ptr<CSVWriter> &log_contexts_writer,
+	                           unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names);
 
 	unique_ptr<TableRef> BindReplaceInternal(ClientContext &context, TableFunctionBindInput &input, const string &path,
-	                                         const string &select_clause);
+	                                         const string &select_clause, const string &csv_columns);
 
 	DatabaseInstance &db;
 
