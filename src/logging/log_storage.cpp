@@ -352,14 +352,14 @@ void FileLogStorage::FlushInternal() {
 
 	if (log_contexts_buffer->size() > 0) {
 		log_contexts_writer->WriteChunk(*log_contexts_cast_buffer, *log_contexts_state);
-		log_contexts_writer->Flush(*log_contexts_state); // TODO: auto-flush on flushing storage?
+		log_contexts_writer->Flush(*log_contexts_state);
 		log_contexts_file_writer->Sync();
 		log_contexts_buffer->Reset();
 	}
 
 	if (log_entries_buffer->size() > 0) {
 		log_entries_writer->WriteChunk(*log_entries_cast_buffer, *log_entries_state);
-		log_entries_writer->Flush(*log_entries_state); // TODO: auto-flush on flushing storage?
+		log_entries_writer->Flush(*log_entries_state);
 		log_entries_file_writer->Sync();
 		log_entries_buffer->Reset();
 	}
@@ -413,9 +413,6 @@ void FileLogStorage::UpdateConfigInternal(DatabaseInstance &db, case_insensitive
 	if (normalize_contexts_changed) {
 		ResetAllBuffers();
 	}
-
-	// We reload the files if we were already initialized
-	Initialize();
 
 	for (const auto &it : to_remove) {
 		config_copy.erase(it);
