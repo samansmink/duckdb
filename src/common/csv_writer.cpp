@@ -12,17 +12,17 @@ static string TransformNewLine(string new_line) {
 	;
 }
 
-CSVWriterLocalState::CSVWriterLocalState() : stream(make_uniq<MemoryStream>()) {
+CSVWriterState::CSVWriterState() : stream(make_uniq<MemoryStream>()) {
 }
 
-CSVWriterLocalState::CSVWriterLocalState(ClientContext &context)
+CSVWriterState::CSVWriterState(ClientContext &context)
     : stream(make_uniq<MemoryStream>(Allocator::Get(context))) {
 }
 
-CSVWriterLocalState::CSVWriterLocalState(DatabaseInstance &db) : stream(make_uniq<MemoryStream>(Allocator::Get(db))) {
+CSVWriterState::CSVWriterState(DatabaseInstance &db) : stream(make_uniq<MemoryStream>(Allocator::Get(db))) {
 }
 
-CSVWriterLocalState::~CSVWriterLocalState() {
+CSVWriterState::~CSVWriterState() {
 	if (stream) {
 		// Ensure we don't accidentally destroy unflushed data
 		D_ASSERT(stream->GetPosition() == 0);
@@ -42,24 +42,32 @@ CSVWriterOptions::CSVWriterOptions(const string &delim, const char &quote, const
 	}
 }
 
-CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list)
+CSVWriter::CSVWriter(WriteStream &stream, vector<string> name_list, bool shared)
     : writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(),
                      options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline),
-      write_stream(stream), should_initialize(true) {
+      write_stream(stream), should_initialize(true), shared(shared) {
 	options.force_quote.resize(name_list.size(), false);
 	options.name_list = name_list;
 	options.force_quote.resize(name_list.size(), false);
+
+	if (!shared) {
+		global_write_state = make_uniq<CSVWriterState>();
+	}
 }
 
 CSVWriter::CSVWriter(CSVReaderOptions &options_p, FileSystem &fs, const string &file_path,
-                     FileCompressionType compression)
+                     FileCompressionType compression, bool shared)
     : options(options_p),
       writer_options(options.dialect_options.state_machine_options.delimiter.GetValue(),
                      options.dialect_options.state_machine_options.quote.GetValue(), options.write_newline),
       file_writer(make_uniq<BufferedFileWriter>(fs, file_path,
                                                 FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW |
                                                     FileLockType::WRITE_LOCK | compression)),
-      write_stream(*file_writer), should_initialize(true) {
+      write_stream(*file_writer), should_initialize(true), shared(shared) {
+
+	if (!shared) {
+		global_write_state = make_uniq<CSVWriterState>();
+	}
 }
 
 void CSVWriter::Initialize(bool force) {
@@ -78,12 +86,19 @@ void CSVWriter::Initialize(bool force) {
 	should_initialize = false;
 }
 
-void CSVWriter::WriteChunk(DataChunk &input, CSVWriterLocalState &local_state) {
+void CSVWriter::WriteChunk(DataChunk &input, CSVWriterState &local_state) {
 	WriteChunk(input, *local_state.stream, options, written_anything, writer_options);
 
 	if (!local_state.require_manual_flush && local_state.stream->GetPosition() >= writer_options.flush_size) {
 		Flush(local_state);
 	}
+}
+
+void CSVWriter::WriteChunk(DataChunk &input) {
+	// Method intended for non-shared use only
+	D_ASSERT(!shared);
+
+	WriteChunk(input, *global_write_state);
 }
 
 void CSVWriter::WriteRawString(const string &raw_string) {
@@ -92,7 +107,7 @@ void CSVWriter::WriteRawString(const string &raw_string) {
 	write_stream.WriteData((data_ptr_t)raw_string.c_str(), raw_string.size());
 }
 
-void CSVWriter::WriteRawString(const string &prefix, CSVWriterLocalState &local_state) {
+void CSVWriter::WriteRawString(const string &prefix, CSVWriterState &local_state) {
 	local_state.stream->WriteData(const_data_ptr_cast(prefix.c_str()), prefix.size());
 
 	if (!local_state.require_manual_flush && local_state.stream->GetPosition() >= writer_options.flush_size) {
@@ -101,20 +116,53 @@ void CSVWriter::WriteRawString(const string &prefix, CSVWriterLocalState &local_
 }
 
 void CSVWriter::WriteHeader() {
-	CSVWriterLocalState state;
+	CSVWriterState state;
 	WriteHeader(*state.stream, options, writer_options);
 	state.written_anything = true;
 	Flush(state);
 }
 
-void CSVWriter::Flush(CSVWriterLocalState &local_state) {
-	lock_guard<mutex> flock(lock);
-	FlushInternal(local_state);
+void CSVWriter:: Flush(CSVWriterState &local_state) {
+	if (shared) {
+		lock_guard<mutex> flock(lock);
+		FlushInternal(local_state);
+	} else {
+
+	}
 }
 
-void CSVWriter::Reset(optional_ptr<CSVWriterLocalState> local_state) {
-	lock_guard<mutex> flock(lock);
+void CSVWriter::Flush() {
+	// Method intended for non-shared use only
+	D_ASSERT(!shared);
+	FlushInternal(*global_write_state);
+}
 
+void CSVWriter::Reset(optional_ptr<CSVWriterState> local_state) {
+	if (shared) {
+		lock_guard<mutex> flock(lock);
+		ResetInternal(local_state);
+	} else {
+		ResetInternal(local_state);
+	}
+}
+
+void CSVWriter::Close() {
+	if (shared) {
+		lock_guard<mutex> flock(lock);
+		file_writer->Close();
+	} else {
+		file_writer->Close();
+	}
+}
+
+void CSVWriter::FlushInternal(CSVWriterState &local_state) {
+	written_anything = true;
+	bytes_written += local_state.stream->GetPosition();
+	write_stream.WriteData((data_ptr_t)local_state.stream->GetData(), local_state.stream->GetPosition());
+	local_state.stream->Rewind();
+}
+
+void CSVWriter::ResetInternal(optional_ptr<CSVWriterState> local_state) {
 	if (local_state) {
 		local_state->Reset();
 	}
@@ -123,27 +171,14 @@ void CSVWriter::Reset(optional_ptr<CSVWriterLocalState> local_state) {
 	bytes_written = 0;
 }
 
-void CSVWriter::Close() {
-	lock_guard<mutex> flock(lock);
-
-	file_writer->Close();
-}
-
-void CSVWriter::FlushInternal(CSVWriterLocalState &local_state) {
-	written_anything = true;
-	bytes_written += local_state.stream->GetPosition();
-	write_stream.WriteData((data_ptr_t)local_state.stream->GetData(), local_state.stream->GetPosition());
-	local_state.stream->Rewind();
-}
-
-unique_ptr<CSVWriterLocalState> CSVWriter::InitializeLocalWriteState(ClientContext &context) {
-	auto res = make_uniq<CSVWriterLocalState>(context);
+unique_ptr<CSVWriterState> CSVWriter::InitializeLocalWriteState(ClientContext &context) {
+	auto res = make_uniq<CSVWriterState>(context);
 	res->stream = make_uniq<MemoryStream>();
 	return res;
 }
 
-unique_ptr<CSVWriterLocalState> CSVWriter::InitializeLocalWriteState(DatabaseInstance &db) {
-	auto res = make_uniq<CSVWriterLocalState>();
+unique_ptr<CSVWriterState> CSVWriter::InitializeLocalWriteState(DatabaseInstance &db) {
+	auto res = make_uniq<CSVWriterState>();
 	res->stream = make_uniq<MemoryStream>();
 	return res;
 }

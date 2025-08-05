@@ -223,7 +223,7 @@ public:
 	//! A chunk with VARCHAR columns to cast intermediates into
 	DataChunk cast_chunk;
 	//! Local state for the CSV writer
-	CSVWriterLocalState writer_local_state;
+	CSVWriterState writer_local_state;
 };
 
 struct GlobalWriteCSVData : public GlobalFunctionData {
@@ -263,7 +263,7 @@ static unique_ptr<GlobalFunctionData> WriteCSVInitializeGlobal(ClientContext &co
 	return std::move(global_data);
 }
 
-static void WriteCSVChunkInternal(CSVWriter &writer, CSVWriterLocalState &writer_local_state, DataChunk &cast_chunk,
+static void WriteCSVChunkInternal(CSVWriter &writer, CSVWriterState &writer_local_state, DataChunk &cast_chunk,
                                   DataChunk &input, ExpressionExecutor &executor) {
 	// first cast the columns of the chunk to varchar
 	cast_chunk.Reset();
@@ -327,12 +327,12 @@ CopyFunctionExecutionMode WriteCSVExecutionMode(bool preserve_insertion_order, b
 // Prepare Batch
 //===--------------------------------------------------------------------===//
 struct WriteCSVBatchData : public PreparedBatchData {
-	explicit WriteCSVBatchData(ClientContext &context) : writer_local_state(make_uniq<CSVWriterLocalState>(context)) {
+	explicit WriteCSVBatchData(ClientContext &context) : writer_local_state(make_uniq<CSVWriterState>(context)) {
 		writer_local_state->require_manual_flush = true;
 	}
 
 	//! The thread-local buffer to write data into
-	unique_ptr<CSVWriterLocalState> writer_local_state;
+	unique_ptr<CSVWriterState> writer_local_state;
 };
 
 unique_ptr<PreparedBatchData> WriteCSVPrepareBatch(ClientContext &context, FunctionData &bind_data,

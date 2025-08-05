@@ -154,7 +154,6 @@ void CSVLogStorage::ExecuteCast() {
 
 void CSVLogStorage::ResetAllBuffers() {
 	BufferingLogStorage::ResetAllBuffers();
-	ResetCSVWriterBuffers();
 	ResetCastChunk();
 }
 
@@ -171,15 +170,6 @@ void CSVLogStorage::ResetCastChunk() {
 	log_contexts_cast_buffer->Initialize(Allocator::DefaultAllocator(), types);
 }
 
-void CSVLogStorage::ResetCSVWriterBuffers() {
-	if (log_contexts_state) {
-		log_contexts_state->Reset();
-	}
-	if (log_entries_state) {
-		log_entries_state->Reset();
-	}
-}
-
 void CSVLogStorage::SetWriterConfigs(CSVWriter &writer, vector<string> column_names) {
 	writer.options.dialect_options.state_machine_options.escape = '\"';
 	writer.options.dialect_options.state_machine_options.quote = '\"';
@@ -194,10 +184,12 @@ void CSVLogStorage::FlushInternal() {
 	ExecuteCast();
 
 	// Write the cast data to sCSV
-	log_entries_writer->WriteChunk(*log_entries_cast_buffer, *log_entries_state);
+	log_entries_writer->WriteChunk(*log_entries_cast_buffer);
+	log_entries_writer->Flush();
 	log_entries_buffer->Reset();
 
-	log_contexts_writer->WriteChunk(*log_contexts_cast_buffer, *log_contexts_state);
+	log_contexts_writer->WriteChunk(*log_contexts_cast_buffer);
+	log_entries_writer->Flush();
 	log_contexts_buffer->Reset();
 }
 
@@ -214,10 +206,8 @@ void CSVLogStorage::UpdateConfigInternal(DatabaseInstance &db, case_insensitive_
 StdOutLogStorage::StdOutLogStorage(DatabaseInstance &db) : CSVLogStorage(db) {
 	log_entries_stream = make_uniq<MemoryStream>();
 	log_contexts_stream = make_uniq<MemoryStream>();
-	log_entries_writer = make_uniq<CSVWriter>(*log_contexts_stream, GetEntriesColumnNames(true));
-	log_contexts_writer = make_uniq<CSVWriter>(*log_contexts_stream, GetContextsColumnNames());
-	log_entries_state = log_entries_writer->InitializeLocalWriteState(db);
-	log_contexts_state = log_contexts_writer->InitializeLocalWriteState(db);
+	log_entries_writer = make_uniq<CSVWriter>(*log_contexts_stream, GetEntriesColumnNames(true), false);
+	log_contexts_writer = make_uniq<CSVWriter>(*log_contexts_stream, GetContextsColumnNames(), false);
 
 	SetWriterConfigs(*log_entries_writer, GetEntriesColumnNames(normalize_contexts));
 	SetWriterConfigs(*log_contexts_writer, GetContextsColumnNames());
@@ -265,14 +255,13 @@ FileLogStorage::~FileLogStorage() {
 
 void FileLogStorage::InitializeFile(DatabaseInstance &db, const string &path,
                                     unique_ptr<BufferedFileWriter> &file_writer, unique_ptr<CSVWriter> &csv_writer,
-                                    unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names) {
+                                    vector<string> column_names) {
 	//! Create file writer
 	file_writer = InitializeFileWriter(db, path);
 
 	//! Create CSV writer that writes to file
-	csv_writer = make_uniq<CSVWriter>(*file_writer, column_names);
+	csv_writer = make_uniq<CSVWriter>(*file_writer, column_names, false);
 	SetWriterConfigs(*csv_writer, column_names);
-	log_contexts_state = csv_writer->InitializeLocalWriteState(db);
 
 	bool should_write_header = file_writer->handle->GetFileSize() == 0;
 
@@ -290,13 +279,11 @@ void FileLogStorage::InitializeFile(DatabaseInstance &db, const string &path,
 }
 
 void FileLogStorage::InitializeLogContextsFile(DatabaseInstance &db) {
-	InitializeFile(db, log_contexts_path, log_contexts_file_writer, log_contexts_writer, log_contexts_state,
-	               GetContextsColumnNames());
+	InitializeFile(db, log_contexts_path, log_contexts_file_writer, log_contexts_writer, GetContextsColumnNames());
 }
 
 void FileLogStorage::InitializeLogEntriesFile(DatabaseInstance &db) {
-	InitializeFile(db, log_entries_path, log_entries_file_writer, log_entries_writer, log_entries_state,
-	               GetEntriesColumnNames(normalize_contexts));
+	InitializeFile(db, log_entries_path, log_entries_file_writer, log_entries_writer, GetEntriesColumnNames(normalize_contexts));
 }
 
 unique_ptr<BufferedFileWriter> FileLogStorage::InitializeFileWriter(DatabaseInstance &db, const string &path) {
@@ -351,15 +338,15 @@ void FileLogStorage::FlushInternal() {
 	ExecuteCast();
 
 	if (log_contexts_buffer->size() > 0) {
-		log_contexts_writer->WriteChunk(*log_contexts_cast_buffer, *log_contexts_state);
-		log_contexts_writer->Flush(*log_contexts_state);
+		log_contexts_writer->WriteChunk(*log_contexts_cast_buffer);
+		log_contexts_writer->Flush();
 		log_contexts_file_writer->Sync();
 		log_contexts_buffer->Reset();
 	}
 
 	if (log_entries_buffer->size() > 0) {
-		log_entries_writer->WriteChunk(*log_entries_cast_buffer, *log_entries_state);
-		log_entries_writer->Flush(*log_entries_state);
+		log_entries_writer->WriteChunk(*log_entries_cast_buffer);
+		log_entries_writer->Flush();
 		log_entries_file_writer->Sync();
 		log_entries_buffer->Reset();
 	}

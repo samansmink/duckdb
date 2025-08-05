@@ -26,11 +26,11 @@ struct CSVWriterOptions {
 	unsafe_unique_array<bool> requires_quotes;
 };
 
-struct CSVWriterLocalState {
-	CSVWriterLocalState(ClientContext &context);
-	CSVWriterLocalState(DatabaseInstance &db);
-	CSVWriterLocalState();
-	~CSVWriterLocalState();
+struct CSVWriterState {
+	CSVWriterState(ClientContext &context);
+	CSVWriterState(DatabaseInstance &db);
+	CSVWriterState();
+	~CSVWriterState();
 
 	void Reset() {
 		stream->Rewind();
@@ -43,12 +43,13 @@ struct CSVWriterLocalState {
 	bool require_manual_flush = false;
 };
 
-struct CSVWriter {
+class CSVWriter {
+public:
 	//! Create a CSVWriter that writes to a (non-owned) WriteStream
-	CSVWriter(WriteStream &stream, vector<string> name_list);
+	CSVWriter(WriteStream &stream, vector<string> name_list, bool shared = true);
 
 	//! Create a CSVWriter that writes to a file
-	CSVWriter(CSVReaderOptions &options, FileSystem &fs, const string &file_path, FileCompressionType compression);
+	CSVWriter(CSVReaderOptions &options, FileSystem &fs, const string &file_path, FileCompressionType compression, bool shared = true);
 
 	//! Writes header and prefix if necessary
 	void Initialize(bool force = false);
@@ -58,21 +59,25 @@ struct CSVWriter {
 	//! Writes the header directly into the output stream
 	void WriteHeader();
 	//! Write the Raw String, using the local_state
-	void WriteRawString(const string &prefix, CSVWriterLocalState &local_state);
+	void WriteRawString(const string &prefix, CSVWriterState &local_state);
 	//! Write a chunk of VARCHAR vectors to the CSV file (any casts are the responsibility of caller)
-	void WriteChunk(DataChunk &input, CSVWriterLocalState &local_state);
+	void WriteChunk(DataChunk &input, CSVWriterState &local_state);
+	//! (Non-shared only) variant of WriteChunk
+	void WriteChunk(DataChunk &input);
 
 	//! Flushes all data in the local write state
-	void Flush(CSVWriterLocalState &local_state);
+	void Flush(CSVWriterState &local_state);
+	//! (Non-shared only) variant of Flush
+	void Flush();
 
 	//! Resets the state of the writer. Warning: the file_writer is not reset
-	void Reset(optional_ptr<CSVWriterLocalState> local_state);
+	void Reset(optional_ptr<CSVWriterState> local_state);
 
 	//! Closes the writer, optionally writes a postfix
 	void Close();
 
-	unique_ptr<CSVWriterLocalState> InitializeLocalWriteState(ClientContext &context);
-	unique_ptr<CSVWriterLocalState> InitializeLocalWriteState(DatabaseInstance &db);
+	unique_ptr<CSVWriterState> InitializeLocalWriteState(ClientContext &context);
+	unique_ptr<CSVWriterState> InitializeLocalWriteState(DatabaseInstance &db);
 
 	vector<unique_ptr<Expression>> string_casts;
 
@@ -92,7 +97,8 @@ struct CSVWriter {
 	CSVWriterOptions writer_options;
 
 protected:
-	void FlushInternal(CSVWriterLocalState &local_state);
+	void FlushInternal(CSVWriterState &local_state);
+	void ResetInternal(optional_ptr<CSVWriterState> local_state);
 
 	//! If we've written any rows yet, allows us to prevent a trailing comma when writing JSON ARRAY
 	bool written_anything = false;
@@ -108,6 +114,9 @@ protected:
 	bool should_initialize;
 
 	mutex lock;
+	bool shared;
+
+	unique_ptr<CSVWriterState> global_write_state;
 
 public:
 	static void WriteQuoteOrEscape(WriteStream &writer, char quote_or_escape);

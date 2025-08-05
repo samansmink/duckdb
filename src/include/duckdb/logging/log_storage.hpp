@@ -23,8 +23,8 @@ class ColumnDataCollection;
 struct ColumnDataScanState;
 class MemoryStream;
 struct LogStorageConfig;
-struct CSVWriter;
-struct CSVWriterLocalState;
+class CSVWriter;
+struct CSVWriterState;
 class BufferedFileWriter;
 
 class LogStorageScanState {
@@ -159,8 +159,6 @@ protected:
 
 	//! Resets all buffers and state
 	void ResetAllBuffers() override;
-	// Reset the writers
-	void ResetCSVWriterBuffers();
 	// Reset the Cast chunks
 	void ResetCastChunk();
 
@@ -169,8 +167,6 @@ protected:
 	mutable mutex lock;
 
 	// Subclasses use these to write out the log entries to CSV
-	unique_ptr<CSVWriterLocalState> log_entries_state;
-	unique_ptr<CSVWriterLocalState> log_contexts_state;
 	unique_ptr<CSVWriter> log_entries_writer;
 	unique_ptr<CSVWriter> log_contexts_writer;
 
@@ -219,8 +215,7 @@ protected:
 
 	static void InitializeFile(DatabaseInstance &db, const string &path,
 	                           unique_ptr<BufferedFileWriter> &log_contexts_file_writer,
-	                           unique_ptr<CSVWriter> &log_contexts_writer,
-	                           unique_ptr<CSVWriterLocalState> &log_contexts_state, vector<string> column_names);
+	                           unique_ptr<CSVWriter> &log_contexts_writer, vector<string> column_names);
 
 	unique_ptr<TableRef> BindReplaceInternal(ClientContext &context, TableFunctionBindInput &input, const string &path,
 	                                         const string &select_clause, const string &csv_columns);
