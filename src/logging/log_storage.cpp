@@ -68,14 +68,12 @@ void CSVLogStorage::UpdateConfig(DatabaseInstance &db, case_insensitive_map_t<Va
 	return UpdateConfigInternal(db, config);
 }
 
-// TODO: clean up
 void CSVLogStorage::ExecuteCast() {
 	log_entries_cast_buffer->Reset();
 	log_contexts_cast_buffer->Reset();
 
 	bool success = true;
 
-	// TODO: tweak this?
 	CastParameters cast_params;
 
 	if (normalize_contexts) {
@@ -322,23 +320,19 @@ unique_ptr<BufferedFileWriter> FileLogStorage::InitializeFileWriter(DatabaseInst
 }
 
 void FileLogStorage::Truncate() {
-	// lock_guard<mutex> lck(lock); TODO
+	lock_guard<mutex> lck(lock);
 
 	// Reset buffers
 	ResetAllBuffers();
 
 	// Truncate the writers
 	if (log_entries_file_writer) {
-		// printf("Truncating log entries: %s\n", log_entries_file_writer->handle->GetPath().c_str());
 		log_entries_file_writer->Truncate(0);
-		log_entries_file_writer->handle->Seek(0); // TODO: pretty sure this should not be required and is a bug
 		log_entries_writer->Initialize(true);
 		log_entries_file_writer->Sync();
 	}
 	if (log_contexts_file_writer) {
-		// printf("Truncating log contexts: %s\n", log_contexts_file_writer->handle->GetPath().c_str());
 		log_contexts_file_writer->Truncate(0);
-		log_contexts_file_writer->handle->Seek(0); // TODO: pretty sure this should not be required and is a bug
 		log_contexts_writer->Initialize(true);
 		log_contexts_file_writer->Sync();
 	}
@@ -346,6 +340,7 @@ void FileLogStorage::Truncate() {
 
 void FileLogStorage::FlushInternal() {
 	// Early out if buffers empty
+	// We buffer also at the BufferedFileWriter level
 	if (log_contexts_buffer->size() == 0 && log_entries_buffer->size() == 0) {
 		return;
 	}
@@ -467,6 +462,7 @@ unique_ptr<TableRef> FileLogStorage::BindReplaceEntries(ClientContext &context, 
 
 unique_ptr<TableRef> FileLogStorage::BindReplaceContexts(ClientContext &context, TableFunctionBindInput &input) {
 	lock_guard<mutex> lck(lock);
+
 	FlushInternal();
 	if (normalize_contexts) {
 		string columns = "'context_id': 'UBIGINT', 'scope': 'VARCHAR', 'connection_id': 'UBIGINT', 'transaction_id': "
@@ -657,13 +653,6 @@ void BufferingLogStorage::WriteLogEntry(timestamp_t timestamp, LogLevel level, c
 
 void BufferingLogStorage::WriteLogEntries(DataChunk &chunk, const RegisteredLoggingContext &context) {
 	throw NotImplementedException("BufferingLogStorage::WriteLogEntries(DataChunk &chunk) not implemented");
-	unique_lock<mutex> lck(lock);
-	log_entries_buffer->Append(chunk);
-
-	// TODO: this overflows buffer?
-	if (log_entries_buffer->size() >= max_buffer_size) {
-		FlushInternal();
-	}
 }
 
 void BufferingLogStorage::Flush() {

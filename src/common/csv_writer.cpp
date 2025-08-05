@@ -129,7 +129,6 @@ void CSVWriter::Close() {
 	file_writer->Close();
 }
 
-// TODO: this no longer writes the newlines on written_anything == false
 void CSVWriter::FlushInternal(CSVWriterLocalState &local_state) {
 	written_anything = true;
 	bytes_written += local_state.stream->GetPosition();
@@ -302,9 +301,6 @@ void CSVWriter::WriteHeader(MemoryStream &stream, CSVReaderOptions &options, CSV
 		WriteQuotedString(stream, options.name_list[i].c_str(), options.name_list[i].size(), i, options,
 		                  writer_options);
 	}
-
-	// TODO: why was this done before?
-	// stream.WriteData(const_data_ptr_cast(writer_options.newline.c_str()), writer_options.newline.size());
 }
 
 } // namespace duckdb

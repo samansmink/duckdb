@@ -147,7 +147,6 @@ struct LogStorageCsvConfig {
 // subclasses should:
 class CSVLogStorage : public BufferingLogStorage {
 public:
-	// TODO: initialize the CSVWriterLocalState's and CSVWriter's through params?
 	explicit CSVLogStorage(DatabaseInstance &db);
 	~CSVLogStorage() override;
 
