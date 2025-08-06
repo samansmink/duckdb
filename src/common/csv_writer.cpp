@@ -101,9 +101,14 @@ void CSVWriter::WriteChunk(DataChunk &input) {
 }
 
 void CSVWriter::WriteRawString(const string &raw_string) {
-	lock_guard<mutex> flock(lock);
-	bytes_written += raw_string.size();
-	write_stream.WriteData((data_ptr_t)raw_string.c_str(), raw_string.size());
+	if (shared) {
+		lock_guard<mutex> flock(lock);
+		bytes_written += raw_string.size();
+		write_stream.WriteData((data_ptr_t)raw_string.c_str(), raw_string.size());
+	} else {
+		bytes_written += raw_string.size();
+		write_stream.WriteData((data_ptr_t)raw_string.c_str(), raw_string.size());
+	}
 }
 
 void CSVWriter::WriteRawString(const string &prefix, CSVWriterState &local_state) {
@@ -183,16 +188,26 @@ unique_ptr<CSVWriterState> CSVWriter::InitializeLocalWriteState(DatabaseInstance
 }
 
 idx_t CSVWriter::BytesWritten() {
-	lock_guard<mutex> flock(lock);
+	if (shared) {
+		lock_guard<mutex> flock(lock);
+		return bytes_written;
+	}
 	return bytes_written;
 }
 
-idx_t CSVWriter::FileSize() {
-	lock_guard<mutex> flock(lock);
+static idx_t GetFileSize(unique_ptr<BufferedFileWriter> &file_writer, idx_t &bytes_written) {
 	if (file_writer) {
 		return file_writer->GetFileSize();
 	}
 	return bytes_written;
+}
+
+idx_t CSVWriter::FileSize() {
+	if (shared) {
+		lock_guard<mutex> flock(lock);
+		return GetFileSize(file_writer, bytes_written);
+	}
+	return GetFileSize(file_writer, bytes_written);
 }
 
 void CSVWriter::WriteQuoteOrEscape(WriteStream &writer, char quote_or_escape) {

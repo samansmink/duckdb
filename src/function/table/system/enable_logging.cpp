@@ -6,19 +6,12 @@
 
 namespace duckdb {
 
-class EnableLoggingBindData : public FunctionData {
+class EnableLoggingBindData : public TableFunctionData {
 public:
 	EnableLoggingBindData(case_insensitive_map_t<Value> config, vector<Value> inputs_p)
 	    : storage_config(std::move(config)), inputs(std::move(inputs_p)) {
 	}
 	EnableLoggingBindData() {
-	}
-	unique_ptr<FunctionData> Copy() const override {
-		return make_uniq<EnableLoggingBindData>(storage_config, inputs);
-	}
-	bool Equals(const FunctionData &other) const override {
-		auto &other_data = other.Cast<const EnableLoggingBindData>();
-		return other_data.storage_config == storage_config;
 	}
 
 	case_insensitive_map_t<Value> storage_config;

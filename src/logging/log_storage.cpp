@@ -184,13 +184,17 @@ void CSVLogStorage::FlushInternal() {
 	ExecuteCast();
 
 	// Write the cast data to sCSV
-	log_entries_writer->WriteChunk(*log_entries_cast_buffer);
-	log_entries_writer->Flush();
-	log_entries_buffer->Reset();
+	if (log_entries_cast_buffer->size() > 0) {
+		log_entries_writer->WriteChunk(*log_entries_cast_buffer);
+		log_entries_writer->Flush();
+		log_entries_buffer->Reset();
+	}
 
-	log_contexts_writer->WriteChunk(*log_contexts_cast_buffer);
-	log_entries_writer->Flush();
-	log_contexts_buffer->Reset();
+	if (log_contexts_cast_buffer->size() > 0) {
+		log_contexts_writer->WriteChunk(*log_contexts_cast_buffer);
+		log_contexts_writer->Flush();
+		log_contexts_buffer->Reset();
+	}
 }
 
 void CSVLogStorage::UpdateConfigInternal(DatabaseInstance &db, case_insensitive_map_t<Value> &config) {
@@ -328,28 +332,21 @@ void FileLogStorage::Truncate() {
 
 void FileLogStorage::FlushInternal() {
 	// Early out if buffers empty
-	// We buffer also at the BufferedFileWriter level
 	if (log_contexts_buffer->size() == 0 && log_entries_buffer->size() == 0) {
 		return;
 	}
 
 	Initialize();
 
-	// Cast log_*_buffer into log_*_cast_buffer
-	ExecuteCast();
+	// Call base class FlushInternal to perform cast and write buffers to CSVWriters
+	CSVLogStorage::FlushInternal();
 
-	if (log_contexts_buffer->size() > 0) {
-		log_contexts_writer->WriteChunk(*log_contexts_cast_buffer);
-		log_contexts_writer->Flush();
+	// Sync the writers to disk
+	if (log_contexts_file_writer) {
 		log_contexts_file_writer->Sync();
-		log_contexts_buffer->Reset();
 	}
-
-	if (log_entries_buffer->size() > 0) {
-		log_entries_writer->WriteChunk(*log_entries_cast_buffer);
-		log_entries_writer->Flush();
+	if (log_entries_file_writer) {
 		log_entries_file_writer->Sync();
-		log_entries_buffer->Reset();
 	}
 }
 
@@ -498,8 +495,8 @@ vector<LogicalType> BufferingLogStorage::GetEntriesSchema(bool normalize) {
 		return {
 		    LogicalType::UBIGINT,   // context_id
 		    LogicalType::TIMESTAMP, // timestamp
-		    LogicalType::VARCHAR,   // log_type TODO: const vector where possible?
-		    LogicalType::VARCHAR,   // level TODO: enumify
+		    LogicalType::VARCHAR,   // log_type
+		    LogicalType::VARCHAR,   // level
 		    LogicalType::VARCHAR,   // message
 		};
 	}
@@ -512,8 +509,8 @@ vector<LogicalType> BufferingLogStorage::GetEntriesSchema(bool normalize) {
 	    LogicalType::UBIGINT,   // query_id
 	    LogicalType::UBIGINT,   // thread
 	    LogicalType::TIMESTAMP, // timestamp
-	    LogicalType::VARCHAR,   // log_type TODO: const vector where possible?
-	    LogicalType::VARCHAR,   // level TODO: enumify
+	    LogicalType::VARCHAR,   // log_type
+	    LogicalType::VARCHAR,   // level
 	    LogicalType::VARCHAR,   // message
 	};
 }
@@ -521,7 +518,7 @@ vector<LogicalType> BufferingLogStorage::GetEntriesSchema(bool normalize) {
 vector<LogicalType> BufferingLogStorage::GetContextsSchema() {
 	return {
 	    LogicalType::UBIGINT, // context_id
-	    LogicalType::VARCHAR, // scope TODO: enumify
+	    LogicalType::VARCHAR, // scope
 	    LogicalType::UBIGINT, // connection_id
 	    LogicalType::UBIGINT, // transaction_id
 	    LogicalType::UBIGINT, // query_id

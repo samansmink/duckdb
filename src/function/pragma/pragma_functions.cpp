@@ -115,10 +115,6 @@ static void PragmaDisableCheckpointOnShutdown(ClientContext &context, const Func
 	DBConfig::GetConfig(context).options.checkpoint_on_shutdown = false;
 }
 
-static void PragmaDisableLogging(ClientContext &context, const FunctionParameters &parameters) {
-	context.db->GetLogManager().SetEnableLogging(false);
-}
-
 static void PragmaEnableOptimizer(ClientContext &context, const FunctionParameters &parameters) {
 	ClientConfig::GetConfig(context).enable_optimizer = true;
 }

@@ -172,7 +172,7 @@ static vector<unique_ptr<Expression>> CreateCastExpressions(WriteCSVData &bind_d
 
 static unique_ptr<FunctionData> WriteCSVBind(ClientContext &context, CopyFunctionBindInput &input,
                                              const vector<string> &names, const vector<LogicalType> &sql_types) {
-	auto bind_data = make_uniq<WriteCSVData>(input.info.file_path, sql_types, names);
+	auto bind_data = make_uniq<WriteCSVData>(names);
 
 	// check all the options in the copy info
 	for (auto &option : input.info.options) {
