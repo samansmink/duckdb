@@ -15,8 +15,7 @@ static string TransformNewLine(string new_line) {
 CSVWriterState::CSVWriterState() : stream(make_uniq<MemoryStream>()) {
 }
 
-CSVWriterState::CSVWriterState(ClientContext &context)
-    : stream(make_uniq<MemoryStream>(Allocator::Get(context))) {
+CSVWriterState::CSVWriterState(ClientContext &context) : stream(make_uniq<MemoryStream>(Allocator::Get(context))) {
 }
 
 CSVWriterState::CSVWriterState(DatabaseInstance &db) : stream(make_uniq<MemoryStream>(Allocator::Get(db))) {
@@ -122,12 +121,12 @@ void CSVWriter::WriteHeader() {
 	Flush(state);
 }
 
-void CSVWriter:: Flush(CSVWriterState &local_state) {
+void CSVWriter::Flush(CSVWriterState &local_state) {
 	if (shared) {
 		lock_guard<mutex> flock(lock);
 		FlushInternal(local_state);
 	} else {
-
+		FlushInternal(local_state);
 	}
 }
 

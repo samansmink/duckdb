@@ -283,7 +283,8 @@ void FileLogStorage::InitializeLogContextsFile(DatabaseInstance &db) {
 }
 
 void FileLogStorage::InitializeLogEntriesFile(DatabaseInstance &db) {
-	InitializeFile(db, log_entries_path, log_entries_file_writer, log_entries_writer, GetEntriesColumnNames(normalize_contexts));
+	InitializeFile(db, log_entries_path, log_entries_file_writer, log_entries_writer,
+	               GetEntriesColumnNames(normalize_contexts));
 }
 
 unique_ptr<BufferedFileWriter> FileLogStorage::InitializeFileWriter(DatabaseInstance &db, const string &path) {

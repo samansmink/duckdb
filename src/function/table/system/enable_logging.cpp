@@ -8,7 +8,8 @@ namespace duckdb {
 
 class EnableLoggingBindData : public FunctionData {
 public:
-	EnableLoggingBindData(case_insensitive_map_t<Value> config, vector<Value> inputs_p) : storage_config(std::move(config)), inputs(std::move(inputs_p)) {
+	EnableLoggingBindData(case_insensitive_map_t<Value> config, vector<Value> inputs_p)
+	    : storage_config(std::move(config)), inputs(std::move(inputs_p)) {
 	}
 	EnableLoggingBindData() {
 	}
@@ -26,7 +27,6 @@ public:
 
 static void EnableLogging(ClientContext &context, TableFunctionInput &data, DataChunk &output) {
 	auto bind_data = data.bind_data->Cast<EnableLoggingBindData>();
-
 
 	if (!bind_data.storage_config.empty()) {
 		context.db->GetLogManager().UpdateLogStorageConfig(*context.db, bind_data.storage_config);
@@ -52,7 +52,7 @@ static void EnableLogging(ClientContext &context, TableFunctionInput &data, Data
 }
 
 static unique_ptr<FunctionData> BindEnableLogging(ClientContext &context, TableFunctionBindInput &input,
-														  vector<LogicalType> &return_types, vector<string> &names) {
+                                                  vector<LogicalType> &return_types, vector<string> &names) {
 	if (input.inputs.size() > 1) {
 		throw InvalidInputException("PragmaEnableLogging: expected 0 or 1 parameter");
 	}
@@ -85,7 +85,7 @@ static void DisableLogging(ClientContext &context, TableFunctionInput &data, Dat
 }
 
 static unique_ptr<FunctionData> BindDisableLogging(ClientContext &context, TableFunctionBindInput &input,
-														  vector<LogicalType> &return_types, vector<string> &names) {
+                                                   vector<LogicalType> &return_types, vector<string> &names) {
 	return_types.emplace_back(LogicalType::BOOLEAN);
 	names.emplace_back("Success");
 
