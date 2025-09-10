@@ -161,8 +161,8 @@ jobs:
       save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
 
   # Build the extensions from .github/config/in_tree_extensions.cmake
-  main-extensions-threadsan  (Relassert with ThreadSan):
-    name: Main Extensions
+  main-extensions-threadsan:
+    name: Main Extensions (THREADSAN)
     needs:
       - load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
@@ -184,7 +184,7 @@ jobs:
 
   # Build the extensions from .github/config/rust_based_extensions.cmake
   rust-based-extensions-threadsan:
-    name: Rust-based Extensions (Relassert with ThreadSan)
+    name: Rust-based Extensions (THREADSAN)
     needs:
       - load-extension-configs
     uses: ./.github/workflows/_extension_distribution.yml
