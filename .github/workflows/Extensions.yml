@@ -130,35 +130,35 @@ jobs:
           cat $GITHUB_OUTPUT
 
   # Build the extensions from .github/config/in_tree_extensions.cmake
-  main-extensions:
-    name: Main Extensions
-    needs:
-      - load-extension-configs
-    uses: ./.github/workflows/_extension_distribution.yml
-    with:
-      artifact_prefix: main-extensions
-      exclude_archs: ${{ needs.load-extension-configs.outputs.main_extensions_exclude_archs }}
-      extension_config: ${{ needs.load-extension-configs.outputs.main_extensions_config }}
-      override_tag: ${{ inputs.override_git_describe }}
-      duckdb_ref: ${{ inputs.git_ref }}
-      skip_tests: ${{ inputs.skip_tests && true || false }}
-      save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
+#  main-extensions:
+#    name: Main Extensions
+#    needs:
+#      - load-extension-configs
+#    uses: ./.github/workflows/_extension_distribution.yml
+#    with:
+#      artifact_prefix: main-extensions
+#      exclude_archs: ${{ needs.load-extension-configs.outputs.main_extensions_exclude_archs }}
+#      extension_config: ${{ needs.load-extension-configs.outputs.main_extensions_config }}
+#      override_tag: ${{ inputs.override_git_describe }}
+#      duckdb_ref: ${{ inputs.git_ref }}
+#      skip_tests: ${{ inputs.skip_tests && true || false }}
+#      save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
 
   # Build the extensions from .github/config/rust_based_extensions.cmake
-  rust-based-extensions:
-    name: Rust-based Extensions
-    needs:
-      - load-extension-configs
-    uses: ./.github/workflows/_extension_distribution.yml
-    with:
-      exclude_archs: ${{ needs.load-extension-configs.outputs.rust_based_extensions_exclude_archs }}
-      artifact_prefix: rust-based-extensions
-      extension_config: ${{ needs.load-extension-configs.outputs.rust_based_extensions_config }}
-      extra_toolchains: 'rust'
-      override_tag: ${{ inputs.override_git_describe }}
-      duckdb_ref: ${{ inputs.git_ref }}
-      skip_tests: ${{ inputs.skip_tests && true || false }}
-      save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
+#  rust-based-extensions:
+#    name: Rust-based Extensions
+#    needs:
+#      - load-extension-configs
+#    uses: ./.github/workflows/_extension_distribution.yml
+#    with:
+#      exclude_archs: ${{ needs.load-extension-configs.outputs.rust_based_extensions_exclude_archs }}
+#      artifact_prefix: rust-based-extensions
+#      extension_config: ${{ needs.load-extension-configs.outputs.rust_based_extensions_config }}
+#      extra_toolchains: 'rust'
+#      override_tag: ${{ inputs.override_git_describe }}
+#      duckdb_ref: ${{ inputs.git_ref }}
+#      skip_tests: ${{ inputs.skip_tests && true || false }}
+#      save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
 
   # Build the extensions from .github/config/in_tree_extensions.cmake
   main-extensions-threadsan:
