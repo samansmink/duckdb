@@ -160,6 +160,51 @@ jobs:
       skip_tests: ${{ inputs.skip_tests && true || false }}
       save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
 
+  # Build the extensions from .github/config/in_tree_extensions.cmake
+  main-extensions-threadsan  (Relassert with ThreadSan):
+    name: Main Extensions
+    needs:
+      - load-extension-configs
+    uses: ./.github/workflows/_extension_distribution.yml
+    with:
+      artifact_prefix: main-extensions-threadsan
+      exclude_archs: '${{ needs.load-extension-configs.outputs.main_extensions_exclude_archs }};osx_amd64;windows_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;wasm_threads;linux_amd64_musl;linux_arm64'
+      extension_config: ${{ needs.load-extension-configs.outputs.main_extensions_config }}
+      override_tag: ${{ inputs.override_git_describe }}
+      duckdb_ref: ${{ inputs.git_ref }}
+      skip_tests: ${{ inputs.skip_tests && true || false }}
+      save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
+      build_type: relassert
+      test_config: >
+        {"test_env_variables":
+          {
+            "THREADSAN": 1
+          }
+        }
+
+  # Build the extensions from .github/config/rust_based_extensions.cmake
+  rust-based-extensions-threadsan:
+    name: Rust-based Extensions (Relassert with ThreadSan)
+    needs:
+      - load-extension-configs
+    uses: ./.github/workflows/_extension_distribution.yml
+    with:
+      exclude_archs: '${{ needs.load-extension-configs.outputs.rust_based_extensions_exclude_archs }};osx_amd64;windows_amd64;windows_amd64_mingw;wasm_mvp;wasm_eh;wasm_threads;linux_amd64_musl;linux_arm64'
+      artifact_prefix: rust-based-extensions-threadsan
+      extension_config: ${{ needs.load-extension-configs.outputs.rust_based_extensions_config }}
+      extra_toolchains: 'rust'
+      override_tag: ${{ inputs.override_git_describe }}
+      duckdb_ref: ${{ inputs.git_ref }}
+      skip_tests: ${{ inputs.skip_tests && true || false }}
+      save_cache: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb' }}
+      build_type: relassert
+      test_config: >
+        {"test_env_variables":
+          {
+            "THREADSAN": 1
+          }
+        }
+
   # Merge all extensions into a single, versioned repository
   create-extension-repository:
     name: Create Extension Repository

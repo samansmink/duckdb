@@ -32,7 +32,14 @@ on:
         required: false
         type: boolean
         default: false
-
+      build_type:
+        required: false
+        type: string
+        default: 'release'
+      test_config:
+        required: false
+        type: string
+        default: "{}"
 jobs:
   build:
     name: Build
@@ -63,6 +70,9 @@ jobs:
 
       skip_tests: ${{ inputs.skip_tests }}
       save_cache: ${{ inputs.save_cache }}
+
+      build_type: ${{ inputs.build_type }}
+      test_config: ${{ inputs.test_config }}
 
       # The extension_config.cmake configuration that gets built
       extra_extension_config: ${{ inputs.extension_config }}
