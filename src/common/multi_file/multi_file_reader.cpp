@@ -121,7 +121,7 @@ shared_ptr<MultiFileList> MultiFileReader::CreateFileList(ClientContext &context
 	for (auto &path : paths) {
 		open_files.emplace_back(path);
 	}
-	auto res = make_uniq<GlobMultiFileList>(context, std::move(open_files), glob_input);
+	auto res = make_uniq<LinkHeaderPaginatedMultiFileList>(context, std::move(open_files));
 	if (res->GetExpandResult() == FileExpandResult::NO_FILES && glob_input.behavior != FileGlobOptions::ALLOW_EMPTY) {
 		throw IOException("%s needs at least one file to read", function_name);
 	}

@@ -55,6 +55,10 @@ enum class FileType {
 	FILE_TYPE_INVALID,
 };
 
+struct FileHandleMetadata {
+	unordered_map<string, Value> values_map;
+};
+
 struct FileHandle {
 public:
 	DUCKDB_API FileHandle(FileSystem &file_system, string path, FileOpenFlags flags);
@@ -118,6 +122,7 @@ public:
 	FileOpenFlags flags;
 
 	shared_ptr<Logger> logger;
+	unique_ptr<FileHandleMetadata> metadata;
 };
 
 class FileSystem {

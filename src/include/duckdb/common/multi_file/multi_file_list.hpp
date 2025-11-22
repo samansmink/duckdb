@@ -155,6 +155,33 @@ protected:
 	OpenFileInfo GetFile(idx_t i) override;
 };
 
+//! MultiFileList that uses the link headers to automatically handle pagination
+class LinkHeaderPaginatedMultiFileList : public MultiFileList {
+public:
+	//! Construct a SimpleMultiFileList from a list of already expanded files
+	explicit LinkHeaderPaginatedMultiFileList(ClientContext &context_p, vector<OpenFileInfo> paths);
+
+	//! Main MultiFileList API
+	vector<OpenFileInfo> GetAllFiles() override;
+	FileExpandResult GetExpandResult() override;
+	idx_t GetTotalFileCount() override;
+
+protected:
+	//! Main MultiFileList API
+	OpenFileInfo GetFile(idx_t i) override;
+
+	bool LoadNextFile();
+
+	//! The ClientContext for the fileopener
+	ClientContext &context;
+	//! The expanded files
+	vector<OpenFileInfo> expanded_files;
+
+	string next_link_header_file;
+
+	mutable mutex lock;
+};
+
 //! MultiFileList that takes a list of paths and produces a list of files with all globs expanded
 class GlobMultiFileList : public MultiFileList {
 public:

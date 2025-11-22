@@ -16,6 +16,7 @@ namespace duckdb {
 
 struct ExtendedOpenFileInfo {
 	unordered_map<string, Value> options;
+	unique_ptr<FileHandle> initialization_handle;
 };
 
 struct OpenFileInfo {

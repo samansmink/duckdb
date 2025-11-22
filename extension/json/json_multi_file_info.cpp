@@ -438,7 +438,7 @@ shared_ptr<BaseFileReader> JSONMultiFileInfo::CreateReader(ClientContext &contex
                                                            const OpenFileInfo &file, idx_t file_idx,
                                                            const MultiFileBindData &bind_data) {
 	auto &json_data = bind_data.bind_data->Cast<JSONScanData>();
-	auto reader = make_shared_ptr<JSONReader>(context, json_data.options, file.path);
+	auto reader = make_shared_ptr<JSONReader>(context, json_data.options, file);
 	reader->columns = MultiFileColumnDefinition::ColumnsFromNamesAndTypes(bind_data.names, bind_data.types);
 	return std::move(reader);
 }

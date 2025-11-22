@@ -272,6 +272,86 @@ idx_t SimpleMultiFileList::GetTotalFileCount() {
 }
 
 //===--------------------------------------------------------------------===//
+// LinkHeaderPaginatedMultiFileList
+//===--------------------------------------------------------------------===//
+LinkHeaderPaginatedMultiFileList::LinkHeaderPaginatedMultiFileList(ClientContext &context_p, vector<OpenFileInfo> paths_p)
+	: MultiFileList(std::move(paths_p), FileGlobOptions::ALLOW_EMPTY), context(context_p) {
+
+	if (paths.size() != 1) {
+		throw NotImplementedException("LinkHeaderPaginatedMultiFileList only supports a single file");
+	}
+}
+
+vector<OpenFileInfo> LinkHeaderPaginatedMultiFileList::GetAllFiles() {
+	while (LoadNextFile()) {
+	}
+	return expanded_files;
+}
+
+FileExpandResult LinkHeaderPaginatedMultiFileList::GetExpandResult() {
+	return FileExpandResult::MULTIPLE_FILES;
+}
+
+OpenFileInfo LinkHeaderPaginatedMultiFileList::GetFile(idx_t i) {
+	// Load files till we have the one we need
+	while(i >= expanded_files.size() && LoadNextFile()) {
+	}
+
+	// don't have this file
+	if (i >= expanded_files.size()) {
+		return OpenFileInfo("");
+	}
+
+	return expanded_files[i];
+}
+
+bool LinkHeaderPaginatedMultiFileList::LoadNextFile() {
+	auto next_file = expanded_files.size();
+
+	string file_to_open;
+	if (next_file == 0) {
+		file_to_open = paths[0].path;
+	} else if (!next_link_header_file.empty()) {
+		file_to_open = next_link_header_file;
+	} else {
+		return false; // done
+	}
+
+	auto &fs = FileSystem::GetFileSystem(context);
+
+	expanded_files.emplace_back(OpenFileInfo());
+	expanded_files[next_file].path = file_to_open;
+	expanded_files[next_file].extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
+	expanded_files[next_file].extended_info->options["force_full_download"] = Value(1);
+	expanded_files[next_file].extended_info->initialization_handle = fs.OpenFile(expanded_files[next_file], FileFlags::FILE_FLAGS_READ);
+
+	auto &file = expanded_files[next_file].extended_info->initialization_handle;
+	char buf[1];
+	file->Read(&buf[0], 1);
+
+	if (file->metadata && file->metadata->values_map.find("link_header") != file->metadata->values_map.end()) {
+		auto link_header = file->metadata->values_map["link_header"].GetValue<string>();
+		auto start_pos = link_header.find("<") + 1;
+		auto end_pos = link_header.find(">");
+		if (start_pos != std::string::npos && end_pos != std::string::npos) {
+			next_link_header_file = link_header.substr(start_pos, end_pos - start_pos);
+		} else {
+			next_link_header_file = "";
+		}
+	} else {
+		next_link_header_file = "";
+	}
+
+	return true;
+}
+
+idx_t LinkHeaderPaginatedMultiFileList::GetTotalFileCount() {
+	while (LoadNextFile()) {
+	}
+	return expanded_files.size();
+}
+
+//===--------------------------------------------------------------------===//
 // GlobMultiFileList
 //===--------------------------------------------------------------------===//
 GlobMultiFileList::GlobMultiFileList(ClientContext &context_p, vector<OpenFileInfo> paths_p, FileGlobInput glob_input)
