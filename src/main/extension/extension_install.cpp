@@ -189,7 +189,8 @@ static void WriteExtensionMetadataFileToDisk(FileSystem &fs, const string &path,
 }
 
 string ExtensionHelper::ExtensionUrlTemplate(optional_ptr<const DatabaseInstance> db,
-                                             const ExtensionRepository &repository, const string &version) {
+                                             const ExtensionRepository &repository, const string &version,
+                                             bool fallback_url) {
 	string versioned_path;
 	if (!version.empty()) {
 		versioned_path = "/${NAME}/" + version + "/${REVISION}/${PLATFORM}/${NAME}.duckdb_extension";
@@ -202,8 +203,12 @@ string ExtensionHelper::ExtensionUrlTemplate(optional_ptr<const DatabaseInstance
 #else
 	versioned_path = versioned_path + CompressionExtensionFromType(FileCompressionType::GZIP);
 #endif
-	string url_template = repository.path + versioned_path;
-	return url_template;
+
+	if (fallback_url) {
+		return repository.fallback + versioned_path;
+	}
+
+	return repository.path + versioned_path;
 }
 
 string ExtensionHelper::ExtensionFinalizeUrlTemplate(const string &url_template, const string &extension_name) {
@@ -423,18 +428,80 @@ static unique_ptr<ExtensionInstallInfo> InstallFromHttpUrl(DatabaseInstance &db,
 	return make_uniq<ExtensionInstallInfo>(info);
 }
 
+static string GenerateExtensionUrl(DatabaseInstance &db, ExtensionInstallOptions &options, const string &extension_name,
+                                   bool fallback_url = false) {
+	string url_template = ExtensionHelper::ExtensionUrlTemplate(db, *options.repository, options.version, fallback_url);
+	return ExtensionHelper::ExtensionFinalizeUrlTemplate(url_template, extension_name);
+}
+
+// Attempts to install the extension from the fallback repository
+static unique_ptr<ExtensionInstallInfo>
+RetryInstallationThroughFallback(DatabaseInstance &db, const string &extension_name, const string &local_extension_path,
+                                 const string &temp_path, ExtensionInstallOptions &options,
+                                 optional_ptr<ClientContext> context, const string &generated_url, ErrorData &error) {
+	auto error_type = error.Type();
+
+	bool should_retry = false;
+
+	if (error_type == ExceptionType::IO) {
+		should_retry = true;
+	} else if (error_type == ExceptionType::HTTP) {
+		if (!StringUtil::Find(error.Message(), "(HTTP 404)").IsValid()) {
+			// We retry on all but HTTP 404
+			should_retry = true;
+		}
+	}
+
+	if (should_retry) {
+		auto fallback_url = GenerateExtensionUrl(db, options, extension_name, true);
+
+		if (context) {
+			DUCKDB_LOG_INFO(*context, "Failed to install extension from '%s' attempting fallback url '%s'",
+			                generated_url, fallback_url);
+		} else {
+			DUCKDB_LOG_INFO(db, "Failed to install extension from '%s' attempting fallback url '%s'", generated_url,
+			                fallback_url);
+		}
+		return InstallFromHttpUrl(db, fallback_url, extension_name, temp_path, local_extension_path, options,
+		                          context);
+	}
+
+	return nullptr;
+}
+
 // Install an extension using a hand-rolled http request
 static unique_ptr<ExtensionInstallInfo> InstallFromRepository(DatabaseInstance &db, FileSystem &fs, const string &url,
                                                               const string &extension_name, const string &temp_path,
                                                               const string &local_extension_path,
                                                               ExtensionInstallOptions &options,
                                                               optional_ptr<ClientContext> context) {
-	string url_template = ExtensionHelper::ExtensionUrlTemplate(db, *options.repository, options.version);
-	string generated_url = ExtensionHelper::ExtensionFinalizeUrlTemplate(url_template, extension_name);
+	auto generated_url = GenerateExtensionUrl(db, options, extension_name);
 
 	// Special handling for http repository: avoid using regular filesystem (note: the filesystem is not used here)
 	if (StringUtil::StartsWith(options.repository->path, "http://")) {
-		return InstallFromHttpUrl(db, generated_url, extension_name, temp_path, local_extension_path, options, context);
+		// Without fallback
+		if (options.repository->fallback.empty()) {
+			return InstallFromHttpUrl(db, generated_url, extension_name, temp_path, local_extension_path, options,
+			                          context);
+		}
+		// With fallback repo
+		try {
+			return InstallFromHttpUrl(db, generated_url, extension_name, temp_path, local_extension_path, options,
+			                          context);
+		} catch (std::runtime_error ex) {
+			ErrorData error(ex);
+			unique_ptr<ExtensionInstallInfo> retry;
+			try {
+				retry = RetryInstallationThroughFallback(db, extension_name, local_extension_path, temp_path, options,
+														  context, generated_url, error);
+			} catch (...) {
+				// Don't throw on the retry attempt
+			}
+			if (retry) {
+				return retry;
+			}
+			throw;
+		}
 	}
 
 	// Default case, let the FileSystem figure it out

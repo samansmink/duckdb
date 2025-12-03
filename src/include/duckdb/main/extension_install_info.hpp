@@ -63,6 +63,10 @@ struct ExtensionRepository {
 	static constexpr const char *BUILD_DEBUG_REPOSITORY_PATH = "./build/debug/repository";
 	static constexpr const char *BUILD_RELEASE_REPOSITORY_PATH = "./build/release/repository";
 
+	//! Fallback Urls (for when main repo is down)
+	static constexpr const char *CORE_FALLBACK_REPOSITORY_URL = "http://fallback-extensions.duckdb.org";
+	static constexpr const char *COMMUNITY_FALLBACK_REPOSITORY_URL = "http://fallback-community-extensions.duckdb.org";
+
 	//! The default is CORE
 	static constexpr const char *DEFAULT_REPOSITORY_URL = CORE_REPOSITORY_URL;
 
@@ -90,6 +94,8 @@ struct ExtensionRepository {
 	string name;
 	//! Repository path/url
 	string path;
+	//! (optionally) a fallback url that can be tried in case the main repo is down
+	string fallback;
 };
 
 } // namespace duckdb

@@ -133,7 +133,7 @@ public:
 
 	//! Get the extension url template, containing placeholders for version, platform and extension name
 	static string ExtensionUrlTemplate(optional_ptr<const DatabaseInstance> db, const ExtensionRepository &repository,
-	                                   const string &version);
+	                                   const string &version, bool fallback_url = false);
 	//! Return the extension url template with the variables replaced
 	static string ExtensionFinalizeUrlTemplate(const string &url, const string &name);
 

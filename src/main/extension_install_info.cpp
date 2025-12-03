@@ -66,12 +66,19 @@ ExtensionRepository ExtensionRepository::GetRepositoryByUrl(const string &url) {
 	}
 
 	auto repo_name = TryConvertUrlToKnownRepository(url);
+
 	return {repo_name, url};
 }
 
-ExtensionRepository::ExtensionRepository() : name("core"), path(CORE_REPOSITORY_URL) {
+ExtensionRepository::ExtensionRepository()
+    : name("core"), path(CORE_REPOSITORY_URL), fallback(CORE_FALLBACK_REPOSITORY_URL) {
 }
 ExtensionRepository::ExtensionRepository(const string &name_p, const string &path_p) : name(name_p), path(path_p) {
+	if (name == "core") {
+		fallback = CORE_FALLBACK_REPOSITORY_URL;
+	} else if (name == "community") {
+		fallback = COMMUNITY_FALLBACK_REPOSITORY_URL;
+	}
 }
 
 string ExtensionRepository::ToReadableString() {
