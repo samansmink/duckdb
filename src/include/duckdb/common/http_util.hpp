@@ -50,6 +50,8 @@ struct HTTPParams {
 	HTTPUtil &http_util;
 	shared_ptr<Logger> logger;
 
+	string custom_http_request_method;
+
 public:
 	void Initialize(optional_ptr<FileOpener> opener);
 
