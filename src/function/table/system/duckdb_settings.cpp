@@ -12,6 +12,7 @@ struct DuckDBSettingValue {
 	string input_type;
 	string scope;
 	vector<Value> aliases;
+	SettingSecurity security;
 
 	inline bool operator<(const DuckDBSettingValue &rhs) const {
 		return name < rhs.name;
@@ -59,6 +60,9 @@ static unique_ptr<FunctionData> DuckDBSettingsBind(ClientContext &context, Table
 
 	names.emplace_back("typed_value");
 	return_types.emplace_back(LogicalType::VARIANT());
+
+	names.emplace_back("security");
+	return_types.emplace_back(LogicalType::VARCHAR);
 
 	auto result = make_uniq<DuckDBSettingsBindData>();
 	for (auto name : {"debug", "deprecated", "include_all"}) {
@@ -120,6 +124,7 @@ unique_ptr<GlobalTableFunctionState> DuckDBSettingsInit(ClientContext &context, 
 		value.description = option->description;
 		value.input_type = option->parameter_type;
 		value.scope = EnumUtil::ToString(scope);
+		value.security = option->security;
 		auto entry = aliases.find(option->name);
 		if (entry != aliases.end()) {
 			value.aliases = std::move(entry->second);
@@ -148,6 +153,7 @@ unique_ptr<GlobalTableFunctionState> DuckDBSettingsInit(ClientContext &context, 
 		value.description = ext_param.second.description;
 		value.input_type = ext_param.second.type.ToString();
 		value.scope = EnumUtil::ToString(scope);
+		value.security = ext_param.second.security;
 
 		result->settings.push_back(std::move(value));
 	}
@@ -179,6 +185,8 @@ void DuckDBSettingsFunction(ClientContext &context, TableFunctionInput &data_p, 
 	auto &aliases = output.data[5];
 	// value, LogicalType::VARIANT
 	auto &typed_value = output.data[6];
+	// security, LogicalType::VARCHAR
+	auto &security = output.data[7];
 
 	while (data.offset < data.settings.size() && count < STANDARD_VECTOR_SIZE) {
 		auto &entry = data.settings[data.offset++];
@@ -190,6 +198,7 @@ void DuckDBSettingsFunction(ClientContext &context, TableFunctionInput &data_p, 
 		scope.Append(Value(entry.scope));
 		aliases.Append(Value::LIST(LogicalType::VARCHAR, std::move(entry.aliases)));
 		typed_value.Append(entry.value.CastAs(context, LogicalType::VARIANT()));
+		security.Append(Value(StringUtil::Lower(EnumUtil::ToString(entry.security))));
 		count++;
 	}
 }

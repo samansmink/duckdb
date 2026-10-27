@@ -1,5 +1,6 @@
 #include "duckdb/main/config.hpp"
 
+#include "duckdb/common/algorithm.hpp"
 #include "duckdb/common/cgroups.hpp"
 #include "duckdb/common/enums/security_mode.hpp"
 #include "duckdb/common/file_system.hpp"
@@ -1170,11 +1171,21 @@ void DBConfig::AddAllowedDatabasePath(const string &database_path) {
 }
 
 vector<string> DBConfig::GetAllowedDirectories() const {
+	if (security_policy && security_policy->IsSecure()) {
+		auto &directories = security_policy->GetAllowedDirectories();
+		return vector<string>(directories.begin(), directories.end());
+	}
 	lock_guard<mutex> guard(allowed_paths_lock);
 	return vector<string>(options.allowed_directories.begin(), options.allowed_directories.end());
 }
 
 vector<string> DBConfig::GetAllowedPaths() const {
+	if (security_policy && security_policy->IsSecure()) {
+		auto &paths = security_policy->GetAllowedPaths();
+		vector<string> result(paths.begin(), paths.end());
+		std::sort(result.begin(), result.end());
+		return result;
+	}
 	lock_guard<mutex> guard(allowed_paths_lock);
 	return vector<string>(options.allowed_paths.begin(), options.allowed_paths.end());
 }
