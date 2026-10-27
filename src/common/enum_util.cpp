@@ -75,6 +75,7 @@
 #include "duckdb/common/enums/result_ordering.hpp"
 #include "duckdb/common/enums/row_group_append_mode.hpp"
 #include "duckdb/common/enums/row_id_handling.hpp"
+#include "duckdb/common/enums/security_mode.hpp"
 #include "duckdb/common/enums/set_operation_type.hpp"
 #include "duckdb/common/enums/set_scope.hpp"
 #include "duckdb/common/enums/set_type.hpp"
@@ -5978,6 +5979,24 @@ SecretSerializationType EnumUtil::FromString<SecretSerializationType>(const char
 	return static_cast<SecretSerializationType>(StringUtil::StringToEnum(GetSecretSerializationTypeValues(), 2, "SecretSerializationType", value));
 }
 
+const StringUtil::EnumStringLiteral *GetSecurityModeValues() {
+	static constexpr StringUtil::EnumStringLiteral values[] {
+		{ static_cast<uint32_t>(SecurityMode::DEFAULT), "DEFAULT" },
+		{ static_cast<uint32_t>(SecurityMode::SECURE), "SECURE" }
+	};
+	return values;
+}
+
+template<>
+const char* EnumUtil::ToChars<SecurityMode>(SecurityMode value) {
+	return StringUtil::EnumToString(GetSecurityModeValues(), 2, "SecurityMode", static_cast<uint32_t>(value));
+}
+
+template<>
+SecurityMode EnumUtil::FromString<SecurityMode>(const char *value) {
+	return static_cast<SecurityMode>(StringUtil::StringToEnum(GetSecurityModeValues(), 2, "SecurityMode", value));
+}
+
 const StringUtil::EnumStringLiteral *GetSegmentTreeVerifyModeValues() {
 	static constexpr StringUtil::EnumStringLiteral values[] {
 		{ static_cast<uint32_t>(SegmentTreeVerifyMode::CONTIGUOUS), "CONTIGUOUS" },
@@ -6162,6 +6181,26 @@ const char* EnumUtil::ToChars<SettingScope>(SettingScope value) {
 template<>
 SettingScope EnumUtil::FromString<SettingScope>(const char *value) {
 	return static_cast<SettingScope>(StringUtil::StringToEnum(GetSettingScopeValues(), 4, "SettingScope", value));
+}
+
+const StringUtil::EnumStringLiteral *GetSettingSecurityValues() {
+	static constexpr StringUtil::EnumStringLiteral values[] {
+		{ static_cast<uint32_t>(SettingSecurity::SQL_CHANGEABLE), "SQL_CHANGEABLE" },
+		{ static_cast<uint32_t>(SettingSecurity::SECURE_MODE_FROZEN), "SECURE_MODE_FROZEN" },
+		{ static_cast<uint32_t>(SettingSecurity::SECURE_MODE_ONLY), "SECURE_MODE_ONLY" },
+		{ static_cast<uint32_t>(SettingSecurity::UNDECLARED), "UNDECLARED" }
+	};
+	return values;
+}
+
+template<>
+const char* EnumUtil::ToChars<SettingSecurity>(SettingSecurity value) {
+	return StringUtil::EnumToString(GetSettingSecurityValues(), 4, "SettingSecurity", static_cast<uint32_t>(value));
+}
+
+template<>
+SettingSecurity EnumUtil::FromString<SettingSecurity>(const char *value) {
+	return static_cast<SettingSecurity>(StringUtil::StringToEnum(GetSettingSecurityValues(), 4, "SettingSecurity", value));
 }
 
 const StringUtil::EnumStringLiteral *GetShowBehaviorTypeValues() {

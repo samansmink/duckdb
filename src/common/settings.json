@@ -1544,6 +1544,20 @@
         "security": "secure_mode_frozen"
     },
     {
+        "name": "security_mode",
+        "description": "The security mode of the database instance: DEFAULT (SQL is trusted) or SECURE (SQL is untrusted and limited to the policy fixed at startup). Can only be set at startup. Experimental.",
+        "type": "ENUM<SecurityMode>",
+        "scope": "global",
+        "default_value": "DEFAULT",
+        "on_callbacks": [
+            "set"
+        ],
+        "custom_implementation": [
+            "set"
+        ],
+        "security": "secure_mode_frozen"
+    },
+    {
         "name": "show_behavior",
         "description": "Configures how SHOW resolves a bare identifier. 'auto' describes a table if one exists, else it describes a setting (deprecated). 'table' always describes a table, and 'setting' always describes a setting.",
         "type": "ENUM<ShowBehaviorType>",

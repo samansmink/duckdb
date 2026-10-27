@@ -548,6 +548,8 @@ enum class SecretPersistType : uint8_t;
 
 enum class SecretSerializationType : uint8_t;
 
+enum class SecurityMode : uint8_t;
+
 enum class SegmentTreeVerifyMode : uint8_t;
 
 enum class SelectivityOptionalFilterType : uint8_t;
@@ -563,6 +565,8 @@ enum class SetScope : uint8_t;
 enum class SetType : uint8_t;
 
 enum class SettingScope : uint8_t;
+
+enum class SettingSecurity : uint8_t;
 
 enum class ShowBehaviorType : uint8_t;
 
@@ -1468,6 +1472,9 @@ template<>
 const char* EnumUtil::ToChars<SecretSerializationType>(SecretSerializationType value);
 
 template<>
+const char* EnumUtil::ToChars<SecurityMode>(SecurityMode value);
+
+template<>
 const char* EnumUtil::ToChars<SegmentTreeVerifyMode>(SegmentTreeVerifyMode value);
 
 template<>
@@ -1490,6 +1497,9 @@ const char* EnumUtil::ToChars<SetType>(SetType value);
 
 template<>
 const char* EnumUtil::ToChars<SettingScope>(SettingScope value);
+
+template<>
+const char* EnumUtil::ToChars<SettingSecurity>(SettingSecurity value);
 
 template<>
 const char* EnumUtil::ToChars<ShowBehaviorType>(ShowBehaviorType value);
@@ -2459,6 +2469,9 @@ template<>
 SecretSerializationType EnumUtil::FromString<SecretSerializationType>(const char *value);
 
 template<>
+SecurityMode EnumUtil::FromString<SecurityMode>(const char *value);
+
+template<>
 SegmentTreeVerifyMode EnumUtil::FromString<SegmentTreeVerifyMode>(const char *value);
 
 template<>
@@ -2481,6 +2494,9 @@ SetType EnumUtil::FromString<SetType>(const char *value);
 
 template<>
 SettingScope EnumUtil::FromString<SettingScope>(const char *value);
+
+template<>
+SettingSecurity EnumUtil::FromString<SettingSecurity>(const char *value);
 
 template<>
 ShowBehaviorType EnumUtil::FromString<ShowBehaviorType>(const char *value);

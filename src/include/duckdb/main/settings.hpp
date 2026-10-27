@@ -2630,6 +2630,22 @@ struct SecretDirectorySetting {
 	static Value GetSetting(const ClientContext &context);
 };
 
+struct SecurityModeSetting {
+	using RETURN_TYPE = SecurityMode;
+	static constexpr const char *Name = "security_mode";
+	static constexpr const char *Description =
+	    "The security mode of the database instance: DEFAULT (SQL is trusted) or SECURE (SQL is untrusted and limited "
+	    "to the policy fixed at startup). Can only be set at startup. Experimental.";
+	static constexpr const char *InputType = "VARCHAR";
+	static constexpr bool IsDebug = false;
+	static constexpr bool IsDeprecated = false;
+	static constexpr SettingSecurity Security = SettingSecurity::SECURE_MODE_FROZEN;
+	static constexpr const char *DefaultValue = "DEFAULT";
+	static constexpr SettingScopeTarget Scope = SettingScopeTarget::GLOBAL_ONLY;
+	static constexpr idx_t SettingIndex = NEXT_SETTING_INDEX();
+	static void OnSet(SettingCallbackInfo &info, Value &input);
+};
+
 struct ShowBehaviorSetting {
 	using RETURN_TYPE = ShowBehaviorType;
 	static constexpr const char *Name = "show_behavior";

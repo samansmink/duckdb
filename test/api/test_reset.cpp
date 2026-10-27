@@ -217,6 +217,7 @@ bool OptionIsExcludedFromTest(const string &name) {
 	    "scheduler_process_partial",
 	    "schema",
 	    "search_path",
+	    "security_mode", // cant change this while db is running
 	    "standard_vector_size",
 	    "streaming_buffer_size", // alias of max_streaming_buffer_size
 	    "temp_file_encryption",

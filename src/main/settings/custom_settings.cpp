@@ -14,6 +14,7 @@
 #include "duckdb/common/algorithm.hpp"
 #include "duckdb/common/constants.hpp"
 #include "duckdb/common/enums/access_mode.hpp"
+#include "duckdb/common/enums/security_mode.hpp"
 #include "duckdb/common/enum_util.hpp"
 #include "duckdb/common/limits.hpp"
 #include "duckdb/catalog/catalog_search_path.hpp"
@@ -1583,6 +1584,19 @@ Value SearchPathSetting::GetSetting(const ClientContext &context) {
 	auto &client_data = ClientData::Get(context);
 	auto &set_paths = client_data.catalog_search_path->GetSetPaths();
 	return Value(CatalogSearchEntry::ListToString(set_paths));
+}
+
+//===----------------------------------------------------------------------===//
+// Security Mode
+//===----------------------------------------------------------------------===//
+void SecurityModeSetting::OnSet(SettingCallbackInfo &info, Value &input) {
+	if (input.IsNull()) {
+		throw InvalidInputException("%s setting cannot be NULL", SecurityModeSetting::Name);
+	}
+	if (info.db || info.context) {
+		throw InvalidInputException("%s can only be set when the database is started", SecurityModeSetting::Name);
+	}
+	EnumUtil::FromString<SecurityMode>(StringValue::Get(input));
 }
 
 //===----------------------------------------------------------------------===//
