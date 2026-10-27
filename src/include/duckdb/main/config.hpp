@@ -42,6 +42,7 @@
 
 namespace duckdb {
 class ExternalExtensionProvider;
+class SecurityPolicy;
 class ArrowTypeExtension;
 struct ArrowExtensionMetadata;
 struct ArrowTypeExtensionSet;
@@ -311,6 +312,10 @@ public:
 	DUCKDB_API bool IsSecureMode() const;
 	//! Applies the security mode and the policy settings given before startup
 	void InitializeSecurity();
+	//! Fixes the security policy, including the grants derived at startup
+	void FinalizeSecurityPolicy();
+	//! The security policy, fixed when the database starts
+	DUCKDB_API const SecurityPolicy &GetSecurityPolicy() const;
 
 	//! Parse a memory size - an unlimited size (e.g. "-1" or "none") is returned as an invalid optional_idx
 	DUCKDB_API static optional_idx ParseMemoryLimit(const string &arg);
@@ -409,6 +414,7 @@ public:
 	DUCKDB_API const HTTPTransportManager &GetHTTPTransportManager() const;
 
 private:
+	shared_ptr<const SecurityPolicy> security_policy;
 	mutable std::recursive_mutex config_lock;
 	//! Guards allowed_paths and allowed_directories, which a running instance can extend while files are being opened
 	mutable mutex allowed_paths_lock;

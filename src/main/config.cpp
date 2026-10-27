@@ -9,6 +9,7 @@
 #include "duckdb/common/operator/multiply.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/main/database.hpp"
+#include "duckdb/main/security_policy.hpp"
 #include "duckdb/main/settings.hpp"
 #include "duckdb/main/extension_helper.hpp"
 #include "duckdb/logging/logger.hpp"
@@ -698,6 +699,9 @@ void DBConfig::SetDefaultTempDirectory() {
 }
 
 bool DBConfig::IsSecureMode() const {
+	if (security_policy) {
+		return security_policy->IsSecure();
+	}
 	return Settings::Get<SecurityModeSetting>(*this) == SecurityMode::SECURE;
 }
 
@@ -750,6 +754,19 @@ void DBConfig::InitializeSecurity() {
 			throw NotImplementedException("Secure mode policy setting \"%s\"", option->name);
 		}
 	}
+}
+
+void DBConfig::FinalizeSecurityPolicy() {
+	lock_guard<mutex> guard(allowed_paths_lock);
+	security_policy = make_shared_ptr<SecurityPolicy>(Settings::Get<SecurityModeSetting>(*this),
+	                                                  options.allowed_directories, options.allowed_paths);
+}
+
+const SecurityPolicy &DBConfig::GetSecurityPolicy() const {
+	if (!security_policy) {
+		throw InternalException("The security policy is only available once the database has started");
+	}
+	return *security_policy;
 }
 
 void DBConfig::CheckLock(const Identifier &name) {
@@ -1163,6 +1180,9 @@ vector<string> DBConfig::GetAllowedPaths() const {
 }
 
 bool DBConfig::CanAccessFile(const string &input_path, FileType type, optional_ptr<FileOpener> opener) {
+	if (security_policy && security_policy->IsSecure()) {
+		return security_policy->CanAccessFile(SanitizeAllowedPath(input_path, opener), type);
+	}
 	if (Settings::Get<EnableExternalAccessSetting>(*this)) {
 		// all external access is allowed
 		return true;
@@ -1170,36 +1190,7 @@ bool DBConfig::CanAccessFile(const string &input_path, FileType type, optional_p
 	string path = SanitizeAllowedPath(input_path, opener);
 
 	lock_guard<mutex> guard(allowed_paths_lock);
-	if (options.allowed_paths.count(path) > 0) {
-		// path is explicitly allowed
-		return true;
-	}
-
-	if (options.allowed_directories.empty()) {
-		// no prefix directories specified
-		return false;
-	}
-	if (type == FileType::FILE_TYPE_DIR) {
-		// make sure directories end with a /
-		if (!StringUtil::EndsWith(path, "/")) {
-			path += "/";
-		}
-	}
-
-	string prefix;
-	for (const auto &allowed_directory : options.allowed_directories) {
-		if (StringUtil::StartsWith(path, allowed_directory)) {
-			prefix = allowed_directory;
-			break;
-		}
-	}
-
-	if (prefix.empty()) {
-		// no common prefix found - path is not inside an allowed directory
-		return false;
-	}
-	D_ASSERT(StringUtil::EndsWith(prefix, "/"));
-	return true;
+	return SecurityPolicy::PathIsAllowed(std::move(path), type, options.allowed_paths, options.allowed_directories);
 }
 
 SerializationOptions::SerializationOptions(AttachedDatabase &db) {

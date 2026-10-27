@@ -11,6 +11,7 @@
 #include "duckdb/main/client_data.hpp"
 #include "duckdb/main/extension/external_extension_provider.hpp"
 #include "duckdb/main/extension_helper.hpp"
+#include "duckdb/main/security_policy.hpp"
 #include "duckdb/main/extension_install_info.hpp"
 #include "duckdb/main/extension_repository_manager.hpp"
 #include "duckdb/main/secret/secret.hpp"
@@ -197,6 +198,7 @@ unique_ptr<ExtensionInstallInfo> ExtensionHelper::InstallExtension(DatabaseInsta
 	// Install is currently a no-op
 	return nullptr;
 #endif
+	db.config.GetSecurityPolicy().VerifyCanInstallExtension(extension);
 	string local_path = ExtensionDirectory(db, fs);
 	return InstallExtensionInternal(db, fs, local_path, extension, options);
 }
@@ -208,6 +210,7 @@ unique_ptr<ExtensionInstallInfo> ExtensionHelper::InstallExtension(ClientContext
 	return nullptr;
 #endif
 	auto &db = DatabaseInstance::GetDatabase(context);
+	db.config.GetSecurityPolicy().VerifyCanInstallExtension(extension);
 	auto &fs = FileSystem::GetFileSystem(context);
 	string local_path = ExtensionDirectory(context);
 	return InstallExtensionInternal(db, fs, local_path, extension, options, context);

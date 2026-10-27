@@ -570,6 +570,7 @@ void DatabaseInstance::Configure(DBConfig &new_config, const char *database_path
 			config.AddAllowedDirectory(config.options.temporary_directory);
 		}
 	}
+	config.FinalizeSecurityPolicy();
 	if (new_config.secret_manager) {
 		config.secret_manager = std::move(new_config.secret_manager);
 	}
