@@ -46,6 +46,7 @@ SourceResultType PhysicalReset::GetDataInternal(ExecutionContext &context, DataC
 				throw InvalidInputException("Extension parameter %s was not found after autoloading", name);
 			}
 		}
+		config.CheckLock(option_name);
 		ResetExtensionVariable(context, config, extension_option);
 		return SourceResultType::FINISHED;
 	}

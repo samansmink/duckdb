@@ -11,6 +11,7 @@
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/settings.hpp"
 #include "duckdb/main/extension_helper.hpp"
+#include "duckdb/logging/logger.hpp"
 #include "duckdb/storage/storage_extension.hpp"
 #include "duckdb/common/serializer/serializer.hpp"
 #include "duckdb/common/exception/parser_exception.hpp"
@@ -412,10 +413,22 @@ void DBConfig::SetOptionsByName(const identifier_map_t<Value> &values) {
 	}
 }
 
+static string FrozenSettingError(const string &name) {
+	return StringUtil::Format("Cannot change configuration option \"%s\" - the setting is frozen in secure mode", name);
+}
+
 void DBConfig::SetOption(optional_ptr<DatabaseInstance> db, const ConfigurationOption &option, const Value &value) {
 	if (!db && option.security == SettingSecurity::SECURE_MODE_ONLY) {
 		options.security_policy_options[option.name] = value;
 		return;
+	}
+	if (db && option.security != SettingSecurity::SQL_CHANGEABLE && IsSecureMode()) {
+		throw InvalidInputException(FrozenSettingError(option.name));
+	}
+	if (db && option.security == SettingSecurity::SECURE_MODE_ONLY) {
+		DUCKDB_LOG_WARNING(*db, StringUtil::Format("Setting '%s' outside of secure mode is deprecated and is not a "
+		                                           "security boundary - start the database with security_mode='secure'",
+		                                           option.name));
 	}
 	Value input = value.DefaultCastAs(ParseLogicalType(option.parameter_type));
 	if (option.default_value) {
@@ -740,6 +753,20 @@ void DBConfig::InitializeSecurity() {
 }
 
 void DBConfig::CheckLock(const Identifier &name) {
+	if (IsSecureMode()) {
+		auto option = GetOptionByName(name);
+		auto security = SettingSecurity::SQL_CHANGEABLE;
+		ExtensionOption extension_option;
+		if (option) {
+			security = option->security;
+		} else if (TryGetExtensionOption(name, extension_option)) {
+			security = extension_option.security;
+		}
+		if (security != SettingSecurity::SQL_CHANGEABLE) {
+			throw InvalidInputException(FrozenSettingError(option ? string(option->name) : name.GetIdentifierName()));
+		}
+		return;
+	}
 	if (!Settings::Get<LockConfigurationSetting>(*this)) {
 		// not locked
 		return;

@@ -78,6 +78,7 @@ void PhysicalSet::SetVariable(ClientContext &context, const Identifier &name, Se
 				throw InvalidInputException("Extension parameter %s was not found after autoloading", name);
 			}
 		}
+		config.CheckLock(name);
 		SetExtensionVariable(context, name, extension_option, scope, value);
 		return;
 	}
