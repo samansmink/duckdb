@@ -449,7 +449,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// If the host time zone is unknown, fall back to UTC
 	string tz_string = tz ? tz->GetId() : "UTC";
 	config.AddExtensionOption("TimeZone", "The current time zone", LogicalType::VARCHAR, Value(tz_string),
-	                          SetICUTimeZone);
+	                          SetICUTimeZone, SetScope::SESSION, false, false, SettingSecurity::SQL_CHANGEABLE);
 
 	RegisterICUCurrentFunctions(loader);
 	RegisterICUDateAddFunctions(loader);
@@ -465,7 +465,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	// Calendars
 	config.AddExtensionOption("Calendar", "The current calendar", LogicalType::VARCHAR, Value("gregorian"),
-	                          SetICUCalendar);
+	                          SetICUCalendar, SetScope::SESSION, false, false, SettingSecurity::SQL_CHANGEABLE);
 
 	TableFunction cal_names("icu_calendar_names", {}, ICUCalendarFunction, ICUCalendarBind, ICUCalendarInit);
 	loader.RegisterFunction(cal_names);

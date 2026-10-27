@@ -6,7 +6,8 @@
         "scope": "global",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "active_grammar_extensions",
@@ -17,7 +18,8 @@
             "set",
             "reset"
         ],
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allocator_background_threads",
@@ -54,7 +56,8 @@
         "default_value": "true",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allow_extension_repositories",
@@ -64,28 +67,32 @@
         "default_value": "undecided",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allow_extensions_metadata_mismatch",
         "description": "Allow to load extensions with no compatible metadata.",
         "type": "BOOLEAN",
         "scope": "global",
-        "default_value": "false"
+        "default_value": "false",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allow_parser_override_extension",
         "description": "Allow extensions to override the current parser.",
         "type": "ENUM<AllowParserOverride>",
         "default_scope": "global",
-        "default_value": "DEFAULT"
+        "default_value": "DEFAULT",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allow_persistent_secrets",
         "description": "Allow the creation of persistent secrets that are stored and loaded on restarts.",
         "type": "BOOLEAN",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allow_unredacted_secrets",
@@ -95,7 +102,8 @@
         "default_value": "false",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allow_unsigned_extensions",
@@ -105,28 +113,32 @@
         "default_value": "false",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allowed_configs",
         "description": "List of configuration options that are ALWAYS allowed to be changed, even when lock_configuration is true.",
         "type": "VARCHAR[]",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "allowed_directories",
         "description": "List of directories, and directory prefixes, that are ALWAYS allowed to be queried, even when enable_external_access is false.",
         "type": "VARCHAR[]",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_only"
     },
     {
         "name": "allowed_paths",
         "description": "List of files that are ALWAYS allowed to be queried, even when enable_external_access is false.",
         "type": "VARCHAR[]",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_only"
     },
     {
         "name": "approximate_join_order_threshold",
@@ -191,28 +203,32 @@
         "type": "VARCHAR",
         "internal_setting": "autoinstall_extension_repo",
         "scope": "global",
-        "default_value": ""
+        "default_value": "",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "autoinstall_known_extensions",
         "description": "Whether known extensions are allowed to be automatically installed when a query depends on them.",
         "type": "BOOLEAN",
         "scope": "global",
-        "default_value": "true"
+        "default_value": "true",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "autoload_known_extensions",
         "description": "Whether known extensions are allowed to be automatically loaded when a query depends on them.",
         "type": "BOOLEAN",
         "scope": "global",
-        "default_value": "true"
+        "default_value": "true",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "cache_local_files",
         "description": "Whether the external file cache also caches local files. Remote files are always cached.",
         "type": "BOOLEAN",
         "scope": "global",
-        "default_value": "false"
+        "default_value": "false",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "catalog_error_max_schemas",
@@ -270,7 +286,8 @@
         "type": "VARCHAR",
         "internal_setting": "custom_extension_repo",
         "scope": "global",
-        "default_value": ""
+        "default_value": "",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "custom_user_agent",
@@ -280,7 +297,8 @@
         "custom_implementation": [
             "set",
             "reset"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "debug_abort_on_wal_failure",
@@ -647,7 +665,8 @@
         "description": "Allows switching the default storage for secrets.",
         "type": "VARCHAR",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "default_transaction_invalidation_policy",
@@ -702,7 +721,8 @@
         "description": "Disable specific file systems, thereby preventing their access, e.g. LocalFileSystem.",
         "type": "VARCHAR",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "disabled_log_types",
@@ -710,7 +730,8 @@
         "type": "VARCHAR",
         "scope": "global",
         "struct": "DisabledLogTypes",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "disabled_optimizers",
@@ -752,7 +773,8 @@
         "default_value": "true",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "enable_external_file_cache",
@@ -762,7 +784,8 @@
         "default_value": "true",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "enable_fsst_vectors",
@@ -786,7 +809,8 @@
         "type": "BOOLEAN",
         "scope": "global",
         "struct": "EnableLogging",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "enable_macro_dependencies",
@@ -825,7 +849,8 @@
         "description": "Enables profiling and sets the output format, which can be JSON, QUERY_TREE, or QUERY_TREE_OPTIMIZER.",
         "type": "VARCHAR",
         "scope": "local",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "enable_progress_bar",
@@ -857,7 +882,8 @@
         "type": "VARCHAR",
         "scope": "global",
         "struct": "EnabledLogTypes",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "error_on_division_by_zero",
@@ -899,7 +925,8 @@
         "description": "Set the directories to store extensions in.",
         "type": "VARCHAR[]",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "extension_directory",
@@ -910,7 +937,8 @@
         "is_deprecated": true,
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "extension_repository_directory",
@@ -920,7 +948,8 @@
         "default_value": "",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "external_file_cache_local_max_block_size",
@@ -973,7 +1002,8 @@
         "description": "Whether evicted external file cache blocks of remote files spill to the temporary directory instead of being dropped, so that they are re-read from there rather than re-fetched from the source.",
         "type": "BOOLEAN",
         "scope": "global",
-        "default_value": "false"
+        "default_value": "false",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "external_threads",
@@ -990,7 +1020,8 @@
         "description": "A comma separated list of directories to search for input files.",
         "type": "VARCHAR",
         "default_scope": "local",
-        "default_value": ""
+        "default_value": "",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "force_column_metadata_reuse",
@@ -1035,7 +1066,8 @@
         "default_value": "",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "http_client_pool_capacity",
@@ -1054,7 +1086,8 @@
         "custom_implementation": [
             "set",
             "reset"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "http_proxy_password",
@@ -1062,7 +1095,8 @@
         "type": "VARCHAR",
         "scope": "global",
         "default_value": "",
-        "struct": "HTTPProxyPasswordSetting"
+        "struct": "HTTPProxyPasswordSetting",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "http_proxy_username",
@@ -1070,7 +1104,8 @@
         "type": "VARCHAR",
         "scope": "global",
         "default_value": "",
-        "struct": "HTTPProxyUsernameSetting"
+        "struct": "HTTPProxyUsernameSetting",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "ieee_floating_point_ops",
@@ -1168,7 +1203,8 @@
         "description": "Whether configurations can be altered.",
         "type": "BOOLEAN",
         "scope": "global",
-        "default_value": "false"
+        "default_value": "false",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "log_query_path",
@@ -1178,7 +1214,8 @@
         "default_value": "",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "logging_level",
@@ -1186,7 +1223,8 @@
         "type": "VARCHAR",
         "scope": "global",
         "struct": "LoggingLevel",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "logging_mode",
@@ -1194,7 +1232,8 @@
         "type": "VARCHAR",
         "scope": "global",
         "struct": "LoggingMode",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "logging_storage",
@@ -1202,7 +1241,8 @@
         "type": "VARCHAR",
         "scope": "global",
         "struct": "LoggingStorage",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "match_recognize_max_states",
@@ -1250,7 +1290,8 @@
         "description": "The maximum amount of data stored inside the 'temp_directory' (when set) (e.g. 1GB).",
         "type": "VARCHAR",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "max_vacuum_tasks",
@@ -1418,7 +1459,8 @@
         "custom_implementation": true,
         "aliases": [
             "profile_output"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "profiling_renderer_settings",
@@ -1449,7 +1491,8 @@
         "description": "Redact HTTP header values in logs unless their names are explicitly allowed.",
         "type": "BOOLEAN",
         "scope": "global",
-        "default_value": "true"
+        "default_value": "true",
+        "security": "secure_mode_frozen"
     },
     {
         "name": "regex_match_operator_semantics",
@@ -1497,7 +1540,8 @@
         "description": "Set the directory in which persistent secrets are stored.",
         "type": "VARCHAR",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "show_behavior",
@@ -1546,7 +1590,8 @@
         "description": "Set the directory to which temporary files are written.",
         "type": "VARCHAR",
         "scope": "global",
-        "custom_implementation": true
+        "custom_implementation": true,
+        "security": "secure_mode_frozen"
     },
     {
         "name": "temp_file_encryption",
@@ -1556,7 +1601,8 @@
         "default_value": "false",
         "on_callbacks": [
             "set"
-        ]
+        ],
+        "security": "secure_mode_frozen"
     },
     {
         "name": "threads",

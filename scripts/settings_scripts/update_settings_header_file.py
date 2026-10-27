@@ -25,6 +25,7 @@ def extract_declarations(setting) -> str:
         f"    static constexpr const char *InputType = \"{setting.sql_type}\";\n"
         f"    static constexpr bool IsDebug = {'true' if setting.is_debug else 'false'};\n"
         f"    static constexpr bool IsDeprecated = {'true' if setting.is_deprecated else 'false'};\n"
+        f"    static constexpr SettingSecurity Security = SettingSecurity::{setting.security};\n"
     )
     if not setting.is_generic_setting:
         # non-generic setting

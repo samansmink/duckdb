@@ -40,6 +40,18 @@ enum class SettingScopeTarget {
 	LOCAL_DEFAULT
 };
 
+//! Who may change a setting once the database is running
+enum class SettingSecurity : uint8_t {
+	//! Can be changed by SQL in every security mode
+	SQL_CHANGEABLE,
+	//! Can be changed in default mode, frozen after startup in secure mode
+	SECURE_MODE_FROZEN,
+	//! Part of the secure mode policy: can only be set at startup in secure mode
+	SECURE_MODE_ONLY,
+	//! Not declared by the registering extension
+	UNDECLARED
+};
+
 struct SettingLookupResult {
 public:
 	SettingLookupResult() : scope(SettingScope::INVALID) {
@@ -97,6 +109,7 @@ struct ConfigurationOption {
 	optional_idx setting_idx;
 	bool is_debug = false;
 	bool is_deprecated = false;
+	SettingSecurity security = SettingSecurity::SQL_CHANGEABLE;
 };
 
 struct ConfigurationAlias {
@@ -146,6 +159,8 @@ struct ExtensionOption {
 	optional_idx setting_index;
 	bool is_debug = false;
 	bool is_deprecated = false;
+	//! Who may change the option once the database is running
+	SettingSecurity security = SettingSecurity::UNDECLARED;
 	//! Whether the option can be set globally, and per session
 	bool supports_global = true;
 	bool supports_session = true;
