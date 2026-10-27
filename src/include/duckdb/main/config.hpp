@@ -167,6 +167,8 @@ struct DBConfigOptions {
 	set<string> allowed_directories;
 	//! Additional configuration options that are allowed to be changed even when the configuration is locked
 	identifier_set_t allowed_configs;
+	//! Secure mode policy settings given before startup, applied as a group when the database starts
+	identifier_map_t<Value> security_policy_options;
 	//! The log configuration
 	LogConfig log_config = LogConfig();
 	//! Memory limit for the write buffer per row group (optional)
@@ -305,6 +307,10 @@ public:
 	static LogicalType ParseLogicalType(const string &type);
 
 	DUCKDB_API void CheckLock(const Identifier &name);
+	//! Whether the database runs in secure mode
+	DUCKDB_API bool IsSecureMode() const;
+	//! Applies the security mode and the policy settings given before startup
+	void InitializeSecurity();
 
 	//! Parse a memory size - an unlimited size (e.g. "-1" or "none") is returned as an invalid optional_idx
 	DUCKDB_API static optional_idx ParseMemoryLimit(const string &arg);

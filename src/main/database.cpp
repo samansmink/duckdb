@@ -114,7 +114,9 @@ DatabaseInstance::~DatabaseInstance() {
 	buffer_manager.reset();
 
 	// Flush allocations and disable the background thread.
-	config.block_allocator->FlushOnShutdown();
+	if (config.block_allocator) {
+		config.block_allocator->FlushOnShutdown();
+	}
 	Allocator::SetBackgroundThreads(false);
 	// after all destruction is complete clear the cache entry
 	config.db_cache_entry.reset();
@@ -529,6 +531,13 @@ void DatabaseInstance::Configure(DBConfig &new_config, const char *database_path
 	// carry over a capability set handed to us, so a database created by code with its own copy of
 	// DuckDB can be given the extensions the binary that created it links
 	config.linked_extensions = new_config.linked_extensions;
+	if (new_config.file_system) {
+		config.file_system = std::move(new_config.file_system);
+	} else {
+		config.file_system = make_uniq<VirtualFileSystem>(FileSystem::CreateLocal());
+	}
+	config.InitializeSecurity();
+	auto secure_mode = config.IsSecureMode();
 
 	if (Settings::Get<DuckDBAPISetting>(*this).empty()) {
 		config.SetOptionByName("duckdb_api", "cpp");
@@ -541,20 +550,18 @@ void DatabaseInstance::Configure(DBConfig &new_config, const char *database_path
 	}
 
 	if (new_config.options.temporary_directory.empty()) {
+		if (secure_mode) {
+			config.options.use_temporary_directory = false;
+		}
 		config.SetDefaultTempDirectory();
 	}
 
-	if (new_config.options.http_proxy.empty()) {
+	if (new_config.options.http_proxy.empty() && !secure_mode) {
 		HTTPProxySetting::ResetGlobal(this, config);
 	}
 
 	if (config.options.access_mode == AccessMode::UNDEFINED) {
 		config.options.access_mode = AccessMode::READ_WRITE;
-	}
-	if (new_config.file_system) {
-		config.file_system = std::move(new_config.file_system);
-	} else {
-		config.file_system = make_uniq<VirtualFileSystem>(FileSystem::CreateLocal());
 	}
 	config.http_transport_manager->Initialize(config);
 	if (database_path && !Settings::Get<EnableExternalAccessSetting>(*this)) {

@@ -1,6 +1,7 @@
 #include "duckdb/main/config.hpp"
 
 #include "duckdb/common/cgroups.hpp"
+#include "duckdb/common/enums/security_mode.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/main/http/http_transport_manager.hpp"
 #include "duckdb/main/extension/external_extension_provider.hpp"
@@ -412,6 +413,10 @@ void DBConfig::SetOptionsByName(const identifier_map_t<Value> &values) {
 }
 
 void DBConfig::SetOption(optional_ptr<DatabaseInstance> db, const ConfigurationOption &option, const Value &value) {
+	if (!db && option.security == SettingSecurity::SECURE_MODE_ONLY) {
+		options.security_policy_options[option.name] = value;
+		return;
+	}
 	Value input = value.DefaultCastAs(ParseLogicalType(option.parameter_type));
 	if (option.default_value) {
 		// generic option
@@ -676,6 +681,61 @@ void DBConfig::SetDefaultTempDirectory() {
 		options.temporary_directory = ".tmp";
 	} else {
 		options.temporary_directory = Path::AddSuffixToPath(options.database_path, ".tmp");
+	}
+}
+
+bool DBConfig::IsSecureMode() const {
+	return Settings::Get<SecurityModeSetting>(*this) == SecurityMode::SECURE;
+}
+
+static vector<string> GetPolicyPaths(const ConfigurationOption &option, const Value &input) {
+	auto list = input.DefaultCastAs(DBConfig::ParseLogicalType(option.parameter_type));
+	vector<string> result;
+	for (auto &entry : ListValue::GetChildren(list)) {
+		result.push_back(entry.GetValue<string>());
+	}
+	return result;
+}
+
+void DBConfig::InitializeSecurity() {
+	auto &policy_options = options.security_policy_options;
+	if (!IsSecureMode()) {
+		if (!policy_options.empty()) {
+			throw InvalidInputException(
+			    "\"%s\" is only available in secure mode - start the database with security_mode='secure'",
+			    policy_options.begin()->first);
+		}
+		return;
+	}
+	if (user_settings.IsSet(EnableExternalAccessSetting::SettingIndex) &&
+	    Settings::Get<EnableExternalAccessSetting>(*this)) {
+		throw InvalidInputException("enable_external_access cannot be enabled in secure mode");
+	}
+	if (user_settings.IsSet(LockConfigurationSetting::SettingIndex)) {
+		throw InvalidInputException("lock_configuration cannot be set in secure mode - secure mode freezes the "
+		                            "configuration through the security attribute of each setting");
+	}
+	if (!options.allowed_configs.empty()) {
+		throw InvalidInputException("allowed_configs cannot be set in secure mode - secure mode freezes the "
+		                            "configuration through the security attribute of each setting");
+	}
+	user_settings.SetUserSetting(EnableExternalAccessSetting::SettingIndex, Value::BOOLEAN(false));
+	for (auto setting_index :
+	     {AutoinstallKnownExtensionsSetting::SettingIndex, AutoloadKnownExtensionsSetting::SettingIndex}) {
+		if (!user_settings.IsSet(setting_index)) {
+			user_settings.SetUserSetting(setting_index, Value::BOOLEAN(false));
+		}
+	}
+	for (auto &entry : policy_options) {
+		auto option = GetOptionByName(entry.first);
+		D_ASSERT(option);
+		if (option->name == string(AllowedDirectoriesSetting::Name)) {
+			SetAllowedDirectories(GetPolicyPaths(*option, entry.second));
+		} else if (option->name == string(AllowedPathsSetting::Name)) {
+			SetAllowedPaths(GetPolicyPaths(*option, entry.second));
+		} else {
+			throw NotImplementedException("Secure mode policy setting \"%s\"", option->name);
+		}
 	}
 }
 
