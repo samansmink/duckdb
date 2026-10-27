@@ -1,0 +1,57 @@
+# name: test/sql/settings/security_mode_snapshot.test
+# description: Settings that SQL cannot change in secure mode. Review any change to this list.
+# group: [settings]
+
+query II
+SELECT name, security FROM duckdb_settings(include_all := true)
+WHERE security NOT IN ('sql_changeable', 'undeclared')
+  AND name NOT IN (SELECT unnest(aliases) FROM duckdb_settings(include_all := true))
+ORDER BY name
+----
+access_mode	secure_mode_frozen
+active_grammar_extensions	secure_mode_frozen
+allow_community_extensions	secure_mode_frozen
+allow_extension_repositories	secure_mode_frozen
+allow_extensions_metadata_mismatch	secure_mode_frozen
+allow_parser_override_extension	secure_mode_frozen
+allow_persistent_secrets	secure_mode_frozen
+allow_unredacted_secrets	secure_mode_frozen
+allow_unsigned_extensions	secure_mode_frozen
+allowed_configs	secure_mode_frozen
+allowed_directories	secure_mode_only
+allowed_paths	secure_mode_only
+autoinstall_extension_repository	secure_mode_frozen
+autoinstall_known_extensions	secure_mode_frozen
+autoload_known_extensions	secure_mode_frozen
+cache_local_files	secure_mode_frozen
+custom_extension_repository	secure_mode_frozen
+custom_user_agent	secure_mode_frozen
+default_secret_storage	secure_mode_frozen
+disabled_filesystems	secure_mode_frozen
+disabled_log_types	secure_mode_frozen
+enable_external_access	secure_mode_frozen
+enable_external_file_cache	secure_mode_frozen
+enable_logging	secure_mode_frozen
+enable_profiling	secure_mode_frozen
+enabled_log_types	secure_mode_frozen
+extension_directories	secure_mode_frozen
+extension_directory	secure_mode_frozen
+extension_repository_directory	secure_mode_frozen
+external_file_cache_spill	secure_mode_frozen
+file_search_path	secure_mode_frozen
+home_directory	secure_mode_frozen
+http_proxy	secure_mode_frozen
+http_proxy_password	secure_mode_frozen
+http_proxy_username	secure_mode_frozen
+lock_configuration	secure_mode_frozen
+log_query_path	secure_mode_frozen
+logging_level	secure_mode_frozen
+logging_mode	secure_mode_frozen
+logging_storage	secure_mode_frozen
+max_temp_directory_size	secure_mode_frozen
+profiling_output	secure_mode_frozen
+redact_http_logs	secure_mode_frozen
+secret_directory	secure_mode_frozen
+security_mode	secure_mode_frozen
+temp_directory	secure_mode_frozen
+temp_file_encryption	secure_mode_frozen

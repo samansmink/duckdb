@@ -1,0 +1,38 @@
+# name: test/sql/settings/security_mode.test
+# description: The security mode and the security attribute of settings
+# group: [settings]
+
+require parquet
+
+require icu
+
+query II
+SELECT name, security FROM duckdb_settings()
+WHERE name IN ('allowed_directories', 'autoload_known_extensions', 'threads', 'security_mode', 'TimeZone', 'binary_as_string')
+ORDER BY name
+----
+TimeZone	sql_changeable
+allowed_directories	secure_mode_only
+autoload_known_extensions	secure_mode_frozen
+binary_as_string	undeclared
+security_mode	secure_mode_frozen
+threads	sql_changeable
+
+query I
+SELECT current_setting('security_mode')
+----
+DEFAULT
+
+statement error
+SET security_mode='secure'
+----
+can only be set when the database is started
+
+statement error
+RESET security_mode
+----
+can only be set when the database is started
+
+# default mode keeps the existing settings
+statement ok
+SET allowed_directories=['/tmp']
